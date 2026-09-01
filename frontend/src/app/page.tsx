@@ -1,0 +1,244 @@
+"use client";
+
+/**
+ * Main Dashboard Page
+ * -------------------
+ * Assembles all panels into the three-column application shell:
+ *   LEFT:  Config Panel (all Docling parameters) + Profile Manager
+ *   CENTER: Output Viewer (parsed document) + Run History
+ *   RIGHT: Run Console (live log stream) + Run controls
+ */
+
+import { useCallback, useEffect, useState } from "react";
+import { checkHealth } from "@/lib/api";
+import { useConfig } from "@/hooks/useConfig";
+import { useRunStream } from "@/hooks/useRunStream";
+import type { RunResult } from "@/types/config";
+
+import ConfigPanel from "@/components/ConfigPanel";
+import ProfileManager from "@/components/ProfileManager";
+import RunConsole from "@/components/RunConsole";
+import OutputViewer from "@/components/OutputViewer";
+import RunHistory from "@/components/RunHistory";
+
+export default function Home() {
+  const [serverOk, setServerOk] = useState<boolean | null>(null);
+  const [historyTick, setHistoryTick] = useState(0);
+  const [selectedRun, setSelectedRun] = useState<RunResult | null>(null);
+
+  // Config state — manages active profile, debounced auto-save
+  const { config, isSaving, isLoading, error: configError, updateField, switchProfile, saveAs } = useConfig("default");
+
+  // Run stream state — SSE log streaming
+  const {
+    isRunning,
+    logs,
+    lastRunId,
+    lastStatus,
+    lastDuration,
+    lastOutputFiles,
+    lastOutputDir,
+    errorMessage,
+    startRun,
+    clearLogs,
+  } = useRunStream();
+
+  // Health check on mount
+  useEffect(() => {
+    checkHealth()
+      .then(() => setServerOk(true))
+      .catch(() => setServerOk(false));
+  }, []);
+
+  // Refresh run history after each run completes
+  useEffect(() => {
+    if (lastStatus) setHistoryTick((t) => t + 1);
+  }, [lastStatus]);
+
+  const handleRunHistorySelect = useCallback((run: RunResult) => {
+    setSelectedRun(run);
+  }, []);
+
+  // Output source: prefer last stream result, fallback to history selection
+  const displayDir = lastOutputDir ?? selectedRun?.output_dir ?? null;
+  const displayFiles = lastOutputFiles.length > 0 ? lastOutputFiles : (selectedRun?.output_files ?? []);
+
+  const handleSelectFile = useCallback((dir: string, file: string) => {
+    // The OutputViewer reads from the runId embedded in the dir name
+    // Here we just ensure it has the latest dir/files
+    setSelectedRun(null); // clear history selection so stream result takes priority
+  }, []);
+
+  const statusDotClass = serverOk === null
+    ? ""
+    : serverOk
+    ? (isSaving ? "saving" : "connected")
+    : "error";
+
+  return (
+    <div className="app-shell">
+
+      {/* ── Top Bar ─────────────────────────────────────────────────────── */}
+      <header className="topbar">
+        <div className="topbar__logo">
+          <div className="topbar__logo-icon">⚡</div>
+          Pipeline Player
+        </div>
+        <span style={{ fontSize: "0.7rem", color: "var(--c-text-3)", marginLeft: 8 }}>
+          Docling & ColPali Benchmark Studio
+        </span>
+
+        <div className="topbar__divider" />
+
+        {/* Active profile indicator */}
+        {config && (
+          <span style={{ fontSize: "0.75rem", color: "var(--c-text-3)" }}>
+            Profile: <strong style={{ color: "var(--c-text)" }}>{config.profile_name}</strong>
+          </span>
+        )}
+
+        {/* Backend status */}
+        <div className="topbar__status">
+          <div className={`status-dot ${statusDotClass}`} />
+          <span>
+            {serverOk === null ? "Connecting…"
+             : serverOk
+             ? (isSaving ? "Saving…" : "Backend connected")
+             : "Backend offline"}
+          </span>
+        </div>
+      </header>
+
+      {/* ── Left: Config Panel ───────────────────────────────────────────── */}
+      <aside className="panel panel--config">
+        <div className="panel__header">
+          <span className="panel__title">🛠 Docling Configuration</span>
+          {configError && (
+            <span style={{ fontSize: "0.7rem", color: "var(--c-error)", marginLeft: "auto" }}>
+              {configError}
+            </span>
+          )}
+        </div>
+
+        {/* Profile switcher */}
+        {config && (
+          <ProfileManager
+            currentProfile={config.profile_name}
+            onSwitch={switchProfile}
+            onSaveAs={saveAs}
+          />
+        )}
+
+        <div className="panel__body">
+          {isLoading && (
+            <div style={{ color: "var(--c-text-3)", fontSize: "0.8rem", textAlign: "center", padding: "32px 0" }}>
+              Loading config…
+            </div>
+          )}
+          {!isLoading && config && (
+            <ConfigPanel config={config} onUpdate={updateField} />
+          )}
+        </div>
+      </aside>
+
+      {/* ── Center: Output Viewer + Run History ─────────────────────────── */}
+      <main className="panel panel--main" style={{ display: "flex", flexDirection: "column" }}>
+        {/* Output viewer (takes most of the space) */}
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div className="panel__header">
+            <span className="panel__title">📄 Output Viewer</span>
+            {displayDir && (
+              <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "var(--c-text-3)", fontFamily: "var(--font-mono)" }}>
+                {displayDir}
+              </span>
+            )}
+          </div>
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <OutputViewer runDir={displayDir} outputFiles={displayFiles} />
+          </div>
+        </div>
+
+        {/* Run history (collapsed at bottom) */}
+        <div style={{ maxHeight: 200, overflow: "hidden", borderTop: "1px solid var(--c-border)", flexShrink: 0 }}>
+          <div className="panel__header">
+            <span className="panel__title">🕑 Run History</span>
+          </div>
+          <div className="panel__body" style={{ padding: "8px 12px" }}>
+            <RunHistory
+              refreshTrigger={historyTick}
+              onSelect={handleRunHistorySelect}
+              selectedRunId={selectedRun?.run_id ?? null}
+            />
+          </div>
+        </div>
+      </main>
+
+      {/* ── Right: Run Controls + Console ───────────────────────────────── */}
+      <aside className="panel panel--console" style={{ display: "flex", flexDirection: "column" }}>
+        <div className="panel__header">
+          <span className="panel__title">⚡ Run Console</span>
+          {logs.length > 0 && !isRunning && (
+            <button
+              onClick={clearLogs}
+              style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--c-text-3)", cursor: "pointer", fontSize: "0.75rem" }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Run + Stats summary */}
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
+          <button
+            id="run-pipeline-btn"
+            className={`run-btn ${isRunning ? "run-btn--running" : ""}`}
+            disabled={isRunning || !config || !serverOk}
+            onClick={() => config && startRun(config.profile_name)}
+          >
+            {isRunning ? (
+              <>
+                <div className="run-btn__spinner" />
+                Running Pipeline…
+              </>
+            ) : (
+              <>▶ Run Pipeline</>
+            )}
+          </button>
+
+          {/* Mini stats from last run */}
+          {lastStatus && !isRunning && (
+            <div className="stat-grid" style={{ marginTop: 10 }}>
+              <div className="stat-box">
+                <div className="stat-box__label">Duration</div>
+                <div className="stat-box__value">{lastDuration?.toFixed(2) ?? "—"}s</div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-box__label">Status</div>
+                <div
+                  className="stat-box__value"
+                  style={{ color: lastStatus === "success" ? "var(--c-success)" : "var(--c-error)", fontSize: "0.9rem" }}
+                >
+                  {lastStatus === "success" ? "✅ OK" : "❌ Error"}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Log stream */}
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <RunConsole
+            logs={logs}
+            isRunning={isRunning}
+            lastStatus={lastStatus}
+            lastDuration={lastDuration}
+            lastOutputFiles={lastOutputFiles}
+            lastOutputDir={lastOutputDir}
+            errorMessage={errorMessage}
+            onSelectFile={handleSelectFile}
+          />
+        </div>
+      </aside>
+    </div>
+  );
+}
