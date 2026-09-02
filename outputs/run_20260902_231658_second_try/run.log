@@ -1,0 +1,21 @@
+[23:16:58] ▶ Starting pipeline run — ID: 20260902_231658_second_try
+[23:16:58]   Profile: second_try
+[23:16:58]   Input: /Users/olischn/GitHub/pipeline-player/test_data/test_document.pdf
+[23:16:58]   Output dir: /Users/olischn/GitHub/pipeline-player/outputs/run_20260902_231658_second_try
+[23:16:58] ────────────────────────────────────────────────────────────
+[23:16:58] ⚙ Importing Docling...
+[23:17:31] ⚙ Building pipeline options from config...
+[23:17:31] ⚙ Initialising DocumentConverter...
+[23:17:31] ⚙ Running document conversion (this may take a moment)...
+[23:18:55] ⚠ DeprecationWarning: deprecated
+[23:18:55] ⚠ DeprecationWarning: Field `annotations` is deprecated; use `meta` instead.
+[23:18:55] ⚠ DeprecationWarning: Field `annotations` is deprecated; use `meta` instead.
+[23:18:55] ⚠ DeprecationWarning: Field `annotations` is deprecated; use `meta` instead.
+[23:18:55] ✓ Conversion complete in 84.48s
+[23:18:55]   Pages processed: 8
+[23:18:55] ────────────────────────────────────────────────────────────
+[23:18:55] 💾 Writing output files...
+[23:18:55]   ✓ HTML → parsed_doc.html (split_page=True, annotations=True)
+[23:18:55]   ✓ Config copy → config.yaml
+[23:18:55] ────────────────────────────────────────────────────────────
+[23:18:55] ✅ Run complete — 84.48s | 2 files written

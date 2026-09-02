@@ -491,6 +491,23 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           tooltip="Select all output formats to generate for each run. Markdown and JSON are recommended for most RAG pipelines. DocTags is Docling's token format for fine-tuning. HTML requires a recent Docling version."
         />
 
+        <ToggleRow
+          label="HTML: Split Page View"
+          paramKey="output.html_split_page_view"
+          checked={config.output.html_split_page_view}
+          onChange={(v) => onUpdate("output.html_split_page_view", v)}
+          tooltip="Render each page in its own section with the page image as background. Requires 'Generate Page Images' to be enabled."
+        />
+
+        <ToggleRow
+          label="HTML: Include Annotations"
+          paramKey="output.html_include_annotations"
+          checked={config.output.html_include_annotations}
+          onChange={(v) => onUpdate("output.html_include_annotations", v)}
+          tooltip="Overlay bounding-box annotations for every detected element (text blocks, tables, figures, etc.) on the HTML page images."
+        />
+
+
         <TextField
           id="profile_desc"
           label="Profile Description"

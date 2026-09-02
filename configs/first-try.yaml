@@ -10,10 +10,10 @@ pdf_options:
   do_picture_description: false
   force_backend_text: false
   enable_remote_services: false
-  allow_external_plugins: false
+  allow_external_plugins: true
   document_timeout: null
   artifacts_path: null
-  generate_page_images: false
+  generate_page_images: true
   generate_picture_images: true
   generate_table_images: false
   images_scale: 2.0
@@ -28,6 +28,7 @@ pdf_options:
     kind: easyocr
     lang:
     - en
+    - de
     force_full_page_ocr: false
     bitmap_area_threshold: 0.05
   table_structure_options:
@@ -39,19 +40,18 @@ pdf_options:
   heading_hierarchy_options:
     hierarchy_expansion_depth: 3
   accelerator_options:
-    device: mps
+    device: auto
     num_threads: 4
   picture_description_options:
     kind: disabled
     prompt: Describe the image in detail, including any text, charts, or diagrams
       visible.
   picture_classification_options:
-    kind: disabled
+    kind: docling
   code_formula_options:
-    kind: disabled
+    kind: granite
   chart_extraction_options:
-    kind: disabled
+    kind: docling
 output:
   formats:
-  - json
   - html

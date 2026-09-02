@@ -70,19 +70,39 @@ def _build_docling_options(our_opts: OurPdfOptions):
     o = our_opts
 
     # --- OCR engine selection ---
-    ocr_map = {
-        OcrEngine.EASYOCR: lambda: EasyOcrOptions(lang=o.ocr_options.lang),
-        OcrEngine.RAPIDOCR: lambda: RapidOcrOptions(),
-        OcrEngine.TESSERACT: lambda: TesseractOcrOptions(lang="+".join(o.ocr_options.lang)),
-        OcrEngine.TESSERACT_CLI: lambda: TesseractCliOcrOptions(lang="+".join(o.ocr_options.lang)),
-        OcrEngine.OCRMYPDF: lambda: OcrMacOptions(),  # fallback
-    }
-    ocr_options = ocr_map.get(o.ocr_options.kind, lambda: RapidOcrOptions())()
+    # Build the options object; if a chosen engine's package isn't installed
+    # (e.g. easyocr selected but `pip install easyocr` not done yet) we fall
+    # back to RapidOCR, which is always available via docling[standard].
+    def _make_ocr_options():
+        kind = o.ocr_options.kind
+        try:
+            if kind == OcrEngine.EASYOCR:
+                import easyocr  # noqa: F401  — just validate it's installed
+                return EasyOcrOptions(lang=o.ocr_options.lang)
+            elif kind == OcrEngine.TESSERACT:
+                return TesseractOcrOptions(lang="+".join(o.ocr_options.lang))
+            elif kind == OcrEngine.TESSERACT_CLI:
+                return TesseractCliOcrOptions(lang="+".join(o.ocr_options.lang))
+            else:
+                # RAPIDOCR / OCRMAC / unknown — all use RapidOCR as the safe default
+                return RapidOcrOptions()
+        except ImportError as exc:
+            # The requested engine's package isn't installed; fall back and warn
+            import logging
+            logging.getLogger(__name__).warning(
+                "OCR engine '%s' requested but its package is not installed "
+                "(%s). Falling back to RapidOCR. Install the missing package "
+                "or switch the engine in the UI.", kind, exc
+            )
+            return RapidOcrOptions()
+
+    ocr_options = _make_ocr_options()
     # Apply shared fields
     if hasattr(ocr_options, "force_full_page_ocr"):
         ocr_options.force_full_page_ocr = o.ocr_options.force_full_page_ocr
     if hasattr(ocr_options, "bitmap_area_threshold"):
         ocr_options.bitmap_area_threshold = o.ocr_options.bitmap_area_threshold
+
 
     # --- Table structure options ---
     from docling.datamodel.pipeline_options import TableFormerMode
@@ -96,14 +116,21 @@ def _build_docling_options(our_opts: OurPdfOptions):
     )
 
     # --- Accelerator options ---
+    # Note: some docling models (e.g. CodeFormulaVlmModel) don't support MPS.
+    # With AUTO, docling picks the best available device *per model*, so layout
+    # and table models use MPS while VLMs fall back to CPU automatically.
     from docling.datamodel.pipeline_options import AcceleratorDevice as DAccDevice
     dev_map = {
+        AcceleratorDevice.AUTO: DAccDevice.AUTO,
         AcceleratorDevice.CPU: DAccDevice.CPU,
         AcceleratorDevice.CUDA: DAccDevice.CUDA,
         AcceleratorDevice.MPS: DAccDevice.MPS,
+        AcceleratorDevice.XPU: DAccDevice.XPU,
     }
     acc_opts = DAcceleratorOptions(
-        device=dev_map.get(o.accelerator_options.device, DAccDevice.CPU),
+        # Fall back to AUTO (not CPU) when device is unknown, so MPS is still used
+        # for models that support it.
+        device=dev_map.get(o.accelerator_options.device, DAccDevice.AUTO),
         num_threads=o.accelerator_options.num_threads,
     )
 
@@ -265,11 +292,26 @@ def run_pipeline(config: PipelineConfig) -> Generator[str, None, RunResult]:
             elif fmt == OutputFormat.HTML:
                 out_path = run_dir / "parsed_doc.html"
                 if hasattr(doc, "export_to_html"):
-                    out_path.write_text(doc.export_to_html(), encoding="utf-8")
+                    try:
+                        # Use EMBEDDED image mode so all page images are base64-encoded
+                        # directly in the HTML — the iframe renderer needs self-contained HTML.
+                        from docling_core.types.doc.base import ImageRefMode
+                        html_content = doc.export_to_html(
+                            split_page_view=config.output.html_split_page_view,
+                            include_annotations=config.output.html_include_annotations,
+                            image_mode=ImageRefMode.EMBEDDED,
+                        )
+                    except TypeError:
+                        # Older docling versions don't support these kwargs; fall back.
+                        html_content = doc.export_to_html()
+                    out_path.write_text(html_content, encoding="utf-8")
                     output_files.append(str(out_path.name))
-                    yield log(f"  ✓ HTML → {out_path.name}")
+                    yield log(f"  ✓ HTML → {out_path.name} "
+                              f"(split_page={config.output.html_split_page_view}, "
+                              f"annotations={config.output.html_include_annotations})")
                 else:
                     yield log("  ⚠ HTML export not supported by installed Docling version — skipped.")
+
 
         # --- Copy config ---
         try:

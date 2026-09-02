@@ -1,11 +1,15 @@
 "use client";
 
 /**
- * OutputViewer — displays the parsed document content in tabbed view.
- * Fetches file content from the backend when a run file is selected.
+ * OutputViewer — tabbed viewer for parsed document output files.
+ *
+ * - .html files  → rendered in a sandboxed <iframe> using srcDoc
+ * - all others   → syntax-highlighted <pre> block
+ *
+ * HTML tab is automatically selected first if present (it's the richest view).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getRunFileUrl } from "@/lib/api";
 
 interface Props {
@@ -13,22 +17,53 @@ interface Props {
   outputFiles: string[];
 }
 
+/** Returns a display label + icon for a given filename. */
+function fileLabel(filename: string): { icon: string; label: string } {
+  if (filename.endsWith(".html"))   return { icon: "🖼", label: "HTML" };
+  if (filename.endsWith(".md"))     return { icon: "📝", label: "Markdown" };
+  if (filename.endsWith(".json"))   return { icon: "{ }", label: "JSON" };
+  if (filename.endsWith(".txt"))    return { icon: "📄", label: "Text" };
+  if (filename.endsWith(".yaml") || filename.endsWith(".yml"))
+                                    return { icon: "⚙", label: "Config" };
+  if (filename.endsWith(".log"))    return { icon: "📋", label: "Log" };
+  if (filename.endsWith(".doctags")) return { icon: "🏷", label: "DocTags" };
+  return { icon: "📁", label: filename };
+}
+
+/** Priority order for auto-selection: richest format first. */
+const TAB_PRIORITY = [".html", ".md", ".json", ".txt", ".doctags", ".log", ".yaml"];
+
+function pickDefaultFile(files: string[]): string | null {
+  for (const ext of TAB_PRIORITY) {
+    const match = files.find((f) => f.endsWith(ext));
+    if (match) return match;
+  }
+  return files[0] ?? null;
+}
+
 export default function OutputViewer({ runDir, outputFiles }: Props) {
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Track iframe height for the expand/collapse toggle
+  const [iframeExpanded, setIframeExpanded] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Extract run_id from the dir path (e.g., "outputs/run_20240901_143000_default")
+  // Derive run_id from the dir path: "outputs/run_<id>" → "<id>"
   const runId = runDir?.split("/").pop()?.replace("run_", "") ?? null;
 
-  // Auto-select first non-config file when files change
+  const isHtml = activeFile?.endsWith(".html") ?? false;
+
+  // Auto-select richest format (HTML first) when file list changes
   useEffect(() => {
-    const firstOutput = outputFiles.find((f) => !f.endsWith(".yaml") && !f.endsWith(".log"));
-    if (firstOutput) setActiveFile(firstOutput);
+    const best = pickDefaultFile(
+      outputFiles.filter((f) => !f.endsWith(".log") && !f.endsWith(".yaml"))
+    ) ?? pickDefaultFile(outputFiles);
+    if (best) setActiveFile(best);
   }, [outputFiles]);
 
-  // Fetch file content when active file changes
+  // Fetch file content when the active tab changes
   useEffect(() => {
     if (!runId || !activeFile) {
       setContent(null);
@@ -37,6 +72,7 @@ export default function OutputViewer({ runDir, outputFiles }: Props) {
 
     setLoading(true);
     setError(null);
+    setContent(null);
 
     fetch(getRunFileUrl(runId, activeFile))
       .then((r) => {
@@ -48,6 +84,7 @@ export default function OutputViewer({ runDir, outputFiles }: Props) {
       .finally(() => setLoading(false));
   }, [runId, activeFile]);
 
+  // ── Empty state ─────────────────────────────────────────────────────────────
   if (!runDir || outputFiles.length === 0) {
     return (
       <div className="output-viewer">
@@ -55,38 +92,82 @@ export default function OutputViewer({ runDir, outputFiles }: Props) {
           <div className="output-placeholder__icon">📄</div>
           <div className="output-placeholder__title">No output yet</div>
           <div className="output-placeholder__sub">
-            Configure the pipeline on the left and click <strong>Run Pipeline</strong> to see parsed document output here.
+            Configure the pipeline on the left and click{" "}
+            <strong>Run Pipeline</strong> to see parsed document output here.
           </div>
         </div>
       </div>
     );
   }
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="output-viewer">
-      {/* File tabs */}
+
+      {/* ── Tab bar ─────────────────────────────────────────────────────── */}
       <div className="output-tabs">
-        {outputFiles.map((f) => (
+        {outputFiles.map((f) => {
+          const { icon, label } = fileLabel(f);
+          return (
+            <button
+              key={f}
+              className={`output-tab ${activeFile === f ? "active" : ""}`}
+              onClick={() => setActiveFile(f)}
+              title={f}
+            >
+              <span className="output-tab__icon">{icon}</span>
+              <span className="output-tab__label">{label}</span>
+            </button>
+          );
+        })}
+
+        {/* Expand/collapse button for HTML view */}
+        {isHtml && (
           <button
-            key={f}
-            className={`output-tab ${activeFile === f ? "active" : ""}`}
-            onClick={() => setActiveFile(f)}
+            className="output-tab output-tab--action"
+            onClick={() => setIframeExpanded((v) => !v)}
+            title={iframeExpanded ? "Collapse HTML view" : "Expand HTML view"}
           >
-            {f}
+            {iframeExpanded ? "⊟ Collapse" : "⊞ Expand"}
           </button>
-        ))}
+        )}
       </div>
 
-      {/* Content */}
-      <div className="output-content">
+      {/* ── Content area ────────────────────────────────────────────────── */}
+      <div className={`output-content ${isHtml ? "output-content--html" : ""} ${iframeExpanded ? "output-content--expanded" : ""}`}>
+
         {loading && (
-          <div style={{ color: "var(--c-text-3)", fontStyle: "italic" }}>Loading…</div>
+          <div className="output-loading">
+            <span className="output-loading__spinner" />
+            Loading…
+          </div>
         )}
+
         {error && (
-          <div style={{ color: "var(--c-error)" }}>Error loading file: {error}</div>
+          <div className="output-error">⚠ Error loading file: {error}</div>
         )}
+
         {!loading && !error && content !== null && (
-          <pre>{content}</pre>
+          isHtml ? (
+            /* ── HTML renderer: sandboxed iframe with srcDoc ────────────── */
+            <div className="output-iframe-wrap">
+              <div className="output-iframe-badge">
+                🖼 Rendered HTML — page images with bounding-box annotations
+              </div>
+              <iframe
+                ref={iframeRef}
+                className="output-iframe"
+                srcDoc={content}
+                // allow-scripts: needed for docling's inline annotation JS
+                // No allow-same-origin: iframe cannot access parent context
+                sandbox="allow-scripts"
+                title="Parsed document HTML output"
+              />
+            </div>
+          ) : (
+            /* ── Plain text renderer ────────────────────────────────────── */
+            <pre className="output-pre">{content}</pre>
+          )
         )}
       </div>
     </div>

@@ -250,6 +250,8 @@ body {
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--c-text-2);
+  flex-wrap: wrap;       /* allow the row to wrap if label + key is very long */
+  row-gap: 2px;
 }
 
 .field__label code {
@@ -259,6 +261,13 @@ body {
   background: var(--c-accent-glow);
   padding: 1px 5px;
   border-radius: var(--r-sm);
+  /* Prevent very long param keys from squeezing the ? icon off-screen */
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* Toggle */
@@ -452,7 +461,7 @@ body {
   font-size: 0.6rem;
   cursor: help;
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
+  flex-shrink: 0;        /* never let the icon be squeezed by siblings */
   transition: border-color var(--t-fast), color var(--t-fast);
   outline: none;
   user-select: none;
@@ -559,9 +568,14 @@ body {
   padding: var(--sp-3) var(--sp-5) 0;
   border-bottom: 1px solid var(--c-border);
   flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: flex-end;
 }
 
 .output-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
   padding: var(--sp-2) var(--sp-4);
   border-radius: var(--r-sm) var(--r-sm) 0 0;
   font-size: 0.78rem;
@@ -574,6 +588,8 @@ body {
   font-family: var(--font-body);
   transition: all var(--t-fast);
 }
+.output-tab__icon { font-size: 0.85em; opacity: 0.7; }
+.output-tab__label { }
 .output-tab:hover { color: var(--c-text-2); background: var(--c-surface); }
 .output-tab.active {
   color: var(--c-text);
@@ -582,7 +598,18 @@ body {
   border-bottom-color: var(--c-bg);
   margin-bottom: -1px;
 }
+/* Action tab (expand/collapse) — pushed to the right */
+.output-tab--action {
+  margin-left: auto;
+  color: var(--c-accent);
+  font-size: 0.72rem;
+  border-radius: var(--r-sm);
+  border-bottom: 1px solid transparent;
+  margin-bottom: 4px;
+}
+.output-tab--action:hover { background: var(--c-accent-glow); }
 
+/* ── Content area ─────────────────────────────────────────────────── */
 .output-content {
   flex: 1;
   overflow: auto;
@@ -590,16 +617,85 @@ body {
   font-size: 0.82rem;
   line-height: 1.7;
   color: var(--c-text-2);
+  min-height: 0;           /* needed for flex child to shrink */
 }
 
-.output-content pre {
+/* In HTML mode: remove padding so iframe fills edge-to-edge */
+.output-content--html {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Expand mode: taller iframe (used when user clicks expand) */
+.output-content--expanded {
+  flex: 0 0 80vh;
+}
+
+.output-pre {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--c-text);
+  margin: 0;
 }
 
+/* ── iframe wrapper ───────────────────────────────────────────────── */
+.output-iframe-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.output-iframe-badge {
+  flex-shrink: 0;
+  padding: var(--sp-2) var(--sp-4);
+  font-size: 0.7rem;
+  color: var(--c-text-3);
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  letter-spacing: 0.01em;
+}
+
+.output-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;         /* docling HTML uses a white background */
+  display: block;
+  min-height: 0;
+}
+
+/* ── Loading & error states ───────────────────────────────────────── */
+.output-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--c-text-3);
+  font-size: 0.82rem;
+  padding: var(--sp-6);
+}
+.output-loading__spinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--c-border);
+  border-top-color: var(--c-accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.output-error {
+  color: var(--c-error, #f87171);
+  font-size: 0.82rem;
+  padding: var(--sp-6);
+}
+
+/* ── Placeholder ──────────────────────────────────────────────────── */
 .output-placeholder {
   display: flex;
   flex-direction: column;
@@ -614,6 +710,8 @@ body {
 .output-placeholder__icon { font-size: 3rem; opacity: 0.25; }
 .output-placeholder__title { font-size: 1rem; font-weight: 600; color: var(--c-text-2); }
 .output-placeholder__sub { font-size: 0.8rem; max-width: 300px; }
+
+
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Run History

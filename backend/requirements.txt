@@ -1,9 +1,18 @@
-# Core backend framework
-fastapi==0.115.12
-uvicorn[standard]==0.34.2
+# ─────────────────────────────────────────────────────────────────────────────
+# Pipeline Player — Backend Dependencies
+# Requires Python 3.10 or newer (Docling does not support Python 3.9).
+# Install with: pip install -r requirements.txt
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Docling - the document parser we're benchmarking
-docling>=2.31.0
+# Core backend framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# Docling — the document parser we are benchmarking.
+# The [standard] extra pulls in rapidocr; onnxruntime is its inference backend
+# (rapidocr 3.x ships the two separately).
+docling[standard]>=2.31.0
+onnxruntime>=1.18.0   # inference backend for rapidocr
 
 # Data validation (mirrors Docling's own model classes)
 pydantic>=2.0,<3.0
@@ -12,8 +21,22 @@ pydantic-settings>=2.0
 # YAML config file support
 pyyaml>=6.0
 
-# CORS + async support
-httpx>=0.27.0
+# ─────────────────────────────────────────────────────────────────────────────
+# OPTIONAL — install these extras to unlock additional OCR engines /
+# enrichment models. Enable the corresponding flags in the UI after
+# installing the relevant package.
+# ─────────────────────────────────────────────────────────────────────────────
 
-# PDF generation for test document
-fpdf2>=2.8.0
+# EasyOCR engine  (ocr_options.kind = "easyocr")
+# Heavy: downloads a ~300 MB model on first use, needs PyTorch.
+# pip install easyocr
+
+# Tesseract (system) + Python bindings  (ocr_options.kind = "tesseract")
+# Requires the tesseract binary: `brew install tesseract`
+# pip install pytesseract
+
+# OCRmyPDF engine  (ocr_options.kind = "ocrmypdf")
+# pip install ocrmypdf
+
+# IBM Granite Vision / code models  (picture_description, code_formula)
+# pip install docling-ibm-models

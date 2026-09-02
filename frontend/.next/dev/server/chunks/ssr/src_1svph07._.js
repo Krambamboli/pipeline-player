@@ -1344,6 +1344,28 @@ function ConfigPanel({ config, onUpdate }) {
                         lineNumber: 479,
                         columnNumber: 9
                     }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
+                        label: "HTML: Split Page View",
+                        paramKey: "output.html_split_page_view",
+                        checked: config.output.html_split_page_view,
+                        onChange: (v)=>onUpdate("output.html_split_page_view", v),
+                        tooltip: "Render each page in its own section with the page image as background. Requires 'Generate Page Images' to be enabled."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 494,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
+                        label: "HTML: Include Annotations",
+                        paramKey: "output.html_include_annotations",
+                        checked: config.output.html_include_annotations,
+                        onChange: (v)=>onUpdate("output.html_include_annotations", v),
+                        tooltip: "Overlay bounding-box annotations for every detected element (text blocks, tables, figures, etc.) on the HTML page images."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 502,
+                        columnNumber: 9
+                    }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["TextField"], {
                         id: "profile_desc",
                         label: "Profile Description",
@@ -1354,7 +1376,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "A human-readable description of what this configuration profile is tuned for. Stored alongside every run output for reproducibility documentation."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 494,
+                        lineNumber: 511,
                         columnNumber: 9
                     }, this)
                 ]
@@ -1380,29 +1402,87 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/server/route-modules/app-page/vendored/ssr/react-jsx-dev-runtime.js [app-ssr] (ecmascript)");
 /**
- * OutputViewer — displays the parsed document content in tabbed view.
- * Fetches file content from the backend when a run file is selected.
+ * OutputViewer — tabbed viewer for parsed document output files.
+ *
+ * - .html files  → rendered in a sandboxed <iframe> using srcDoc
+ * - all others   → syntax-highlighted <pre> block
+ *
+ * HTML tab is automatically selected first if present (it's the richest view).
  */ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/server/route-modules/app-page/vendored/ssr/react.js [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/lib/api.ts [app-ssr] (ecmascript)");
 "use client";
 ;
 ;
 ;
+/** Returns a display label + icon for a given filename. */ function fileLabel(filename) {
+    if (filename.endsWith(".html")) return {
+        icon: "🖼",
+        label: "HTML"
+    };
+    if (filename.endsWith(".md")) return {
+        icon: "📝",
+        label: "Markdown"
+    };
+    if (filename.endsWith(".json")) return {
+        icon: "{ }",
+        label: "JSON"
+    };
+    if (filename.endsWith(".txt")) return {
+        icon: "📄",
+        label: "Text"
+    };
+    if (filename.endsWith(".yaml") || filename.endsWith(".yml")) return {
+        icon: "⚙",
+        label: "Config"
+    };
+    if (filename.endsWith(".log")) return {
+        icon: "📋",
+        label: "Log"
+    };
+    if (filename.endsWith(".doctags")) return {
+        icon: "🏷",
+        label: "DocTags"
+    };
+    return {
+        icon: "📁",
+        label: filename
+    };
+}
+/** Priority order for auto-selection: richest format first. */ const TAB_PRIORITY = [
+    ".html",
+    ".md",
+    ".json",
+    ".txt",
+    ".doctags",
+    ".log",
+    ".yaml"
+];
+function pickDefaultFile(files) {
+    for (const ext of TAB_PRIORITY){
+        const match = files.find((f)=>f.endsWith(ext));
+        if (match) return match;
+    }
+    return files[0] ?? null;
+}
 function OutputViewer({ runDir, outputFiles }) {
     const [activeFile, setActiveFile] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
     const [content, setContent] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
     const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const [error, setError] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
-    // Extract run_id from the dir path (e.g., "outputs/run_20240901_143000_default")
+    // Track iframe height for the expand/collapse toggle
+    const [iframeExpanded, setIframeExpanded] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
+    const iframeRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(null);
+    // Derive run_id from the dir path: "outputs/run_<id>" → "<id>"
     const runId = runDir?.split("/").pop()?.replace("run_", "") ?? null;
-    // Auto-select first non-config file when files change
+    const isHtml = activeFile?.endsWith(".html") ?? false;
+    // Auto-select richest format (HTML first) when file list changes
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
-        const firstOutput = outputFiles.find((f)=>!f.endsWith(".yaml") && !f.endsWith(".log"));
-        if (firstOutput) setActiveFile(firstOutput);
+        const best = pickDefaultFile(outputFiles.filter((f)=>!f.endsWith(".log") && !f.endsWith(".yaml"))) ?? pickDefaultFile(outputFiles);
+        if (best) setActiveFile(best);
     }, [
         outputFiles
     ]);
-    // Fetch file content when active file changes
+    // Fetch file content when the active tab changes
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         if (!runId || !activeFile) {
             setContent(null);
@@ -1410,6 +1490,7 @@ function OutputViewer({ runDir, outputFiles }) {
         }
         setLoading(true);
         setError(null);
+        setContent(null);
         fetch((0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["getRunFileUrl"])(runId, activeFile)).then((r)=>{
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.text();
@@ -1418,6 +1499,7 @@ function OutputViewer({ runDir, outputFiles }) {
         runId,
         activeFile
     ]);
+    // ── Empty state ─────────────────────────────────────────────────────────────
     if (!runDir || outputFiles.length === 0) {
         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
             className: "output-viewer",
@@ -1429,7 +1511,7 @@ function OutputViewer({ runDir, outputFiles }) {
                         children: "📄"
                     }, void 0, false, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 55,
+                        lineNumber: 92,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1437,102 +1519,171 @@ function OutputViewer({ runDir, outputFiles }) {
                         children: "No output yet"
                     }, void 0, false, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 56,
+                        lineNumber: 93,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "output-placeholder__sub",
                         children: [
-                            "Configure the pipeline on the left and click ",
+                            "Configure the pipeline on the left and click",
+                            " ",
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
                                 children: "Run Pipeline"
                             }, void 0, false, {
                                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                                lineNumber: 58,
-                                columnNumber: 58
+                                lineNumber: 96,
+                                columnNumber: 13
                             }, this),
                             " to see parsed document output here."
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 57,
+                        lineNumber: 94,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                lineNumber: 54,
+                lineNumber: 91,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/src/components/OutputViewer/index.tsx",
-            lineNumber: 53,
+            lineNumber: 90,
             columnNumber: 7
         }, this);
     }
+    // ── Render ──────────────────────────────────────────────────────────────────
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         className: "output-viewer",
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "output-tabs",
-                children: outputFiles.map((f)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                        className: `output-tab ${activeFile === f ? "active" : ""}`,
-                        onClick: ()=>setActiveFile(f),
-                        children: f
-                    }, f, false, {
-                        fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 70,
-                        columnNumber: 11
-                    }, this))
-            }, void 0, false, {
-                fileName: "[project]/src/components/OutputViewer/index.tsx",
-                lineNumber: 68,
-                columnNumber: 7
-            }, this),
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "output-content",
                 children: [
-                    loading && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        style: {
-                            color: "var(--c-text-3)",
-                            fontStyle: "italic"
-                        },
-                        children: "Loading…"
+                    outputFiles.map((f)=>{
+                        const { icon, label } = fileLabel(f);
+                        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                            className: `output-tab ${activeFile === f ? "active" : ""}`,
+                            onClick: ()=>setActiveFile(f),
+                            title: f,
+                            children: [
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                    className: "output-tab__icon",
+                                    children: icon
+                                }, void 0, false, {
+                                    fileName: "[project]/src/components/OutputViewer/index.tsx",
+                                    lineNumber: 118,
+                                    columnNumber: 15
+                                }, this),
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                    className: "output-tab__label",
+                                    children: label
+                                }, void 0, false, {
+                                    fileName: "[project]/src/components/OutputViewer/index.tsx",
+                                    lineNumber: 119,
+                                    columnNumber: 15
+                                }, this)
+                            ]
+                        }, f, true, {
+                            fileName: "[project]/src/components/OutputViewer/index.tsx",
+                            lineNumber: 112,
+                            columnNumber: 13
+                        }, this);
+                    }),
+                    isHtml && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                        className: "output-tab output-tab--action",
+                        onClick: ()=>setIframeExpanded((v)=>!v),
+                        title: iframeExpanded ? "Collapse HTML view" : "Expand HTML view",
+                        children: iframeExpanded ? "⊟ Collapse" : "⊞ Expand"
                     }, void 0, false, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 83,
-                        columnNumber: 11
-                    }, this),
-                    error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        style: {
-                            color: "var(--c-error)"
-                        },
-                        children: [
-                            "Error loading file: ",
-                            error
-                        ]
-                    }, void 0, true, {
-                        fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 86,
-                        columnNumber: 11
-                    }, this),
-                    !loading && !error && content !== null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("pre", {
-                        children: content
-                    }, void 0, false, {
-                        fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 89,
+                        lineNumber: 126,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                lineNumber: 81,
+                lineNumber: 108,
+                columnNumber: 7
+            }, this),
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: `output-content ${isHtml ? "output-content--html" : ""} ${iframeExpanded ? "output-content--expanded" : ""}`,
+                children: [
+                    loading && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "output-loading",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                className: "output-loading__spinner"
+                            }, void 0, false, {
+                                fileName: "[project]/src/components/OutputViewer/index.tsx",
+                                lineNumber: 141,
+                                columnNumber: 13
+                            }, this),
+                            "Loading…"
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/src/components/OutputViewer/index.tsx",
+                        lineNumber: 140,
+                        columnNumber: 11
+                    }, this),
+                    error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "output-error",
+                        children: [
+                            "⚠ Error loading file: ",
+                            error
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/src/components/OutputViewer/index.tsx",
+                        lineNumber: 147,
+                        columnNumber: 11
+                    }, this),
+                    !loading && !error && content !== null && (isHtml ? /* ── HTML renderer: sandboxed iframe with srcDoc ────────────── */ /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "output-iframe-wrap",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "output-iframe-badge",
+                                children: "🖼 Rendered HTML — page images with bounding-box annotations"
+                            }, void 0, false, {
+                                fileName: "[project]/src/components/OutputViewer/index.tsx",
+                                lineNumber: 154,
+                                columnNumber: 15
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("iframe", {
+                                ref: iframeRef,
+                                className: "output-iframe",
+                                srcDoc: content,
+                                // allow-scripts: needed for docling's inline annotation JS
+                                // No allow-same-origin: iframe cannot access parent context
+                                sandbox: "allow-scripts",
+                                title: "Parsed document HTML output"
+                            }, void 0, false, {
+                                fileName: "[project]/src/components/OutputViewer/index.tsx",
+                                lineNumber: 157,
+                                columnNumber: 15
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/src/components/OutputViewer/index.tsx",
+                        lineNumber: 153,
+                        columnNumber: 13
+                    }, this) : /* ── Plain text renderer ────────────────────────────────────── */ /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("pre", {
+                        className: "output-pre",
+                        children: content
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/OutputViewer/index.tsx",
+                        lineNumber: 169,
+                        columnNumber: 13
+                    }, this))
+                ]
+            }, void 0, true, {
+                fileName: "[project]/src/components/OutputViewer/index.tsx",
+                lineNumber: 137,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/OutputViewer/index.tsx",
-        lineNumber: 66,
+        lineNumber: 105,
         columnNumber: 5
     }, this);
 }

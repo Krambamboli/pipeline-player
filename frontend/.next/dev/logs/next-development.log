@@ -1,5 +1,7 @@
-{"timestamp":"00:00:04.650","source":"Server","level":"LOG","message":""}
-{"timestamp":"00:03:37.904","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
-{"timestamp":"00:07:14.682","source":"Server","level":"LOG","message":"✓ Compiled in 40ms"}
-{"timestamp":"00:07:31.954","source":"Server","level":"LOG","message":"✓ Compiled in 20ms"}
-{"timestamp":"00:08:06.534","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:00:06.517","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:33:56.768","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:33:56.837","source":"Browser","level":"ERROR","message":"Uncaught ReferenceError: ConfigSwitch is not defined\n    at ConfigPanel (src/components/ConfigPanel/index.tsx:494:10)\n    at Home (src/app/page.tsx:139:13)\n  492 |         />\n  493 |\n> 494 |         <ConfigSwitch\n      |          ^\n  495 |           label=\"HTML: Split Page View\"\n  496 |           paramKey=\"output.html_split_page_view\"\n  497 |           checked={config.output.html_split_page_view}"}
+{"timestamp":"00:33:56.838","source":"Server","level":"ERROR","message":"[browser] \"Uncaught ReferenceError: ConfigSwitch is not defined\\n    at ConfigPanel (src/components/ConfigPanel/index.tsx:494:10)\\n    at Home (src/app/page.tsx:139:13)\\n  492 |         />\\n  493 |\\n> 494 |         <ConfigSwitch\\n      |          ^\\n  495 |           label=\\\"HTML: Split Page View\\\"\\n  496 |           paramKey=\\\"output.html_split_page_view\\\"\\n  497 |           checked={config.output.html_split_page_view}\""}
+{"timestamp":"00:35:55.919","source":"Server","level":"WARN","message":"⚠ Fast Refresh had to perform a full reload due to a runtime error."}
+{"timestamp":"00:35:55.957","source":"Server","level":"LOG","message":"✓ Compiled in 16ms"}
+{"timestamp":"00:35:55.991","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}

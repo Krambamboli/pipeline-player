@@ -40,9 +40,11 @@ class TableStructureMode(str, Enum):
 
 class AcceleratorDevice(str, Enum):
     """Hardware accelerator to use for model inference."""
+    AUTO = "auto"  # Let docling pick the best device per model (recommended for Apple Silicon)
     CPU = "cpu"
     CUDA = "cuda"
-    MPS = "mps"  # Apple Silicon Metal Performance Shaders
+    MPS = "mps"   # Apple Silicon Metal Performance Shaders
+    XPU = "xpu"   # Intel XPU
 
 
 class OutputFormat(str, Enum):
@@ -593,11 +595,30 @@ class OutputSettings(BaseModel):
     """Output format and routing settings (not part of PdfPipelineOptions itself)."""
 
     formats: List[OutputFormat] = Field(
-        default=[OutputFormat.MARKDOWN, OutputFormat.JSON],
+        default=[OutputFormat.HTML, OutputFormat.MARKDOWN, OutputFormat.JSON],
         description=(
-            "List of output formats to generate for each run. 'markdown' produces "
-            "human-readable .md. 'json' produces the full DoclingDocument as JSON. "
+            "List of output formats to generate for each run. 'html' produces an "
+            "annotated page-view HTML. 'markdown' produces human-readable .md. "
+            "'json' produces the full DoclingDocument as JSON. "
             "'doctags' produces the DocTags token format. 'text' produces plain text."
+        ),
+    )
+
+    html_split_page_view: bool = Field(
+        default=True,
+        description=(
+            "When generating HTML output, render each page in its own section "
+            "with the page image as background. Requires generate_page_images=true "
+            "in pdf_options for annotations to appear on the page image."
+        ),
+    )
+
+    html_include_annotations: bool = Field(
+        default=True,
+        description=(
+            "When generating HTML output, overlay bounding-box annotations for "
+            "every detected element (text blocks, tables, figures, etc.) on the "
+            "page image. Visualises exactly what Docling extracted and where."
         ),
     )
 

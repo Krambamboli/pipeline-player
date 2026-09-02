@@ -123,8 +123,11 @@ async def get_run_file(run_id: str, filename: str) -> StreamingResponse:
         with open(file_path, "rb") as f:
             yield from f
 
-    media_type = "text/markdown" if filename.endswith(".md") else \
-                 "application/json" if filename.endswith(".json") else \
-                 "text/plain"
+    media_type = (
+        "text/html"       if filename.endswith(".html") else
+        "text/markdown"   if filename.endswith(".md")   else
+        "application/json" if filename.endswith(".json") else
+        "text/plain"
+    )
 
     return StreamingResponse(file_generator(), media_type=media_type)
