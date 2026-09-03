@@ -291,26 +291,38 @@ def run_pipeline(config: PipelineConfig) -> Generator[str, None, RunResult]:
 
             elif fmt == OutputFormat.HTML:
                 out_path = run_dir / "parsed_doc.html"
-                if hasattr(doc, "export_to_html"):
-                    try:
-                        # Use EMBEDDED image mode so all page images are base64-encoded
-                        # directly in the HTML — the iframe renderer needs self-contained HTML.
-                        from docling_core.types.doc.base import ImageRefMode
-                        html_content = doc.export_to_html(
-                            split_page_view=config.output.html_split_page_view,
-                            include_annotations=config.output.html_include_annotations,
+                try:
+                    # New docling_core serialization method for annotated HTML
+                    from docling_core.transforms.serializer.html import HTMLDocSerializer, HTMLOutputStyle, HTMLParams
+                    from docling_core.transforms.visualizer.layout_visualizer import LayoutVisualizer
+                    from docling_core.types.doc import ImageRefMode
+
+                    style = HTMLOutputStyle.SPLIT_PAGE if config.output.html_split_page_view else HTMLOutputStyle.FLOW
+                    
+                    ser = HTMLDocSerializer(
+                        doc=doc,
+                        params=HTMLParams(
                             image_mode=ImageRefMode.EMBEDDED,
-                        )
-                    except TypeError:
-                        # Older docling versions don't support these kwargs; fall back.
-                        html_content = doc.export_to_html()
+                            output_style=style,
+                        ),
+                    )
+                    
+                    visualizer = None
+                    if config.output.html_include_annotations:
+                        visualizer = LayoutVisualizer()
+                        visualizer.params.show_label = True
+
+                    html_content = ser.serialize(visualizer=visualizer).text
+                    
                     out_path.write_text(html_content, encoding="utf-8")
                     output_files.append(str(out_path.name))
                     yield log(f"  ✓ HTML → {out_path.name} "
                               f"(split_page={config.output.html_split_page_view}, "
                               f"annotations={config.output.html_include_annotations})")
-                else:
-                    yield log("  ⚠ HTML export not supported by installed Docling version — skipped.")
+                except Exception as ex:
+                    yield log(f"  ⚠ Failed to export annotated HTML: {ex}. "
+                              f"Is docling-core up to date?")
+
 
 
         # --- Copy config ---

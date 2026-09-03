@@ -40,10 +40,10 @@ pdf_options:
   heading_hierarchy_options:
     hierarchy_expansion_depth: 3
   accelerator_options:
-    device: mps
+    device: auto
     num_threads: 4
   picture_description_options:
-    kind: granite_vision
+    kind: disabled
     prompt: Describe the image in detail, including any text, charts, or diagrams
       visible.
   picture_classification_options:
@@ -55,5 +55,3 @@ pdf_options:
 output:
   formats:
   - html
-  html_split_page_view: true
-  html_include_annotations: true
