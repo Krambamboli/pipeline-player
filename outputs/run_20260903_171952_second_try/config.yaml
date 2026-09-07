@@ -1,0 +1,66 @@
+profile_name: second_try
+description: Default Docling pipeline configuration — a balanced starting point.
+pdf_options:
+  do_ocr: true
+  do_table_structure: true
+  do_chart_extraction: true
+  do_code_enrichment: true
+  do_formula_enrichment: true
+  do_picture_classification: true
+  do_picture_description: false
+  force_backend_text: false
+  enable_remote_services: false
+  allow_external_plugins: true
+  document_timeout: null
+  artifacts_path: null
+  generate_page_images: true
+  generate_picture_images: true
+  generate_table_images: false
+  images_scale: 2.0
+  generate_parsed_pages: true
+  layout_batch_size: 4
+  ocr_batch_size: 4
+  table_batch_size: 4
+  queue_max_size: 32
+  batch_polling_interval_seconds: 0.5
+  stage_shutdown_timeout_seconds: 5.0
+  ocr_options:
+    kind: easyocr
+    lang:
+    - en
+    - de
+    force_full_page_ocr: false
+    bitmap_area_threshold: 0.05
+  table_structure_options:
+    mode: accurate
+    do_cell_matching: true
+  layout_options:
+    keep_images: true
+    use_legacy_layout: false
+  heading_hierarchy_options:
+    enabled: true
+    use_bookmarks: true
+    use_numbering: true
+    use_style: true
+    use_font_style: true
+    style_size_tolerance: 0.05
+    max_level: 4
+    bookmark_match_threshold: 0.8
+  accelerator_options:
+    device: mps
+    num_threads: 4
+  picture_description_options:
+    kind: granite_vision
+    prompt: Describe the image in detail, including any text, charts, or diagrams
+      visible.
+  picture_classification_options:
+    kind: docling
+  code_formula_options:
+    kind: granite
+  chart_extraction_options:
+    kind: docling
+output:
+  formats:
+  - html
+  html_split_page_view: true
+  html_include_annotations: true

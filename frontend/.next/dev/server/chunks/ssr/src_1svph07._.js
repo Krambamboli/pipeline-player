@@ -752,6 +752,10 @@ function ConfigPanel({ config, onUpdate }) {
                         value: o.ocr_options.kind,
                         options: [
                             {
+                                value: "auto",
+                                label: "Auto (Best Available)"
+                            },
+                            {
                                 value: "easyocr",
                                 label: "EasyOCR (GPU-accelerated, 80+ languages)"
                             },
@@ -770,10 +774,18 @@ function ConfigPanel({ config, onUpdate }) {
                             {
                                 value: "ocrmypdf",
                                 label: "OCRmyPDF (searchable PDF output)"
+                            },
+                            {
+                                value: "ocrmac",
+                                label: "macOS Vision (Native Apple, excellent quality)"
+                            },
+                            {
+                                value: "suryaocr",
+                                label: "SuryaOCR (Modern, complex layouts)"
                             }
                         ],
                         onChange: (v)=>onUpdate(p("ocr_options.kind"), v),
-                        tooltip: "The OCR backend engine. EasyOCR handles 80+ languages with GPU support. RapidOCR is optimised for CPU inference. Tesseract is the classic open-source engine. OCRmyPDF produces a searchable PDF as a side effect."
+                        tooltip: "The OCR backend engine. Auto selects best. EasyOCR handles 80+ languages with GPU support. RapidOCR is optimised for CPU. macOS Vision uses native Apple APIs. SuryaOCR is good for complex layouts."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
                         lineNumber: 154,
@@ -788,7 +800,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "ISO language codes to load into the OCR engine (e.g. 'en', 'de', 'fr', 'zh'). Adding more languages increases accuracy for multilingual documents but also increases model loading time and memory usage."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 170,
+                        lineNumber: 173,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -800,7 +812,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "When enabled, OCR is run on the entire page even if the page has a native text layer. Useful when the embedded text layer is garbled, misaligned, or in a different encoding than the visible text."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 179,
+                        lineNumber: 182,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SliderField"], {
@@ -815,7 +827,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Minimum fraction of a page that must be covered by bitmap content before OCR is triggered on that page. 0.05 = OCR activates if >5% of the page is image-based. Lower values = more aggressive OCR triggering."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 188,
+                        lineNumber: 191,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -829,7 +841,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Number of page crops processed simultaneously by the OCR engine. Higher values improve GPU throughput at the cost of more VRAM. Reduce on CPU-only systems or if you encounter out-of-memory errors."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 200,
+                        lineNumber: 203,
                         columnNumber: 9
                     }, this)
                 ]
@@ -862,7 +874,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "'fast' uses a lightweight model optimised for throughput. 'accurate' uses TableTransformer (TATR) for higher fidelity on complex tables with spanning cells, rotated headers, and multi-level column structures. Accurate mode adds 2-4× latency per table."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 214,
+                        lineNumber: 217,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -874,7 +886,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "When enabled, Docling matches detected table cell bounding boxes back to the PDF's native text runs, producing higher-quality cell text. Disable if you see duplicate or misaligned content in table cells (usually caused by complex table backgrounds)."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 227,
+                        lineNumber: 230,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -888,13 +900,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Number of table regions processed simultaneously by the table structure model. Tune based on available GPU memory — higher values improve throughput but require more VRAM."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 236,
+                        lineNumber: 239,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 213,
+                lineNumber: 216,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -910,7 +922,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Render each PDF page as a raster image and embed it in the output document. Required for ColPali multimodal retrieval (which operates on page screenshots). Significantly increases output file size and memory usage."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 250,
+                        lineNumber: 253,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -922,7 +934,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Crop and extract each detected figure or picture as a standalone image embedded in the output. Enables downstream vision pipelines to process individual figures without re-rendering full pages."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 259,
+                        lineNumber: 262,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -934,7 +946,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Render each detected table region as a standalone image. Useful as a visual fallback when structured cell text extraction is unreliable, or for visual comparison with the original table appearance."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 268,
+                        lineNumber: 271,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SliderField"], {
@@ -950,7 +962,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "DPI scale factor for all rendered images. 1.0 = 72 DPI (screen quality). 2.0 = 144 DPI (HiDPI/Retina quality). 4.0 = 288 DPI (print quality). Higher values produce sharper images but increase file size and memory usage proportionally."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 277,
+                        lineNumber: 280,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -962,19 +974,49 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Include raw layout detection results (bounding boxes, element labels) in the output document before post-processing. Useful for debugging layout model predictions or understanding why certain content was misclassified."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 290,
+                        lineNumber: 293,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 249,
+                lineNumber: 252,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ConfigSection"], {
                 icon: "📐",
                 title: "Layout Options",
                 children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectField"], {
+                        id: "layout_model",
+                        label: "Layout Model",
+                        paramKey: "layout_options.model",
+                        value: o.layout_options.model,
+                        options: [
+                            {
+                                value: "default",
+                                label: "Default"
+                            },
+                            {
+                                value: "layout_heron_default",
+                                label: "Heron Default (Balanced)"
+                            },
+                            {
+                                value: "layout_heron_v1",
+                                label: "Heron V1 (Accurate)"
+                            },
+                            {
+                                value: "layout_smock_v1",
+                                label: "Smock V1"
+                            }
+                        ],
+                        onChange: (v)=>onUpdate(p("layout_options.model"), v),
+                        tooltip: "Select the underlying object detection model used to identify layout elements (e.g. text blocks, formulas, tables). Heron is the standard robust choice, but other models like Smock might perform better on complex documents or sparse formulas."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 305,
+                        columnNumber: 9
+                    }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
                         id: "keep_images",
                         label: "Preserve Images in Output",
@@ -984,7 +1026,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "When enabled, detected image regions are preserved as picture elements in the parsed document. Disable to strip all images from the output, producing a text-only result with reduced file size."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 302,
+                        lineNumber: 320,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -996,7 +1038,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Falls back to older rule-based layout heuristics instead of the neural layout model. Enable only for simple, well-structured single-column documents where the AI model produces incorrect results (e.g., single-column academic papers with simple formatting)."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 311,
+                        lineNumber: 329,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1010,28 +1052,91 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Number of pages processed simultaneously by the layout analysis model. Increasing this improves GPU utilisation but requires more VRAM. Reduce if you encounter CUDA out-of-memory errors on large documents."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 320,
+                        lineNumber: 338,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                        className: "section-label",
+                        children: "Heading Hierarchy"
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 349,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
+                        label: "Enable Hierarchy Inference",
+                        paramKey: "heading_hierarchy_options.enabled",
+                        checked: o.heading_hierarchy_options.enabled,
+                        onChange: (v)=>onUpdate(p("heading_hierarchy_options.enabled"), v),
+                        tooltip: "Enable docling's advanced heading hierarchy inference. If disabled, all headings are treated as level 1."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 350,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SliderField"], {
-                        id: "heading_depth",
-                        label: "Heading Hierarchy Depth",
-                        paramKey: "heading_hierarchy_options.hierarchy_expansion_depth",
-                        value: o.heading_hierarchy_options.hierarchy_expansion_depth,
+                        id: "heading_max_level",
+                        label: "Maximum Heading Level",
+                        paramKey: "heading_hierarchy_options.max_level",
+                        value: o.heading_hierarchy_options.max_level,
                         min: 1,
                         max: 6,
                         step: 1,
-                        onChange: (v)=>onUpdate(p("heading_hierarchy_options.hierarchy_expansion_depth"), v),
-                        tooltip: "Maximum heading nesting depth inferred from font size and style signals. Depth 3 constructs H1→H2→H3 levels. Increasing depth produces finer-grained document structure but may over-segment documents with inconsistent formatting."
+                        onChange: (v)=>onUpdate(p("heading_hierarchy_options.max_level"), v),
+                        tooltip: "Maximum heading nesting depth inferred. Depth 3 constructs H1→H2→H3 levels."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 331,
+                        lineNumber: 357,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
+                        label: "Use PDF Bookmarks",
+                        paramKey: "heading_hierarchy_options.use_bookmarks",
+                        checked: o.heading_hierarchy_options.use_bookmarks,
+                        onChange: (v)=>onUpdate(p("heading_hierarchy_options.use_bookmarks"), v),
+                        tooltip: "Use internal PDF bookmarks (TOC) to infer heading structure."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 368,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
+                        label: "Use Numbering",
+                        paramKey: "heading_hierarchy_options.use_numbering",
+                        checked: o.heading_hierarchy_options.use_numbering,
+                        onChange: (v)=>onUpdate(p("heading_hierarchy_options.use_numbering"), v),
+                        tooltip: "Infer heading hierarchy based on explicit numbering patterns (e.g., 1.1, 1.2.1)."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 375,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
+                        label: "Use Visual Style",
+                        paramKey: "heading_hierarchy_options.use_style",
+                        checked: o.heading_hierarchy_options.use_style,
+                        onChange: (v)=>onUpdate(p("heading_hierarchy_options.use_style"), v),
+                        tooltip: "Use physical visual styling (bold, italic) to infer hierarchy. NOTE: This requires 'Generate Parsed Pages' to be enabled under Layout Options."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 382,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
+                        label: "Use Font Size",
+                        paramKey: "heading_hierarchy_options.use_font_style",
+                        checked: o.heading_hierarchy_options.use_font_style,
+                        onChange: (v)=>onUpdate(p("heading_hierarchy_options.use_font_style"), v),
+                        tooltip: "Use physical font size to infer hierarchy. NOTE: This requires 'Generate Parsed Pages' to be enabled under Layout Options."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 389,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 301,
+                lineNumber: 304,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1043,7 +1148,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Picture Description VLM"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 346,
+                        lineNumber: 400,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1069,7 +1174,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Vision-language model backend for generating picture captions. 'granite_vision' runs locally using IBM Granite Vision. 'api' calls a remote VLM endpoint (requires enable_remote_services). 'disabled' skips captioning entirely."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 347,
+                        lineNumber: 401,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["TextareaField"], {
@@ -1081,14 +1186,14 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "The prompt sent to the VLM for each detected picture. Customise for domain-specific extraction — e.g., 'Identify all chemical structures and their IUPAC names' for chemistry documents, or 'Describe all axes, legend, and data trends' for charts."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 360,
+                        lineNumber: 414,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "divider"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 369,
+                        lineNumber: 423,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1096,7 +1201,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Picture Classification"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 370,
+                        lineNumber: 424,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1118,14 +1223,14 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Model for classifying detected pictures into categories: photograph, chart, diagram, logo, table, etc. The label is stored as metadata on each picture element for downstream routing."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 371,
+                        lineNumber: 425,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "divider"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 384,
+                        lineNumber: 438,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1133,7 +1238,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Code & Formula Recognition"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 385,
+                        lineNumber: 439,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1149,20 +1254,24 @@ function ConfigPanel({ config, onUpdate }) {
                             {
                                 value: "granite",
                                 label: "Granite (IBM, local)"
+                            },
+                            {
+                                value: "codeformulav2",
+                                label: "CodeFormulaV2 (New Default)"
                             }
                         ],
                         onChange: (v)=>onUpdate(p("code_formula_options.kind"), v),
                         tooltip: "Model for enriching code blocks and mathematical formulas. When enabled, code blocks are structured with language labels, and math expressions are converted to LaTeX. Requires additional model downloads on first use."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 386,
+                        lineNumber: 440,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "divider"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 399,
+                        lineNumber: 454,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1170,7 +1279,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Chart Data Extraction"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 400,
+                        lineNumber: 455,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1192,13 +1301,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Automated data extraction from bar charts, line graphs, and pie charts into structured tables. When enabled, chart data becomes queryable text rather than opaque images. Experimental feature — adds significant processing time."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 401,
+                        lineNumber: 456,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 345,
+                lineNumber: 399,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1228,7 +1337,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Hardware device for PyTorch model inference. CPU works universally. CUDA requires an NVIDIA GPU with matching drivers. MPS uses Apple Silicon's Metal Performance Shaders. GPU inference is 5–20× faster for OCR and table structure models."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 417,
+                        lineNumber: 472,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SliderField"], {
@@ -1243,14 +1352,14 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Number of CPU threads for PyTorch operations. Only effective when device=cpu. Higher values can improve throughput on multi-core machines up to a saturation point (typically 8–16 threads on modern CPUs)."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 431,
+                        lineNumber: 486,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "divider"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 443,
+                        lineNumber: 498,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1258,7 +1367,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Queue & Pipeline Tuning"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 444,
+                        lineNumber: 499,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1271,7 +1380,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Maximum number of page items buffered between pipeline stages. Larger values allow more in-flight work between model stages at the cost of higher memory usage during processing."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 446,
+                        lineNumber: 501,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1284,7 +1393,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "How frequently (in seconds) the pipeline checks each stage for completed batches. Lower values reduce latency between stages but increase CPU overhead. The default of 0.5s is suitable for most use cases."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 456,
+                        lineNumber: 511,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1297,13 +1406,91 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Maximum seconds to wait for a pipeline stage to flush its queue and shut down after processing completes. Increase this value if you see incomplete output on very large documents (100+ pages)."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 466,
+                        lineNumber: 521,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 416,
+                lineNumber: 471,
+                columnNumber: 7
+            }, this),
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ConfigSection"], {
+                icon: "🔄",
+                title: "Iterate Items Options",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
+                        label: "With Groups",
+                        paramKey: "iterate_items_options.with_groups",
+                        checked: config.iterate_items_options.with_groups,
+                        onChange: (v)=>onUpdate("iterate_items_options.with_groups", v),
+                        tooltip: "If enabled, yields group items as well as leaf items."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 534,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
+                        label: "Traverse Pictures",
+                        paramKey: "iterate_items_options.traverse_pictures",
+                        checked: config.iterate_items_options.traverse_pictures,
+                        onChange: (v)=>onUpdate("iterate_items_options.traverse_pictures", v),
+                        tooltip: "If enabled, iterates through elements embedded within picture items."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 541,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["NumberField"], {
+                        id: "iterate_page_no",
+                        label: "Page Number Filter",
+                        paramKey: "iterate_items_options.page_no",
+                        value: config.iterate_items_options.page_no ?? undefined,
+                        min: 1,
+                        onChange: (v)=>onUpdate("iterate_items_options.page_no", v === undefined ? null : v),
+                        tooltip: "Only iterate items on a specific 1-indexed page. Leave blank to iterate all pages."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 548,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["MultiCheckField"], {
+                        label: "Included Content Layers",
+                        paramKey: "iterate_items_options.included_content_layers",
+                        options: [
+                            {
+                                value: "body",
+                                label: "Body"
+                            },
+                            {
+                                value: "furniture",
+                                label: "Furniture (headers/footers)"
+                            },
+                            {
+                                value: "background",
+                                label: "Background"
+                            },
+                            {
+                                value: "invisible",
+                                label: "Invisible"
+                            },
+                            {
+                                value: "notes",
+                                label: "Notes"
+                            }
+                        ],
+                        selected: config.iterate_items_options.included_content_layers,
+                        onChange: (v)=>onUpdate("iterate_items_options.included_content_layers", v),
+                        tooltip: "Filter which layers of content are yielded."
+                    }, void 0, false, {
+                        fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                        lineNumber: 557,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "[project]/src/components/ConfigPanel/index.tsx",
+                lineNumber: 533,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1334,6 +1521,10 @@ function ConfigPanel({ config, onUpdate }) {
                             {
                                 value: "html",
                                 label: "HTML (.html)"
+                            },
+                            {
+                                value: "iterated_items",
+                                label: "Iterated Items (.json)"
                             }
                         ],
                         selected: config.output.formats,
@@ -1341,7 +1532,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Select all output formats to generate for each run. Markdown and JSON are recommended for most RAG pipelines. DocTags is Docling's token format for fine-tuning. HTML requires a recent Docling version."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 479,
+                        lineNumber: 575,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1352,7 +1543,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Render each page in its own section with the page image as background. Requires 'Generate Page Images' to be enabled."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 494,
+                        lineNumber: 591,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1363,7 +1554,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Overlay bounding-box annotations for every detected element (text blocks, tables, figures, etc.) on the HTML page images."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 502,
+                        lineNumber: 599,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["TextField"], {
@@ -1376,13 +1567,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "A human-readable description of what this configuration profile is tuned for. Stored alongside every run output for reproducibility documentation."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 511,
+                        lineNumber: 608,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 478,
+                lineNumber: 574,
                 columnNumber: 7
             }, this)
         ]
@@ -1415,6 +1606,10 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$api$2e$ts__$5b
 ;
 ;
 /** Returns a display label + icon for a given filename. */ function fileLabel(filename) {
+    if (filename === "parsed_items.json") return {
+        icon: "🔄",
+        label: "Iterated Items"
+    };
     if (filename.endsWith(".html")) return {
         icon: "🖼",
         label: "HTML"
@@ -1511,7 +1706,7 @@ function OutputViewer({ runDir, outputFiles }) {
                         children: "📄"
                     }, void 0, false, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 92,
+                        lineNumber: 93,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1519,7 +1714,7 @@ function OutputViewer({ runDir, outputFiles }) {
                         children: "No output yet"
                     }, void 0, false, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 93,
+                        lineNumber: 94,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1531,25 +1726,25 @@ function OutputViewer({ runDir, outputFiles }) {
                                 children: "Run Pipeline"
                             }, void 0, false, {
                                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                                lineNumber: 96,
+                                lineNumber: 97,
                                 columnNumber: 13
                             }, this),
                             " to see parsed document output here."
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 94,
+                        lineNumber: 95,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                lineNumber: 91,
+                lineNumber: 92,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/src/components/OutputViewer/index.tsx",
-            lineNumber: 90,
+            lineNumber: 91,
             columnNumber: 7
         }, this);
     }
@@ -1572,7 +1767,7 @@ function OutputViewer({ runDir, outputFiles }) {
                                     children: icon
                                 }, void 0, false, {
                                     fileName: "[project]/src/components/OutputViewer/index.tsx",
-                                    lineNumber: 118,
+                                    lineNumber: 119,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1580,13 +1775,13 @@ function OutputViewer({ runDir, outputFiles }) {
                                     children: label
                                 }, void 0, false, {
                                     fileName: "[project]/src/components/OutputViewer/index.tsx",
-                                    lineNumber: 119,
+                                    lineNumber: 120,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, f, true, {
                             fileName: "[project]/src/components/OutputViewer/index.tsx",
-                            lineNumber: 112,
+                            lineNumber: 113,
                             columnNumber: 13
                         }, this);
                     }),
@@ -1597,13 +1792,13 @@ function OutputViewer({ runDir, outputFiles }) {
                         children: iframeExpanded ? "⊟ Collapse" : "⊞ Expand"
                     }, void 0, false, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 126,
+                        lineNumber: 127,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                lineNumber: 108,
+                lineNumber: 109,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1616,14 +1811,14 @@ function OutputViewer({ runDir, outputFiles }) {
                                 className: "output-loading__spinner"
                             }, void 0, false, {
                                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                                lineNumber: 141,
+                                lineNumber: 142,
                                 columnNumber: 13
                             }, this),
                             "Loading…"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 140,
+                        lineNumber: 141,
                         columnNumber: 11
                     }, this),
                     error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1634,7 +1829,7 @@ function OutputViewer({ runDir, outputFiles }) {
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 147,
+                        lineNumber: 148,
                         columnNumber: 11
                     }, this),
                     !loading && !error && content !== null && (isHtml ? /* ── HTML renderer: sandboxed iframe with srcDoc ────────────── */ /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1645,7 +1840,7 @@ function OutputViewer({ runDir, outputFiles }) {
                                 children: "🖼 Rendered HTML — page images with bounding-box annotations"
                             }, void 0, false, {
                                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                                lineNumber: 154,
+                                lineNumber: 155,
                                 columnNumber: 15
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("iframe", {
@@ -1658,32 +1853,32 @@ function OutputViewer({ runDir, outputFiles }) {
                                 title: "Parsed document HTML output"
                             }, void 0, false, {
                                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                                lineNumber: 157,
+                                lineNumber: 158,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 153,
+                        lineNumber: 154,
                         columnNumber: 13
                     }, this) : /* ── Plain text renderer ────────────────────────────────────── */ /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("pre", {
                         className: "output-pre",
                         children: content
                     }, void 0, false, {
                         fileName: "[project]/src/components/OutputViewer/index.tsx",
-                        lineNumber: 169,
+                        lineNumber: 170,
                         columnNumber: 13
                     }, this))
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/OutputViewer/index.tsx",
-                lineNumber: 137,
+                lineNumber: 138,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/OutputViewer/index.tsx",
-        lineNumber: 105,
+        lineNumber: 106,
         columnNumber: 5
     }, this);
 }

@@ -1,0 +1,15 @@
+[07:41:32] ▶ Starting pipeline run — ID: 20260907_074132_good-try
+[07:41:32]   Profile: good-try
+[07:41:32]   Input: /Users/olischn/GitHub/pipeline-player/test_data/test_document.pdf
+[07:41:32]   Output dir: /Users/olischn/GitHub/pipeline-player/outputs/run_20260907_074132_good-try
+[07:41:32] ────────────────────────────────────────────────────────────
+[07:41:32] ⚙ Importing Docling...
+[07:41:40] ⚙ Building pipeline options from config...
+[07:41:40] ❌ Pipeline failed: ImportError: cannot import name 'SuryaOcrOptions' from 'docling.datamodel.pipeline_options' (/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/datamodel/pipeline_options.py)
+[07:41:40] Traceback (most recent call last):
+  File "/Users/olischn/GitHub/pipeline-player/backend/services/docling_runner.py", line 262, in run_pipeline
+    pipeline_opts = _build_docling_options(config.pdf_options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/backend/services/docling_runner.py", line 58, in _build_docling_options
+    from docling.datamodel.pipeline_options import (
+ImportError: cannot import name 'SuryaOcrOptions' from 'docling.datamodel.pipeline_options' (/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/datamodel/pipeline_options.py)

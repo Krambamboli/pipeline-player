@@ -157,14 +157,17 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           paramKey="ocr_options.kind"
           value={o.ocr_options.kind}
           options={[
+            { value: "auto", label: "Auto (Best Available)" },
             { value: "easyocr", label: "EasyOCR (GPU-accelerated, 80+ languages)" },
             { value: "rapidocr", label: "RapidOCR (fast, CPU-friendly)" },
             { value: "tesseract", label: "Tesseract (classic, via Python bindings)" },
             { value: "tesseract_cli", label: "Tesseract CLI (subprocess-based)" },
             { value: "ocrmypdf", label: "OCRmyPDF (searchable PDF output)" },
+            { value: "ocrmac", label: "macOS Vision (Native Apple, excellent quality)" },
+            { value: "suryaocr", label: "SuryaOCR (Modern, complex layouts)" },
           ]}
           onChange={(v) => onUpdate(p("ocr_options.kind"), v)}
-          tooltip="The OCR backend engine. EasyOCR handles 80+ languages with GPU support. RapidOCR is optimised for CPU inference. Tesseract is the classic open-source engine. OCRmyPDF produces a searchable PDF as a side effect."
+          tooltip="The OCR backend engine. Auto selects best. EasyOCR handles 80+ languages with GPU support. RapidOCR is optimised for CPU. macOS Vision uses native Apple APIs. SuryaOCR is good for complex layouts."
         />
 
         <TagListField
@@ -299,6 +302,21 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
 
       {/* ── Section 5: Layout ────────────────────────────────────────── */}
       <ConfigSection icon="📐" title="Layout Options">
+        <SelectField
+          id="layout_model"
+          label="Layout Model"
+          paramKey="layout_options.model"
+          value={o.layout_options.model}
+          options={[
+            { value: "default", label: "Default" },
+            { value: "layout_heron_default", label: "Heron Default (Balanced)" },
+            { value: "layout_heron_v1", label: "Heron V1 (Accurate)" },
+            { value: "layout_smock_v1", label: "Smock V1" },
+          ]}
+          onChange={(v) => onUpdate(p("layout_options.model"), v)}
+          tooltip="Select the underlying object detection model used to identify layout elements (e.g. text blocks, formulas, tables). Heron is the standard robust choice, but other models like Smock might perform better on complex documents or sparse formulas."
+        />
+
         <ToggleRow
           id="keep_images"
           label="Preserve Images in Output"
@@ -328,16 +346,52 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           tooltip="Number of pages processed simultaneously by the layout analysis model. Increasing this improves GPU utilisation but requires more VRAM. Reduce if you encounter CUDA out-of-memory errors on large documents."
         />
 
+        <p className="section-label">Heading Hierarchy</p>
+        <ToggleRow
+          label="Enable Hierarchy Inference"
+          paramKey="heading_hierarchy_options.enabled"
+          checked={o.heading_hierarchy_options.enabled}
+          onChange={(v) => onUpdate(p("heading_hierarchy_options.enabled"), v)}
+          tooltip="Enable docling's advanced heading hierarchy inference. If disabled, all headings are treated as level 1."
+        />
         <SliderField
-          id="heading_depth"
-          label="Heading Hierarchy Depth"
-          paramKey="heading_hierarchy_options.hierarchy_expansion_depth"
-          value={o.heading_hierarchy_options.hierarchy_expansion_depth}
+          id="heading_max_level"
+          label="Maximum Heading Level"
+          paramKey="heading_hierarchy_options.max_level"
+          value={o.heading_hierarchy_options.max_level}
           min={1}
           max={6}
           step={1}
-          onChange={(v) => onUpdate(p("heading_hierarchy_options.hierarchy_expansion_depth"), v)}
-          tooltip="Maximum heading nesting depth inferred from font size and style signals. Depth 3 constructs H1→H2→H3 levels. Increasing depth produces finer-grained document structure but may over-segment documents with inconsistent formatting."
+          onChange={(v) => onUpdate(p("heading_hierarchy_options.max_level"), v)}
+          tooltip="Maximum heading nesting depth inferred. Depth 3 constructs H1→H2→H3 levels."
+        />
+        <ToggleRow
+          label="Use PDF Bookmarks"
+          paramKey="heading_hierarchy_options.use_bookmarks"
+          checked={o.heading_hierarchy_options.use_bookmarks}
+          onChange={(v) => onUpdate(p("heading_hierarchy_options.use_bookmarks"), v)}
+          tooltip="Use internal PDF bookmarks (TOC) to infer heading structure."
+        />
+        <ToggleRow
+          label="Use Numbering"
+          paramKey="heading_hierarchy_options.use_numbering"
+          checked={o.heading_hierarchy_options.use_numbering}
+          onChange={(v) => onUpdate(p("heading_hierarchy_options.use_numbering"), v)}
+          tooltip="Infer heading hierarchy based on explicit numbering patterns (e.g., 1.1, 1.2.1)."
+        />
+        <ToggleRow
+          label="Use Visual Style"
+          paramKey="heading_hierarchy_options.use_style"
+          checked={o.heading_hierarchy_options.use_style}
+          onChange={(v) => onUpdate(p("heading_hierarchy_options.use_style"), v)}
+          tooltip="Use physical visual styling (bold, italic) to infer hierarchy. NOTE: This requires 'Generate Parsed Pages' to be enabled under Layout Options."
+        />
+        <ToggleRow
+          label="Use Font Size"
+          paramKey="heading_hierarchy_options.use_font_style"
+          checked={o.heading_hierarchy_options.use_font_style}
+          onChange={(v) => onUpdate(p("heading_hierarchy_options.use_font_style"), v)}
+          tooltip="Use physical font size to infer hierarchy. NOTE: This requires 'Generate Parsed Pages' to be enabled under Layout Options."
         />
       </ConfigSection>
 
@@ -391,6 +445,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           options={[
             { value: "disabled", label: "Disabled (plain text)" },
             { value: "granite", label: "Granite (IBM, local)" },
+            { value: "codeformulav2", label: "CodeFormulaV2 (New Default)" },
           ]}
           onChange={(v) => onUpdate(p("code_formula_options.kind"), v)}
           tooltip="Model for enriching code blocks and mathematical formulas. When enabled, code blocks are structured with language labels, and math expressions are converted to LaTeX. Requires additional model downloads on first use."
@@ -474,7 +529,48 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
         />
       </ConfigSection>
 
-      {/* ── Section 8: Output Formats ────────────────────────────────── */}
+      {/* ── Section 8: Iterate Items ─────────────────────────────────── */}
+      <ConfigSection icon="🔄" title="Iterate Items Options">
+        <ToggleRow
+          label="With Groups"
+          paramKey="iterate_items_options.with_groups"
+          checked={config.iterate_items_options.with_groups}
+          onChange={(v) => onUpdate("iterate_items_options.with_groups", v)}
+          tooltip="If enabled, yields group items as well as leaf items."
+        />
+        <ToggleRow
+          label="Traverse Pictures"
+          paramKey="iterate_items_options.traverse_pictures"
+          checked={config.iterate_items_options.traverse_pictures}
+          onChange={(v) => onUpdate("iterate_items_options.traverse_pictures", v)}
+          tooltip="If enabled, iterates through elements embedded within picture items."
+        />
+        <NumberField
+          id="iterate_page_no"
+          label="Page Number Filter"
+          paramKey="iterate_items_options.page_no"
+          value={config.iterate_items_options.page_no ?? undefined}
+          min={1}
+          onChange={(v) => onUpdate("iterate_items_options.page_no", v === undefined ? null : v)}
+          tooltip="Only iterate items on a specific 1-indexed page. Leave blank to iterate all pages."
+        />
+        <MultiCheckField
+          label="Included Content Layers"
+          paramKey="iterate_items_options.included_content_layers"
+          options={[
+            { value: "body", label: "Body" },
+            { value: "furniture", label: "Furniture (headers/footers)" },
+            { value: "background", label: "Background" },
+            { value: "invisible", label: "Invisible" },
+            { value: "notes", label: "Notes" },
+          ]}
+          selected={config.iterate_items_options.included_content_layers}
+          onChange={(v) => onUpdate("iterate_items_options.included_content_layers", v)}
+          tooltip="Filter which layers of content are yielded."
+        />
+      </ConfigSection>
+
+      {/* ── Section 9: Output Formats ────────────────────────────────── */}
       <ConfigSection icon="📤" title="Output Formats" defaultOpen={true}>
         <MultiCheckField
           label="Generate Output Formats"
@@ -485,6 +581,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
             { value: "doctags", label: "DocTags (.doctags)" },
             { value: "text", label: "Plain Text (.txt)" },
             { value: "html", label: "HTML (.html)" },
+            { value: "iterated_items", label: "Iterated Items (.json)" },
           ]}
           selected={config.output.formats}
           onChange={(v) => onUpdate("output.formats", v)}

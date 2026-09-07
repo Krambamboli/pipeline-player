@@ -30,6 +30,9 @@ class OcrEngine(str, Enum):
     TESSERACT = "tesseract"
     TESSERACT_CLI = "tesseract_cli"
     OCRMYPDF = "ocrmypdf"
+    MAC_OS_VISION = "ocrmac"
+    SURYAOCR = "suryaocr"
+    AUTO = "auto"
 
 
 class TableStructureMode(str, Enum):
@@ -54,6 +57,7 @@ class OutputFormat(str, Enum):
     DOCTAGS = "doctags"
     TEXT = "text"
     HTML = "html"
+    ITERATED_ITEMS = "iterated_items"
 
 
 class PictureDescriptionKind(str, Enum):
@@ -72,6 +76,7 @@ class PictureClassificationKind(str, Enum):
 class CodeFormulaKind(str, Enum):
     """Model backend for code/formula enrichment."""
     GRANITE = "granite"
+    CODEFORMULAV2 = "codeformulav2"
     DISABLED = "disabled"
 
 
@@ -183,10 +188,22 @@ class AcceleratorOptions(BaseModel):
     )
 
 
+class LayoutModelKind(str, Enum):
+    DEFAULT = "default"
+    HERON_DEFAULT = "layout_heron_default"
+    HERON_V1 = "layout_heron_v1"
+    SMOCK_V1 = "layout_smock_v1"
+
+
 class LayoutOptions(BaseModel):
     """
     Options controlling the page layout analysis model behaviour.
     """
+
+    model: LayoutModelKind = Field(
+        default=LayoutModelKind.DEFAULT,
+        description="The layout object detection model preset to use.",
+    )
 
     keep_images: bool = Field(
         default=True,
@@ -211,17 +228,14 @@ class HeadingHierarchyOptions(BaseModel):
     Controls how detected headings are organised into a hierarchy tree.
     """
 
-    hierarchy_expansion_depth: int = Field(
-        default=3,
-        ge=1,
-        le=6,
-        description=(
-            "Maximum heading nesting depth to infer from font size / style signals. "
-            "A depth of 3 means H1→H2→H3 levels are constructed. Increasing depth "
-            "produces finer-grained document structure but may over-segment documents "
-            "with inconsistent formatting."
-        ),
-    )
+    enabled: bool = Field(default=False)
+    use_bookmarks: bool = Field(default=True)
+    use_numbering: bool = Field(default=True)
+    use_style: bool = Field(default=True)
+    use_font_style: bool = Field(default=True)
+    style_size_tolerance: float = Field(default=0.05)
+    max_level: int = Field(default=6)
+    bookmark_match_threshold: float = Field(default=0.8)
 
 
 class PictureDescriptionOptions(BaseModel):
@@ -623,6 +637,31 @@ class OutputSettings(BaseModel):
     )
 
 
+class ContentLayer(str, Enum):
+    """Corresponds to docling_core ContentLayer."""
+    BODY = "body"
+    FURNITURE = "furniture"
+    BACKGROUND = "background"
+    INVISIBLE = "invisible"
+    NOTES = "notes"
+
+
+class IterateItemsOptions(BaseModel):
+    """Options for extracting items from the docling document."""
+    with_groups: bool = Field(default=False)
+    traverse_pictures: bool = Field(default=False)
+    page_no: Optional[int] = Field(default=None)
+    included_content_layers: List[ContentLayer] = Field(
+        default_factory=lambda: [
+            ContentLayer.BODY,
+            ContentLayer.FURNITURE,
+            ContentLayer.BACKGROUND,
+            ContentLayer.INVISIBLE,
+            ContentLayer.NOTES
+        ]
+    )
+
+
 class PipelineConfig(BaseModel):
     """
     The root configuration schema stored in YAML files under /configs/.
@@ -647,4 +686,9 @@ class PipelineConfig(BaseModel):
     output: OutputSettings = Field(
         default_factory=OutputSettings,
         description="Output format and routing settings.",
+    )
+
+    iterate_items_options: IterateItemsOptions = Field(
+        default_factory=IterateItemsOptions,
+        description="Settings for iteration over items.",
     )

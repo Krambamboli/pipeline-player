@@ -3,14 +3,22 @@
  * Keep this in sync with backend/models/config_schema.py.
  */
 
-export type OcrEngine = "easyocr" | "rapidocr" | "tesseract" | "tesseract_cli" | "ocrmypdf";
+export type OcrEngine = "easyocr" | "rapidocr" | "tesseract" | "tesseract_cli" | "ocrmypdf" | "ocrmac" | "suryaocr" | "auto";
 export type TableStructureMode = "fast" | "accurate";
 export type AcceleratorDevice = "cpu" | "cuda" | "mps";
-export type OutputFormat = "markdown" | "json" | "doctags" | "text" | "html";
+export type OutputFormat = "markdown" | "json" | "doctags" | "text" | "html" | "iterated_items";
 export type PictureDescriptionKind = "granite_vision" | "api" | "disabled";
 export type PictureClassificationKind = "docling" | "disabled";
-export type CodeFormulaKind = "granite" | "disabled";
+export type CodeFormulaKind = "granite" | "codeformulav2" | "disabled";
 export type ChartExtractionKind = "docling" | "disabled";
+export type ContentLayer = "body" | "furniture" | "background" | "invisible" | "notes";
+
+export interface IterateItemsOptions {
+  with_groups: boolean;
+  traverse_pictures: boolean;
+  page_no: number | null;
+  included_content_layers: ContentLayer[];
+}
 
 export interface OcrOptions {
   kind: OcrEngine;
@@ -29,13 +37,28 @@ export interface AcceleratorOptions {
   num_threads: number;
 }
 
+export enum LayoutModelKind {
+  DEFAULT = 'default',
+  HERON_DEFAULT = 'layout_heron_default',
+  HERON_V1 = 'layout_heron_v1',
+  SMOCK_V1 = 'layout_smock_v1',
+}
+
 export interface LayoutOptions {
+  model: LayoutModelKind;
   keep_images: boolean;
   use_legacy_layout: boolean;
 }
 
 export interface HeadingHierarchyOptions {
-  hierarchy_expansion_depth: number;
+  enabled: boolean;
+  use_bookmarks: boolean;
+  use_numbering: boolean;
+  use_style: boolean;
+  use_font_style: boolean;
+  style_size_tolerance: number;
+  max_level: number;
+  bookmark_match_threshold: number;
 }
 
 export interface PictureDescriptionOptions {
@@ -108,6 +131,7 @@ export interface PipelineConfig {
   description: string;
   pdf_options: PdfPipelineOptions;
   output: OutputSettings;
+  iterate_items_options: IterateItemsOptions;
 }
 
 /** SSE event payloads from the pipeline stream */

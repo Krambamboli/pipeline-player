@@ -19,6 +19,7 @@ interface Props {
 
 /** Returns a display label + icon for a given filename. */
 function fileLabel(filename: string): { icon: string; label: string } {
+  if (filename === "parsed_items.json") return { icon: "🔄", label: "Iterated Items" };
   if (filename.endsWith(".html"))   return { icon: "🖼", label: "HTML" };
   if (filename.endsWith(".md"))     return { icon: "📝", label: "Markdown" };
   if (filename.endsWith(".json"))   return { icon: "{ }", label: "JSON" };

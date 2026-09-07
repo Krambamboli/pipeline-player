@@ -64,6 +64,8 @@ def _build_docling_options(our_opts: OurPdfOptions):
         TableStructureOptions as DTableStructureOptions,
         TesseractCliOcrOptions,
         TesseractOcrOptions,
+        SuryaOcrOptions,
+        OcrAutoOptions,
     )
     from docling.datamodel.base_models import InputFormat
 
@@ -83,8 +85,14 @@ def _build_docling_options(our_opts: OurPdfOptions):
                 return TesseractOcrOptions(lang="+".join(o.ocr_options.lang))
             elif kind == OcrEngine.TESSERACT_CLI:
                 return TesseractCliOcrOptions(lang="+".join(o.ocr_options.lang))
+            elif kind == OcrEngine.MAC_OS_VISION:
+                return OcrMacOptions()
+            elif kind == OcrEngine.SURYAOCR:
+                return SuryaOcrOptions()
+            elif kind == OcrEngine.AUTO:
+                return OcrAutoOptions()
             else:
-                # RAPIDOCR / OCRMAC / unknown — all use RapidOCR as the safe default
+                # RAPIDOCR / OCRMYPDF / unknown — all use RapidOCR as the safe default
                 return RapidOcrOptions()
         except ImportError as exc:
             # The requested engine's package isn't installed; fall back and warn
@@ -137,6 +145,28 @@ def _build_docling_options(our_opts: OurPdfOptions):
     # --- Build the main PdfPipelineOptions ---
     artifacts_path = Path(o.artifacts_path) if o.artifacts_path else None
 
+    from docling.datamodel.pipeline_options import HeadingHierarchyOptions as DHeadingOptions
+    from docling.datamodel.pipeline_options import CodeFormulaVlmOptions
+    
+    heading_opts = DHeadingOptions(
+        enabled=o.heading_hierarchy_options.enabled,
+        use_bookmarks=o.heading_hierarchy_options.use_bookmarks,
+        use_numbering=o.heading_hierarchy_options.use_numbering,
+        use_style=o.heading_hierarchy_options.use_style,
+        use_font_style=o.heading_hierarchy_options.use_font_style,
+        style_size_tolerance=o.heading_hierarchy_options.style_size_tolerance,
+        max_level=o.heading_hierarchy_options.max_level,
+        bookmark_match_threshold=o.heading_hierarchy_options.bookmark_match_threshold,
+    )
+
+    code_formula_opts = CodeFormulaVlmOptions.from_preset("codeformulav2")
+    if o.code_formula_options and o.code_formula_options.kind == "granite":
+        code_formula_opts = CodeFormulaVlmOptions.from_preset("granite_docling")
+
+    from docling.datamodel.pipeline_options import LayoutObjectDetectionOptions
+
+    layout_opts = LayoutObjectDetectionOptions.from_preset(o.layout_options.model.value)
+
     pipeline_opts = DPdfPipelineOptions(
         do_ocr=o.do_ocr,
         do_table_structure=o.do_table_structure,
@@ -153,6 +183,9 @@ def _build_docling_options(our_opts: OurPdfOptions):
         ocr_options=ocr_options,
         table_structure_options=table_opts,
         accelerator_options=acc_opts,
+        heading_hierarchy_options=heading_opts,
+        code_formula_options=code_formula_opts,
+        layout_options=layout_opts,
     )
 
     # Apply optional fields if supported by installed version
@@ -241,13 +274,43 @@ def run_pipeline(config: PipelineConfig) -> Generator[str, None, RunResult]:
         t_start = time.perf_counter()
 
         captured_warnings: List[str] = []
-        with warnings.catch_warnings(record=True) as caught_warnings:
-            warnings.simplefilter("always")
-            result = converter.convert(str(TEST_DOC))
-            for w in caught_warnings:
-                msg = f"⚠ {w.category.__name__}: {w.message}"
-                captured_warnings.append(msg)
-                yield log(msg)
+        
+        def run_conversion() -> any:
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                res = converter.convert(str(TEST_DOC))
+                for w in caught_warnings:
+                    # Ignore noisy pydantic deprecation warning from docling-core
+                    if w.category == DeprecationWarning and "Field `annotations` is deprecated; use `meta` instead" in str(w.message):
+                        continue
+                    msg = f"⚠ {w.category.__name__}: {w.message}"
+                    captured_warnings.append(msg)
+                return res
+
+        try:
+            result = run_conversion()
+            for w in captured_warnings:
+                yield log(w)
+        except Exception as e:
+            if type(e).__name__ == "AcceleratorDeviceNotAvailableError" and "MPS" in str(e):
+                yield log("⚠ MPS explicitly requested but not supported by all active models.")
+                yield log("⚙ Falling back to AUTO device selection (MPS for layout, CPU for VLMs)...")
+                
+                from docling.datamodel.pipeline_options import AcceleratorDevice as DAccDevice
+                pipeline_opts.accelerator_options.device = DAccDevice.AUTO
+                converter = DocumentConverter(
+                    format_options={
+                        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_opts)
+                    }
+                )
+                
+                # Clear previous warnings and retry
+                captured_warnings.clear()
+                result = run_conversion()
+                for w in captured_warnings:
+                    yield log(w)
+            else:
+                raise
 
         t_elapsed = time.perf_counter() - t_start
         yield log(f"✓ Conversion complete in {t_elapsed:.2f}s")
@@ -322,6 +385,35 @@ def run_pipeline(config: PipelineConfig) -> Generator[str, None, RunResult]:
                 except Exception as ex:
                     yield log(f"  ⚠ Failed to export annotated HTML: {ex}. "
                               f"Is docling-core up to date?")
+
+            elif fmt == OutputFormat.ITERATED_ITEMS:
+                try:
+                    import json
+                    from docling_core.types.doc.common.content_layer import ContentLayer as CoreContentLayer
+
+                    iter_opts = config.iterate_items_options
+                    layers = {CoreContentLayer(l.value) for l in iter_opts.included_content_layers} if iter_opts.included_content_layers else None
+
+                    items_list = []
+                    for item, level in doc.iterate_items(
+                        with_groups=iter_opts.with_groups,
+                        traverse_pictures=iter_opts.traverse_pictures,
+                        page_no=iter_opts.page_no,
+                        included_content_layers=layers,
+                    ):
+                        items_list.append({
+                            "label": getattr(item.label, "value", str(item.label)) if hasattr(item, "label") else None,
+                            "text": getattr(item, "text", None),
+                            "level": level,
+                            "self_ref": item.get_ref() if hasattr(item, "get_ref") else None
+                        })
+                    
+                    out_path = run_dir / "parsed_items.json"
+                    out_path.write_text(json.dumps(items_list, indent=2), encoding="utf-8")
+                    output_files.append(str(out_path.name))
+                    yield log(f"  ✓ Iterated Items ({len(items_list)}) → {out_path.name}")
+                except Exception as ex:
+                    yield log(f"  ⚠ Failed to generate iterated items: {ex}")
 
 
 

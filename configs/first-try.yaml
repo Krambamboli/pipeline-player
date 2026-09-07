@@ -1,5 +1,5 @@
 profile_name: first-try
-description: Default Docling pipeline configuration — a balanced starting point.
+description: "Default Docling pipeline configuration \u2014 a balanced starting point."
 pdf_options:
   do_ocr: true
   do_table_structure: true
@@ -38,7 +38,14 @@ pdf_options:
     keep_images: true
     use_legacy_layout: false
   heading_hierarchy_options:
-    hierarchy_expansion_depth: 3
+    enabled: true
+    use_bookmarks: true
+    use_numbering: true
+    use_style: true
+    use_font_style: true
+    style_size_tolerance: 0.05
+    max_level: 6
+    bookmark_match_threshold: 0.8
   accelerator_options:
     device: auto
     num_threads: 4

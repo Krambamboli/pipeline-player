@@ -1,0 +1,20 @@
+[09:27:30] ▶ Starting pipeline run — ID: 20260904_092730_third_try
+[09:27:30]   Profile: third_try
+[09:27:30]   Input: /Users/olischn/GitHub/pipeline-player/test_data/test_document.pdf
+[09:27:30]   Output dir: /Users/olischn/GitHub/pipeline-player/outputs/run_20260904_092730_third_try
+[09:27:30] ────────────────────────────────────────────────────────────
+[09:27:30] ⚙ Importing Docling...
+[09:27:53] ⚙ Building pipeline options from config...
+[09:27:53] ⚙ Initialising DocumentConverter...
+[09:27:53] ⚙ Running document conversion (this may take a moment)...
+[09:28:05] ⚠ MPS explicitly requested but not supported by all active models.
+[09:28:05] ⚙ Falling back to AUTO device selection (MPS for layout, CPU for VLMs)...
+[09:29:12] ⚠ DeprecationWarning: deprecated
+[09:29:12] ✓ Conversion complete in 78.75s
+[09:29:12]   Pages processed: 8
+[09:29:12] ────────────────────────────────────────────────────────────
+[09:29:12] 💾 Writing output files...
+[09:29:12]   ✓ HTML → parsed_doc.html (split_page=True, annotations=True)
+[09:29:12]   ✓ Config copy → config.yaml
+[09:29:12] ────────────────────────────────────────────────────────────
+[09:29:12] ✅ Run complete — 78.75s | 2 files written

@@ -1,0 +1,23 @@
+[16:55:28] ▶ Starting pipeline run — ID: 20260903_165528_second_try
+[16:55:28]   Profile: second_try
+[16:55:28]   Input: /Users/olischn/GitHub/pipeline-player/test_data/test_document.pdf
+[16:55:28]   Output dir: /Users/olischn/GitHub/pipeline-player/outputs/run_20260903_165528_second_try
+[16:55:28] ────────────────────────────────────────────────────────────
+[16:55:28] ⚙ Importing Docling...
+[16:55:28] ⚙ Building pipeline options from config...
+[16:55:28] ⚙ Initialising DocumentConverter...
+[16:55:28] ⚙ Running document conversion (this may take a moment)...
+[16:55:32] ⚠ MPS explicitly requested but not supported by all active models.
+[16:55:32] ⚙ Falling back to AUTO device selection (MPS for layout, CPU for VLMs)...
+[16:56:42] ⚠ DeprecationWarning: deprecated
+[16:56:42] ⚠ DeprecationWarning: Field `annotations` is deprecated; use `meta` instead.
+[16:56:42] ⚠ DeprecationWarning: Field `annotations` is deprecated; use `meta` instead.
+[16:56:42] ⚠ DeprecationWarning: Field `annotations` is deprecated; use `meta` instead.
+[16:56:42] ✓ Conversion complete in 74.00s
+[16:56:42]   Pages processed: 8
+[16:56:42] ────────────────────────────────────────────────────────────
+[16:56:42] 💾 Writing output files...
+[16:56:43]   ✓ HTML → parsed_doc.html (split_page=True, annotations=True)
+[16:56:43]   ✓ Config copy → config.yaml
+[16:56:43] ────────────────────────────────────────────────────────────
+[16:56:43] ✅ Run complete — 74.00s | 2 files written
