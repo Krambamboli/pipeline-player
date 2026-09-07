@@ -39,7 +39,6 @@ from services.config_manager import copy_profile_to
 
 # Root paths
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-TEST_DOC = REPO_ROOT / "test_data" / "test_document.pdf"
 OUTPUTS_DIR = REPO_ROOT / "outputs"
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -64,7 +63,6 @@ def _build_docling_options(our_opts: OurPdfOptions):
         TableStructureOptions as DTableStructureOptions,
         TesseractCliOcrOptions,
         TesseractOcrOptions,
-        SuryaOcrOptions,
         OcrAutoOptions,
     )
     from docling.datamodel.base_models import InputFormat
@@ -86,9 +84,8 @@ def _build_docling_options(our_opts: OurPdfOptions):
             elif kind == OcrEngine.TESSERACT_CLI:
                 return TesseractCliOcrOptions(lang="+".join(o.ocr_options.lang))
             elif kind == OcrEngine.MAC_OS_VISION:
+                import ocrmac  # noqa: F401
                 return OcrMacOptions()
-            elif kind == OcrEngine.SURYAOCR:
-                return SuryaOcrOptions()
             elif kind == OcrEngine.AUTO:
                 return OcrAutoOptions()
             else:
@@ -135,10 +132,20 @@ def _build_docling_options(our_opts: OurPdfOptions):
         AcceleratorDevice.MPS: DAccDevice.MPS,
         AcceleratorDevice.XPU: DAccDevice.XPU,
     }
+    
+    selected_device = dev_map.get(o.accelerator_options.device, DAccDevice.AUTO)
+    
+    # Force AUTO if user chose MPS but enabled VLM models that don't support it
+    if selected_device == DAccDevice.MPS and (o.do_code_enrichment or o.do_formula_enrichment or getattr(o, "do_picture_description", False)):
+        import logging
+        logging.getLogger(__name__).warning(
+            "MPS is not supported by VLM models (Code/Formula/Picture Description). "
+            "Falling back to AUTO so supported models use MPS and VLMs use CPU."
+        )
+        selected_device = DAccDevice.AUTO
+
     acc_opts = DAcceleratorOptions(
-        # Fall back to AUTO (not CPU) when device is unknown, so MPS is still used
-        # for models that support it.
-        device=dev_map.get(o.accelerator_options.device, DAccDevice.AUTO),
+        device=selected_device,
         num_threads=o.accelerator_options.num_threads,
     )
 
@@ -165,7 +172,10 @@ def _build_docling_options(our_opts: OurPdfOptions):
 
     from docling.datamodel.pipeline_options import LayoutObjectDetectionOptions
 
-    layout_opts = LayoutObjectDetectionOptions.from_preset(o.layout_options.model.value)
+    if o.layout_options.model.value == "default":
+        layout_opts = LayoutObjectDetectionOptions() # uses built-in default
+    else:
+        layout_opts = LayoutObjectDetectionOptions.from_preset(o.layout_options.model.value)
 
     pipeline_opts = DPdfPipelineOptions(
         do_ocr=o.do_ocr,
@@ -201,251 +211,91 @@ def _build_docling_options(our_opts: OurPdfOptions):
 # Main runner
 # ---------------------------------------------------------------------------
 
-def run_pipeline(config: PipelineConfig) -> Generator[str, None, RunResult]:
-    """
-    Execute the Docling pipeline and yield log lines for SSE streaming.
+import sys
+import subprocess
+import json
+from typing import Dict, Generator
+from datetime import datetime
 
-    Yields:
-        str — JSON-serializable log line strings prefixed with event type.
+_active_processes: Dict[str, subprocess.Popen] = {}
 
-    Returns (via StopIteration value):
-        RunResult — metadata about the completed run.
+def get_active_process(run_id: str) -> subprocess.Popen | None:
+    return _active_processes.get(run_id)
+
+def cancel_run(run_id: str) -> bool:
+    """Cancels an active run by terminating its subprocess."""
+    process = _active_processes.get(run_id)
+    if process:
+        process.terminate()
+        return True
+    return False
+
+def run_pipeline(config: PipelineConfig, filename: str) -> Generator[str, None, RunResult]:
     """
-    # Create the output directory for this run.
+    Spawns the docling_worker.py subprocess to execute the pipeline.
+    Yields log lines and progress events for SSE streaming.
+    Returns RunResult metadata when exhausted.
+    """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_id = f"{timestamp}_{config.profile_name}"
     run_dir = OUTPUTS_DIR / f"run_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    run_result = RunResult(
-        run_id=run_id,
-        profile_name=config.profile_name,
-        status=RunStatus.RUNNING,
-        output_dir=str(run_dir.relative_to(REPO_ROOT)),
+    worker_script = Path(__file__).parent / "docling_worker.py"
+    cmd = [
+        sys.executable,
+        str(worker_script),
+        config.profile_name,
+        filename,
+        str(run_dir)
+    ]
+
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
     )
-
-    log_lines: List[str] = []
-
-    def log(msg: str) -> str:
-        """Emit a log line, storing it for the run.log file."""
-        timestamped = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
-        log_lines.append(timestamped)
-        return timestamped
+    
+    _active_processes[run_id] = process
+    log_lines = []
 
     try:
-        yield log(f"▶ Starting pipeline run — ID: {run_id}")
-        yield log(f"  Profile: {config.profile_name}")
-        yield log(f"  Input: {TEST_DOC}")
-        yield log(f"  Output dir: {run_dir}")
-        yield log("─" * 60)
+        # We need to yield the run_id first so the client knows it
+        yield f"__RUN_ID__={run_id}"
 
-        # --- Validate test document exists ---
-        if not TEST_DOC.exists():
-            raise FileNotFoundError(
-                f"Test document not found at {TEST_DOC}. "
-                "Please ensure test_data/test_document.pdf exists."
-            )
-
-        # --- Import Docling ---
-        yield log("⚙ Importing Docling...")
-        try:
-            from docling.document_converter import DocumentConverter, PdfFormatOption
-            from docling.datamodel.base_models import InputFormat
-        except ImportError as e:
-            raise ImportError(
-                f"Docling is not installed: {e}. "
-                "Run: pip install docling"
-            ) from e
-
-        # --- Build pipeline options ---
-        yield log("⚙ Building pipeline options from config...")
-        pipeline_opts = _build_docling_options(config.pdf_options)
-
-        # --- Initialize the converter ---
-        yield log("⚙ Initialising DocumentConverter...")
-        converter = DocumentConverter(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_opts)
-            }
-        )
-
-        # --- Run conversion ---
-        yield log("⚙ Running document conversion (this may take a moment)...")
-        t_start = time.perf_counter()
-
-        captured_warnings: List[str] = []
-        
-        def run_conversion() -> any:
-            with warnings.catch_warnings(record=True) as caught_warnings:
-                warnings.simplefilter("always")
-                res = converter.convert(str(TEST_DOC))
-                for w in caught_warnings:
-                    # Ignore noisy pydantic deprecation warning from docling-core
-                    if w.category == DeprecationWarning and "Field `annotations` is deprecated; use `meta` instead" in str(w.message):
-                        continue
-                    msg = f"⚠ {w.category.__name__}: {w.message}"
-                    captured_warnings.append(msg)
-                return res
-
-        try:
-            result = run_conversion()
-            for w in captured_warnings:
-                yield log(w)
-        except Exception as e:
-            if type(e).__name__ == "AcceleratorDeviceNotAvailableError" and "MPS" in str(e):
-                yield log("⚠ MPS explicitly requested but not supported by all active models.")
-                yield log("⚙ Falling back to AUTO device selection (MPS for layout, CPU for VLMs)...")
+        for line in iter(process.stdout.readline, ""):
+            line = line.strip()
+            if not line:
+                continue
                 
-                from docling.datamodel.pipeline_options import AcceleratorDevice as DAccDevice
-                pipeline_opts.accelerator_options.device = DAccDevice.AUTO
-                converter = DocumentConverter(
-                    format_options={
-                        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_opts)
-                    }
-                )
-                
-                # Clear previous warnings and retry
-                captured_warnings.clear()
-                result = run_conversion()
-                for w in captured_warnings:
-                    yield log(w)
+            if line.startswith("__PROGRESS__="):
+                # Yield progress events as-is
+                yield line
             else:
-                raise
+                log_lines.append(line)
+                yield line
 
-        t_elapsed = time.perf_counter() - t_start
-        yield log(f"✓ Conversion complete in {t_elapsed:.2f}s")
-
-        doc = result.document
-        run_result.page_count = len(doc.pages) if hasattr(doc, "pages") else None
-        if run_result.page_count:
-            yield log(f"  Pages processed: {run_result.page_count}")
-        run_result.warnings = captured_warnings
-
-        # --- Write output files ---
-        yield log("─" * 60)
-        yield log("💾 Writing output files...")
-        output_files: List[str] = []
-
-        fmt_map = config.output.formats
-        for fmt in fmt_map:
-            if fmt == OutputFormat.MARKDOWN:
-                out_path = run_dir / "parsed_doc.md"
-                out_path.write_text(doc.export_to_markdown(), encoding="utf-8")
-                output_files.append(str(out_path.name))
-                yield log(f"  ✓ Markdown → {out_path.name}")
-
-            elif fmt == OutputFormat.JSON:
-                out_path = run_dir / "parsed_doc.json"
-                out_path.write_text(doc.model_dump_json(indent=2), encoding="utf-8")
-                output_files.append(str(out_path.name))
-                yield log(f"  ✓ JSON → {out_path.name}")
-
-            elif fmt == OutputFormat.DOCTAGS:
-                out_path = run_dir / "parsed_doc.doctags"
-                out_path.write_text(doc.export_to_document_tokens(), encoding="utf-8")
-                output_files.append(str(out_path.name))
-                yield log(f"  ✓ DocTags → {out_path.name}")
-
-            elif fmt == OutputFormat.TEXT:
-                out_path = run_dir / "parsed_doc.txt"
-                out_path.write_text(doc.export_to_text(), encoding="utf-8")
-                output_files.append(str(out_path.name))
-                yield log(f"  ✓ Plain text → {out_path.name}")
-
-            elif fmt == OutputFormat.HTML:
-                out_path = run_dir / "parsed_doc.html"
-                try:
-                    # New docling_core serialization method for annotated HTML
-                    from docling_core.transforms.serializer.html import HTMLDocSerializer, HTMLOutputStyle, HTMLParams
-                    from docling_core.transforms.visualizer.layout_visualizer import LayoutVisualizer
-                    from docling_core.types.doc import ImageRefMode
-
-                    style = HTMLOutputStyle.SPLIT_PAGE if config.output.html_split_page_view else HTMLOutputStyle.FLOW
-                    
-                    ser = HTMLDocSerializer(
-                        doc=doc,
-                        params=HTMLParams(
-                            image_mode=ImageRefMode.EMBEDDED,
-                            output_style=style,
-                        ),
-                    )
-                    
-                    visualizer = None
-                    if config.output.html_include_annotations:
-                        visualizer = LayoutVisualizer()
-                        visualizer.params.show_label = True
-
-                    html_content = ser.serialize(visualizer=visualizer).text
-                    
-                    out_path.write_text(html_content, encoding="utf-8")
-                    output_files.append(str(out_path.name))
-                    yield log(f"  ✓ HTML → {out_path.name} "
-                              f"(split_page={config.output.html_split_page_view}, "
-                              f"annotations={config.output.html_include_annotations})")
-                except Exception as ex:
-                    yield log(f"  ⚠ Failed to export annotated HTML: {ex}. "
-                              f"Is docling-core up to date?")
-
-            elif fmt == OutputFormat.ITERATED_ITEMS:
-                try:
-                    import json
-                    from docling_core.types.doc.common.content_layer import ContentLayer as CoreContentLayer
-
-                    iter_opts = config.iterate_items_options
-                    layers = {CoreContentLayer(l.value) for l in iter_opts.included_content_layers} if iter_opts.included_content_layers else None
-
-                    items_list = []
-                    for item, level in doc.iterate_items(
-                        with_groups=iter_opts.with_groups,
-                        traverse_pictures=iter_opts.traverse_pictures,
-                        page_no=iter_opts.page_no,
-                        included_content_layers=layers,
-                    ):
-                        items_list.append({
-                            "label": getattr(item.label, "value", str(item.label)) if hasattr(item, "label") else None,
-                            "text": getattr(item, "text", None),
-                            "level": level,
-                            "self_ref": item.get_ref() if hasattr(item, "get_ref") else None
-                        })
-                    
-                    out_path = run_dir / "parsed_items.json"
-                    out_path.write_text(json.dumps(items_list, indent=2), encoding="utf-8")
-                    output_files.append(str(out_path.name))
-                    yield log(f"  ✓ Iterated Items ({len(items_list)}) → {out_path.name}")
-                except Exception as ex:
-                    yield log(f"  ⚠ Failed to generate iterated items: {ex}")
-
-
-
-        # --- Copy config ---
-        try:
-            copy_profile_to(config, run_dir)
-            output_files.append("config.yaml")
-            yield log("  ✓ Config copy → config.yaml")
-        except Exception as e:
-            yield log(f"  ⚠ Could not copy config: {e}")
-
-        # --- Finalise ---
-        finished_at = datetime.utcnow()
-        run_result.status = RunStatus.SUCCESS
-        run_result.finished_at = finished_at
-        run_result.duration_seconds = t_elapsed
-        run_result.output_files = output_files
-
-        yield log("─" * 60)
-        yield log(f"✅ Run complete — {t_elapsed:.2f}s | {len(output_files)} files written")
-
-    except Exception as e:
-        error_msg = f"❌ Pipeline failed: {type(e).__name__}: {e}"
-        yield log(error_msg)
-        yield log(traceback.format_exc())
-        run_result.status = RunStatus.ERROR
-        run_result.error_message = str(e)
-        run_result.finished_at = datetime.utcnow()
-
+        process.wait()
     finally:
-        # --- Always write run.log ---
-        log_path = run_dir / "run.log"
-        log_path.write_text("\n".join(log_lines), encoding="utf-8")
+        _active_processes.pop(run_id, None)
 
-    return run_result
+    # Always write run.log (useful even if cancelled)
+    log_path = run_dir / "run.log"
+    log_path.write_text("\n".join(log_lines), encoding="utf-8")
+
+    # Read the run_result.json produced by the worker
+    res_path = run_dir / "run_result.json"
+    if res_path.exists():
+        return RunResult.model_validate_json(res_path.read_text("utf-8"))
+    
+    # If it crashed or was cancelled before creating the result
+    return RunResult(
+        run_id=run_id,
+        profile_name=config.profile_name,
+        status=RunStatus.ERROR,
+        output_dir=str(run_dir.relative_to(REPO_ROOT)),
+        error_message="Process terminated unexpectedly or was cancelled.",
+        finished_at=datetime.utcnow()
+    )

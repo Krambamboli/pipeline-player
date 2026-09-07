@@ -18,7 +18,6 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # Enums (mirrors Docling's internal enums)
 # ---------------------------------------------------------------------------
@@ -31,7 +30,6 @@ class OcrEngine(str, Enum):
     TESSERACT_CLI = "tesseract_cli"
     OCRMYPDF = "ocrmypdf"
     MAC_OS_VISION = "ocrmac"
-    SURYAOCR = "suryaocr"
     AUTO = "auto"
 
 
@@ -191,8 +189,10 @@ class AcceleratorOptions(BaseModel):
 class LayoutModelKind(str, Enum):
     DEFAULT = "default"
     HERON_DEFAULT = "layout_heron_default"
-    HERON_V1 = "layout_heron_v1"
-    SMOCK_V1 = "layout_smock_v1"
+    HERON_101 = "layout_heron_101"
+    EGRET_MEDIUM = "layout_egret_medium"
+    EGRET_LARGE = "layout_egret_large"
+    EGRET_XLARGE = "layout_egret_xlarge"
 
 
 class LayoutOptions(BaseModel):

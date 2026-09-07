@@ -1,0 +1,21 @@
+[07:58:39] ▶ Starting pipeline run — ID: 20260907_075839_good-try
+[07:58:39]   Profile: good-try
+[07:58:39]   Input: /Users/olischn/GitHub/pipeline-player/test_data/test_document.pdf
+[07:58:39]   Output dir: /Users/olischn/GitHub/pipeline-player/outputs/run_20260907_075839_good-try
+[07:58:39] ────────────────────────────────────────────────────────────
+[07:58:39] ⚙ Importing Docling...
+[07:59:06] ⚙ Building pipeline options from config...
+[07:59:06] ❌ Pipeline failed: KeyError: "Preset 'default' not found for LayoutObjectDetectionOptions. Available presets: ['layout_heron_default', 'layout_heron_101', 'layout_egret_medium', 'layout_egret_large', 'layout_egret_xlarge']"
+[07:59:06] Traceback (most recent call last):
+  File "/Users/olischn/GitHub/pipeline-player/backend/services/docling_runner.py", line 259, in run_pipeline
+    pipeline_opts = _build_docling_options(config.pdf_options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/backend/services/docling_runner.py", line 165, in _build_docling_options
+    layout_opts = LayoutObjectDetectionOptions.from_preset(o.layout_options.model.value)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/datamodel/stage_model_specs.py", line 788, in from_preset
+    preset = cls.get_preset(preset_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/datamodel/stage_model_specs.py", line 748, in get_preset
+    raise KeyError(
+KeyError: "Preset 'default' not found for LayoutObjectDetectionOptions. Available presets: ['layout_heron_default', 'layout_heron_101', 'layout_egret_medium', 'layout_egret_large', 'layout_egret_xlarge']"

@@ -1,0 +1,28 @@
+[11:56:27] 🚀 Starting Pipeline Run ID: 20260907_115626_good-try
+[11:56:27]   Profile: good-try
+[11:56:27]   Document: Autrement_Ch-0-Presentation_cours_autrement.pdf
+[11:56:27]   Output dir: /Users/olischn/GitHub/pipeline-player/outputs/run_20260907_115626_good-try
+[11:56:27] ────────────────────────────────────────────────────────────
+[11:56:27] ⚙ Importing Docling...
+[11:56:54] ⚙ Building pipeline options from config...
+MPS is not supported by VLM models (Code/Formula/Picture Description). Falling back to AUTO so supported models use MPS and VLMs use CPU.
+[11:56:54] ⚙ Initialising DocumentConverter...
+[11:56:54] ⚙ Running document conversion (this may take a moment)...
+Loading weights:   0%|          | 0/360 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 360/360 [00:00<00:00, 51897.21it/s]
+Loading weights:   0%|          | 0/770 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 770/770 [00:00<00:00, 11355.09it/s]
+Loading weights:   0%|          | 0/471 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 471/471 [00:00<00:00, 6021.27it/s]
+[transformers] The tied weights mapping and config for this model specifies to tie model.text_model.embed_tokens.weight to lm_head.weight, but both are present in the checkpoints with different values, so we will NOT tie them. You should update the config with `tie_word_embeddings=False` to silence this warning.
+[11:57:21] ✓ Conversion complete in 26.59s
+[11:57:21]   Pages processed: 9
+[11:57:21] ────────────────────────────────────────────────────────────
+[11:57:21] 💾 Writing output files...
+[11:57:23]   ✓ HTML → parsed_doc.html
+[11:57:23]   ✓ Markdown → parsed_doc.md
+[11:57:23]   ✓ JSON → parsed_doc.json
+/Users/olischn/GitHub/pipeline-player/backend/services/docling_worker.py:181: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+run_result.finished_at = datetime.utcnow()
+[11:57:23] ────────────────────────────────────────────────────────────
+[11:57:23] ✅ Run complete — 26.59s | 4 files written

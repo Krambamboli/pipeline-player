@@ -3,7 +3,7 @@
  * Keep this in sync with backend/models/config_schema.py.
  */
 
-export type OcrEngine = "easyocr" | "rapidocr" | "tesseract" | "tesseract_cli" | "ocrmypdf" | "ocrmac" | "suryaocr" | "auto";
+export type OcrEngine = "easyocr" | "rapidocr" | "tesseract" | "tesseract_cli" | "ocrmypdf" | "ocrmac" | "auto";
 export type TableStructureMode = "fast" | "accurate";
 export type AcceleratorDevice = "cpu" | "cuda" | "mps";
 export type OutputFormat = "markdown" | "json" | "doctags" | "text" | "html" | "iterated_items";
@@ -38,10 +38,12 @@ export interface AcceleratorOptions {
 }
 
 export enum LayoutModelKind {
-  DEFAULT = 'default',
-  HERON_DEFAULT = 'layout_heron_default',
-  HERON_V1 = 'layout_heron_v1',
-  SMOCK_V1 = 'layout_smock_v1',
+  DEFAULT = "default",
+  HERON_DEFAULT = "layout_heron_default",
+  HERON_101 = "layout_heron_101",
+  EGRET_MEDIUM = "layout_egret_medium",
+  EGRET_LARGE = "layout_egret_large",
+  EGRET_XLARGE = "layout_egret_xlarge",
 }
 
 export interface LayoutOptions {

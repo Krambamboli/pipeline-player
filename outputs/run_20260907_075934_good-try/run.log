@@ -1,0 +1,62 @@
+[07:59:34] ▶ Starting pipeline run — ID: 20260907_075934_good-try
+[07:59:34]   Profile: good-try
+[07:59:34]   Input: /Users/olischn/GitHub/pipeline-player/test_data/test_document.pdf
+[07:59:34]   Output dir: /Users/olischn/GitHub/pipeline-player/outputs/run_20260907_075934_good-try
+[07:59:34] ────────────────────────────────────────────────────────────
+[07:59:34] ⚙ Importing Docling...
+[07:59:34] ⚙ Building pipeline options from config...
+[07:59:34] ⚙ Initialising DocumentConverter...
+[07:59:34] ⚙ Running document conversion (this may take a moment)...
+[07:59:47] ❌ Pipeline failed: ImportError: ocrmac is not correctly installed. Please install it via `pip install ocrmac` to use this OCR engine. Alternatively, Docling has support for other OCR engines. See the documentation: https://docling-project.github.io/docling/installation/
+[07:59:47] Traceback (most recent call last):
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/models/stages/ocr/ocr_mac_model.py", line 57, in __init__
+    from ocrmac import ocrmac
+ModuleNotFoundError: No module named 'ocrmac'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/olischn/GitHub/pipeline-player/backend/services/docling_runner.py", line 288, in run_pipeline
+    result = run_conversion()
+             ^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/backend/services/docling_runner.py", line 278, in run_conversion
+    res = converter.convert(str(TEST_DOC))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/pydantic/_internal/_validate_call.py", line 40, in wrapper_function
+    return wrapper(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/pydantic/_internal/_validate_call.py", line 137, in __call__
+    res = self.__pydantic_validator__.validate_python(pydantic_core.ArgsKwargs(args, kwargs))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/document_converter.py", line 573, in convert
+    return next(all_res)
+           ^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/document_converter.py", line 635, in convert_all
+    for conv_res in conv_res_iter:
+                    ^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/document_converter.py", line 764, in _convert
+    for item in map(
+                ^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/document_converter.py", line 811, in _process_document
+    conv_res = self._execute_pipeline(in_doc, raises_on_error=raises_on_error)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/document_converter.py", line 837, in _execute_pipeline
+    pipeline = self._get_pipeline(in_doc.format)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/document_converter.py", line 794, in _get_pipeline
+    self.initialized_pipelines[cache_key] = pipeline_class(
+                                            ^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/pipeline/standard_pdf_pipeline.py", line 595, in __init__
+    self._init_models()
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/pipeline/standard_pdf_pipeline.py", line 616, in _init_models
+    self.ocr_model = self._make_ocr_model(art_path)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/pipeline/standard_pdf_pipeline.py", line 692, in _make_ocr_model
+    return factory.create_instance(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/models/factories/base_factory.py", line 60, in create_instance
+    return _cls(options=options, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/olischn/GitHub/pipeline-player/.venv/lib/python3.12/site-packages/docling/models/stages/ocr/ocr_mac_model.py", line 59, in __init__
+    raise ImportError(install_errmsg)
+ImportError: ocrmac is not correctly installed. Please install it via `pip install ocrmac` to use this OCR engine. Alternatively, Docling has support for other OCR engines. See the documentation: https://docling-project.github.io/docling/installation/

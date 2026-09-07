@@ -74,6 +74,16 @@ export async function listRuns(): Promise<RunResult[]> {
   return apiFetch<RunResult[]>("/api/pipeline/runs");
 }
 
+export interface DocumentInfo {
+  filename: string;
+  estimated_seconds: number;
+}
+
+/** List available documents for parsing. */
+export async function listDocuments(): Promise<DocumentInfo[]> {
+  return apiFetch<DocumentInfo[]>("/api/pipeline/documents");
+}
+
 /** Get a specific run result by ID. */
 export async function getRun(runId: string): Promise<RunResult> {
   return apiFetch<RunResult>(`/api/pipeline/run/${encodeURIComponent(runId)}`);

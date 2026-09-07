@@ -40,11 +40,13 @@ function Home() {
     const [serverOk, setServerOk] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
     const [historyTick, setHistoryTick] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(0);
     const [selectedRun, setSelectedRun] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    const [documents, setDocuments] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [selectedDoc, setSelectedDoc] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
     // Config state — manages active profile, debounced auto-save
     const { config, isSaving, isLoading, error: configError, updateField, switchProfile, saveAs } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$hooks$2f$useConfig$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useConfig"])("default");
     // Run stream state — SSE log streaming
-    const { isRunning, logs, lastRunId, lastStatus, lastDuration, lastOutputFiles, lastOutputDir, errorMessage, startRun, clearLogs } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$hooks$2f$useRunStream$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRunStream"])();
-    // Health check on mount
+    const { isRunning, logs, lastRunId, lastStatus, lastDuration, lastOutputFiles, lastOutputDir, errorMessage, startRun, cancelRun, clearLogs, progress } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$hooks$2f$useRunStream$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRunStream"])();
+    // Health check and docs fetch on mount
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "Home.useEffect": ()=>{
             (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["checkHealth"])().then({
@@ -52,6 +54,12 @@ function Home() {
             }["Home.useEffect"]).catch({
                 "Home.useEffect": ()=>setServerOk(false)
             }["Home.useEffect"]);
+            (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["listDocuments"])().then({
+                "Home.useEffect": (docs)=>{
+                    setDocuments(docs);
+                    if (docs.length > 0) setSelectedDoc(docs[0].filename);
+                }
+            }["Home.useEffect"]).catch(console.error);
         }
     }["Home.useEffect"], []);
     // Refresh run history after each run completes
@@ -94,14 +102,14 @@ function Home() {
                                 children: "⚡"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 84,
+                                lineNumber: 95,
                                 columnNumber: 11
                             }, this),
                             "Pipeline Player"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 83,
+                        lineNumber: 94,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -113,14 +121,14 @@ function Home() {
                         children: "Docling & ColPali Benchmark Studio"
                     }, void 0, false, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 87,
+                        lineNumber: 98,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "topbar__divider"
                     }, void 0, false, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 91,
+                        lineNumber: 102,
                         columnNumber: 9
                     }, this),
                     config && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -137,13 +145,13 @@ function Home() {
                                 children: config.profile_name
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 96,
+                                lineNumber: 107,
                                 columnNumber: 22
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 95,
+                        lineNumber: 106,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -153,26 +161,26 @@ function Home() {
                                 className: `status-dot ${statusDotClass}`
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 102,
+                                lineNumber: 113,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                 children: serverOk === null ? "Connecting…" : serverOk ? isSaving ? "Saving…" : "Backend connected" : "Backend offline"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 103,
+                                lineNumber: 114,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 101,
+                        lineNumber: 112,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/page.tsx",
-                lineNumber: 82,
+                lineNumber: 93,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("aside", {
@@ -186,7 +194,7 @@ function Home() {
                                 children: "🛠 Docling Configuration"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 115,
+                                lineNumber: 126,
                                 columnNumber: 11
                             }, this),
                             configError && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -198,13 +206,13 @@ function Home() {
                                 children: configError
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 117,
+                                lineNumber: 128,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 114,
+                        lineNumber: 125,
                         columnNumber: 9
                     }, this),
                     config && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ProfileManager$2f$index$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -213,7 +221,7 @@ function Home() {
                         onSaveAs: saveAs
                     }, void 0, false, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 125,
+                        lineNumber: 136,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -229,7 +237,7 @@ function Home() {
                                 children: "Loading config…"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 134,
+                                lineNumber: 145,
                                 columnNumber: 13
                             }, this),
                             !isLoading && config && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ConfigPanel$2f$index$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -237,19 +245,19 @@ function Home() {
                                 onUpdate: updateField
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 139,
+                                lineNumber: 150,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 132,
+                        lineNumber: 143,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/page.tsx",
-                lineNumber: 113,
+                lineNumber: 124,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
@@ -275,7 +283,7 @@ function Home() {
                                         children: "📄 Output Viewer"
                                     }, void 0, false, {
                                         fileName: "[project]/src/app/page.tsx",
-                                        lineNumber: 149,
+                                        lineNumber: 160,
                                         columnNumber: 13
                                     }, this),
                                     displayDir && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -288,13 +296,13 @@ function Home() {
                                         children: displayDir
                                     }, void 0, false, {
                                         fileName: "[project]/src/app/page.tsx",
-                                        lineNumber: 151,
+                                        lineNumber: 162,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 148,
+                                lineNumber: 159,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -307,18 +315,18 @@ function Home() {
                                     outputFiles: displayFiles
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/page.tsx",
-                                    lineNumber: 157,
+                                    lineNumber: 168,
                                     columnNumber: 13
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 156,
+                                lineNumber: 167,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 147,
+                        lineNumber: 158,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -336,12 +344,12 @@ function Home() {
                                     children: "🕑 Run History"
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/page.tsx",
-                                    lineNumber: 164,
+                                    lineNumber: 175,
                                     columnNumber: 13
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 163,
+                                lineNumber: 174,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -355,24 +363,24 @@ function Home() {
                                     selectedRunId: selectedRun?.run_id ?? null
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/page.tsx",
-                                    lineNumber: 167,
+                                    lineNumber: 178,
                                     columnNumber: 13
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 166,
+                                lineNumber: 177,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 162,
+                        lineNumber: 173,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/page.tsx",
-                lineNumber: 145,
+                lineNumber: 156,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("aside", {
@@ -390,7 +398,7 @@ function Home() {
                                 children: "⚡ Run Console"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 179,
+                                lineNumber: 190,
                                 columnNumber: 11
                             }, this),
                             logs.length > 0 && !isRunning && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -406,53 +414,150 @@ function Home() {
                                 children: "Clear"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 181,
+                                lineNumber: 192,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 178,
+                        lineNumber: 189,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         style: {
                             padding: "12px 16px",
                             borderBottom: "1px solid var(--c-border)",
-                            flexShrink: 0
+                            flexShrink: 0,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "8px"
                         },
                         children: [
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                id: "run-pipeline-btn",
-                                className: `run-btn ${isRunning ? "run-btn--running" : ""}`,
-                                disabled: isRunning || !config || !serverOk,
-                                onClick: ()=>config && startRun(config.profile_name),
-                                children: isRunning ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
-                                    children: [
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "run-btn__spinner"
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
+                                value: selectedDoc,
+                                onChange: (e)=>setSelectedDoc(e.target.value),
+                                disabled: isRunning || documents.length === 0,
+                                style: {
+                                    padding: "8px",
+                                    borderRadius: "4px",
+                                    border: "1px solid var(--c-border)",
+                                    background: "var(--c-bg-2)",
+                                    color: "var(--c-text)",
+                                    fontSize: "0.85rem"
+                                },
+                                children: [
+                                    documents.length === 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                        value: "",
+                                        children: "No documents found"
+                                    }, void 0, false, {
+                                        fileName: "[project]/src/app/page.tsx",
+                                        lineNumber: 209,
+                                        columnNumber: 40
+                                    }, this),
+                                    documents.map((doc)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                            value: doc.filename,
+                                            children: [
+                                                doc.filename,
+                                                " (",
+                                                doc.estimated_seconds,
+                                                "s)"
+                                            ]
+                                        }, doc.filename, true, {
+                                            fileName: "[project]/src/app/page.tsx",
+                                            lineNumber: 211,
+                                            columnNumber: 15
+                                        }, this))
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/src/app/page.tsx",
+                                lineNumber: 203,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                style: {
+                                    display: "flex",
+                                    gap: "8px"
+                                },
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        id: "run-pipeline-btn",
+                                        className: `run-btn ${isRunning ? "run-btn--running" : ""}`,
+                                        disabled: isRunning || !config || !serverOk || !selectedDoc,
+                                        onClick: ()=>config && startRun(config.profile_name, selectedDoc),
+                                        style: {
+                                            flex: 1
+                                        },
+                                        children: isRunning ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
+                                            children: [
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                    className: "run-btn__spinner"
+                                                }, void 0, false, {
+                                                    fileName: "[project]/src/app/page.tsx",
+                                                    lineNumber: 226,
+                                                    columnNumber: 19
+                                                }, this),
+                                                "Running Pipeline…"
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "[project]/src/app/page.tsx",
+                                            lineNumber: 225,
+                                            columnNumber: 17
+                                        }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
+                                            children: "▶ Run Pipeline"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/page.tsx",
-                                            lineNumber: 200,
+                                            lineNumber: 230,
                                             columnNumber: 17
-                                        }, this),
-                                        "Running Pipeline…"
-                                    ]
-                                }, void 0, true, {
-                                    fileName: "[project]/src/app/page.tsx",
-                                    lineNumber: 199,
-                                    columnNumber: 15
-                                }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
-                                    children: "▶ Run Pipeline"
+                                        }, this)
+                                    }, void 0, false, {
+                                        fileName: "[project]/src/app/page.tsx",
+                                        lineNumber: 217,
+                                        columnNumber: 13
+                                    }, this),
+                                    isRunning && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        className: "run-btn",
+                                        style: {
+                                            background: "var(--c-danger)",
+                                            color: "white"
+                                        },
+                                        onClick: cancelRun,
+                                        children: "■ Cancel"
+                                    }, void 0, false, {
+                                        fileName: "[project]/src/app/page.tsx",
+                                        lineNumber: 234,
+                                        columnNumber: 15
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/src/app/page.tsx",
+                                lineNumber: 216,
+                                columnNumber: 11
+                            }, this),
+                            isRunning && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                style: {
+                                    width: "100%",
+                                    background: "var(--c-bg-2)",
+                                    height: "6px",
+                                    borderRadius: "3px",
+                                    overflow: "hidden",
+                                    marginTop: "4px"
+                                },
+                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                    style: {
+                                        width: `${progress}%`,
+                                        background: "var(--c-accent)",
+                                        height: "100%",
+                                        transition: "width 0.3s ease"
+                                    }
                                 }, void 0, false, {
                                     fileName: "[project]/src/app/page.tsx",
-                                    lineNumber: 204,
+                                    lineNumber: 245,
                                     columnNumber: 15
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 192,
-                                columnNumber: 11
+                                lineNumber: 244,
+                                columnNumber: 13
                             }, this),
                             lastStatus && !isRunning && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "stat-grid",
@@ -468,7 +573,7 @@ function Home() {
                                                 children: "Duration"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/page.tsx",
-                                                lineNumber: 212,
+                                                lineNumber: 253,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -479,13 +584,13 @@ function Home() {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/src/app/page.tsx",
-                                                lineNumber: 213,
+                                                lineNumber: 254,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/page.tsx",
-                                        lineNumber: 211,
+                                        lineNumber: 252,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -496,7 +601,7 @@ function Home() {
                                                 children: "Status"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/page.tsx",
-                                                lineNumber: 216,
+                                                lineNumber: 257,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -508,25 +613,25 @@ function Home() {
                                                 children: lastStatus === "success" ? "✅ OK" : "❌ Error"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/page.tsx",
-                                                lineNumber: 217,
+                                                lineNumber: 258,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/app/page.tsx",
-                                        lineNumber: 215,
+                                        lineNumber: 256,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/page.tsx",
-                                lineNumber: 210,
+                                lineNumber: 251,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 191,
+                        lineNumber: 202,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -547,28 +652,28 @@ function Home() {
                             onSelectFile: handleSelectFile
                         }, void 0, false, {
                             fileName: "[project]/src/app/page.tsx",
-                            lineNumber: 230,
+                            lineNumber: 271,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/src/app/page.tsx",
-                        lineNumber: 229,
+                        lineNumber: 270,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/page.tsx",
-                lineNumber: 177,
+                lineNumber: 188,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/app/page.tsx",
-        lineNumber: 79,
+        lineNumber: 90,
         columnNumber: 5
     }, this);
 }
-_s(Home, "JwiyU0psFJ/P4wSSbRWB8F+k8bs=", false, function() {
+_s(Home, "jdiYiDpdYqI4A78y+t2Kg+vyt4Y=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$hooks$2f$useConfig$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useConfig"],
         __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$hooks$2f$useRunStream$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRunStream"]
@@ -806,14 +911,10 @@ function ConfigPanel({ config, onUpdate }) {
                             {
                                 value: "ocrmac",
                                 label: "macOS Vision (Native Apple, excellent quality)"
-                            },
-                            {
-                                value: "suryaocr",
-                                label: "SuryaOCR (Modern, complex layouts)"
                             }
                         ],
                         onChange: (v)=>onUpdate(p("ocr_options.kind"), v),
-                        tooltip: "The OCR backend engine. Auto selects best. EasyOCR handles 80+ languages with GPU support. RapidOCR is optimised for CPU. macOS Vision uses native Apple APIs. SuryaOCR is good for complex layouts."
+                        tooltip: "The OCR backend engine. Auto selects best. EasyOCR handles 80+ languages with GPU support. RapidOCR is optimised for CPU. macOS Vision uses native Apple APIs."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
                         lineNumber: 154,
@@ -828,7 +929,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "ISO language codes to load into the OCR engine (e.g. 'en', 'de', 'fr', 'zh'). Adding more languages increases accuracy for multilingual documents but also increases model loading time and memory usage."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 173,
+                        lineNumber: 172,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -840,7 +941,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "When enabled, OCR is run on the entire page even if the page has a native text layer. Useful when the embedded text layer is garbled, misaligned, or in a different encoding than the visible text."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 182,
+                        lineNumber: 181,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SliderField"], {
@@ -855,7 +956,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Minimum fraction of a page that must be covered by bitmap content before OCR is triggered on that page. 0.05 = OCR activates if >5% of the page is image-based. Lower values = more aggressive OCR triggering."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 191,
+                        lineNumber: 190,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -869,7 +970,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Number of page crops processed simultaneously by the OCR engine. Higher values improve GPU throughput at the cost of more VRAM. Reduce on CPU-only systems or if you encounter out-of-memory errors."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 203,
+                        lineNumber: 202,
                         columnNumber: 9
                     }, this)
                 ]
@@ -902,7 +1003,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "'fast' uses a lightweight model optimised for throughput. 'accurate' uses TableTransformer (TATR) for higher fidelity on complex tables with spanning cells, rotated headers, and multi-level column structures. Accurate mode adds 2-4× latency per table."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 217,
+                        lineNumber: 216,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -914,7 +1015,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "When enabled, Docling matches detected table cell bounding boxes back to the PDF's native text runs, producing higher-quality cell text. Disable if you see duplicate or misaligned content in table cells (usually caused by complex table backgrounds)."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 230,
+                        lineNumber: 229,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -928,13 +1029,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Number of table regions processed simultaneously by the table structure model. Tune based on available GPU memory — higher values improve throughput but require more VRAM."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 239,
+                        lineNumber: 238,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 216,
+                lineNumber: 215,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -950,7 +1051,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Render each PDF page as a raster image and embed it in the output document. Required for ColPali multimodal retrieval (which operates on page screenshots). Significantly increases output file size and memory usage."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 253,
+                        lineNumber: 252,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -962,7 +1063,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Crop and extract each detected figure or picture as a standalone image embedded in the output. Enables downstream vision pipelines to process individual figures without re-rendering full pages."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 262,
+                        lineNumber: 261,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -974,7 +1075,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Render each detected table region as a standalone image. Useful as a visual fallback when structured cell text extraction is unreliable, or for visual comparison with the original table appearance."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 271,
+                        lineNumber: 270,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SliderField"], {
@@ -990,7 +1091,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "DPI scale factor for all rendered images. 1.0 = 72 DPI (screen quality). 2.0 = 144 DPI (HiDPI/Retina quality). 4.0 = 288 DPI (print quality). Higher values produce sharper images but increase file size and memory usage proportionally."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 280,
+                        lineNumber: 279,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1002,13 +1103,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Include raw layout detection results (bounding boxes, element labels) in the output document before post-processing. Useful for debugging layout model predictions or understanding why certain content was misclassified."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 293,
+                        lineNumber: 292,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 252,
+                lineNumber: 251,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1027,22 +1128,30 @@ function ConfigPanel({ config, onUpdate }) {
                             },
                             {
                                 value: "layout_heron_default",
-                                label: "Heron Default (Balanced)"
+                                label: "Heron Default"
                             },
                             {
-                                value: "layout_heron_v1",
-                                label: "Heron V1 (Accurate)"
+                                value: "layout_heron_101",
+                                label: "Heron 101"
                             },
                             {
-                                value: "layout_smock_v1",
-                                label: "Smock V1"
+                                value: "layout_egret_medium",
+                                label: "Egret Medium"
+                            },
+                            {
+                                value: "layout_egret_large",
+                                label: "Egret Large"
+                            },
+                            {
+                                value: "layout_egret_xlarge",
+                                label: "Egret XLarge"
                             }
                         ],
                         onChange: (v)=>onUpdate(p("layout_options.model"), v),
                         tooltip: "Select the underlying object detection model used to identify layout elements (e.g. text blocks, formulas, tables). Heron is the standard robust choice, but other models like Smock might perform better on complex documents or sparse formulas."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 305,
+                        lineNumber: 304,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1054,7 +1163,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "When enabled, detected image regions are preserved as picture elements in the parsed document. Disable to strip all images from the output, producing a text-only result with reduced file size."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 320,
+                        lineNumber: 321,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1066,7 +1175,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Falls back to older rule-based layout heuristics instead of the neural layout model. Enable only for simple, well-structured single-column documents where the AI model produces incorrect results (e.g., single-column academic papers with simple formatting)."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 329,
+                        lineNumber: 330,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1080,7 +1189,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Number of pages processed simultaneously by the layout analysis model. Increasing this improves GPU utilisation but requires more VRAM. Reduce if you encounter CUDA out-of-memory errors on large documents."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 338,
+                        lineNumber: 339,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1088,7 +1197,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Heading Hierarchy"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 349,
+                        lineNumber: 350,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1099,7 +1208,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Enable docling's advanced heading hierarchy inference. If disabled, all headings are treated as level 1."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 350,
+                        lineNumber: 351,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SliderField"], {
@@ -1114,7 +1223,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Maximum heading nesting depth inferred. Depth 3 constructs H1→H2→H3 levels."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 357,
+                        lineNumber: 358,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1125,7 +1234,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Use internal PDF bookmarks (TOC) to infer heading structure."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 368,
+                        lineNumber: 369,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1136,7 +1245,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Infer heading hierarchy based on explicit numbering patterns (e.g., 1.1, 1.2.1)."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 375,
+                        lineNumber: 376,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1147,7 +1256,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Use physical visual styling (bold, italic) to infer hierarchy. NOTE: This requires 'Generate Parsed Pages' to be enabled under Layout Options."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 382,
+                        lineNumber: 383,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1158,13 +1267,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Use physical font size to infer hierarchy. NOTE: This requires 'Generate Parsed Pages' to be enabled under Layout Options."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 389,
+                        lineNumber: 390,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 304,
+                lineNumber: 303,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1176,7 +1285,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Picture Description VLM"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 400,
+                        lineNumber: 401,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1202,7 +1311,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Vision-language model backend for generating picture captions. 'granite_vision' runs locally using IBM Granite Vision. 'api' calls a remote VLM endpoint (requires enable_remote_services). 'disabled' skips captioning entirely."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 401,
+                        lineNumber: 402,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TextareaField"], {
@@ -1214,14 +1323,14 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "The prompt sent to the VLM for each detected picture. Customise for domain-specific extraction — e.g., 'Identify all chemical structures and their IUPAC names' for chemistry documents, or 'Describe all axes, legend, and data trends' for charts."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 414,
+                        lineNumber: 415,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "divider"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 423,
+                        lineNumber: 424,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1229,7 +1338,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Picture Classification"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 424,
+                        lineNumber: 425,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1251,14 +1360,14 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Model for classifying detected pictures into categories: photograph, chart, diagram, logo, table, etc. The label is stored as metadata on each picture element for downstream routing."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 425,
+                        lineNumber: 426,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "divider"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 438,
+                        lineNumber: 439,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1266,7 +1375,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Code & Formula Recognition"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 439,
+                        lineNumber: 440,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1292,14 +1401,14 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Model for enriching code blocks and mathematical formulas. When enabled, code blocks are structured with language labels, and math expressions are converted to LaTeX. Requires additional model downloads on first use."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 440,
+                        lineNumber: 441,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "divider"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 454,
+                        lineNumber: 455,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1307,7 +1416,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Chart Data Extraction"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 455,
+                        lineNumber: 456,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1329,13 +1438,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Automated data extraction from bar charts, line graphs, and pie charts into structured tables. When enabled, chart data becomes queryable text rather than opaque images. Experimental feature — adds significant processing time."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 456,
+                        lineNumber: 457,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 399,
+                lineNumber: 400,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1365,7 +1474,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Hardware device for PyTorch model inference. CPU works universally. CUDA requires an NVIDIA GPU with matching drivers. MPS uses Apple Silicon's Metal Performance Shaders. GPU inference is 5–20× faster for OCR and table structure models."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 472,
+                        lineNumber: 473,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SliderField"], {
@@ -1380,14 +1489,14 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Number of CPU threads for PyTorch operations. Only effective when device=cpu. Higher values can improve throughput on multi-core machines up to a saturation point (typically 8–16 threads on modern CPUs)."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 486,
+                        lineNumber: 487,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "divider"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 498,
+                        lineNumber: 499,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1395,7 +1504,7 @@ function ConfigPanel({ config, onUpdate }) {
                         children: "Queue & Pipeline Tuning"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 499,
+                        lineNumber: 500,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1408,7 +1517,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Maximum number of page items buffered between pipeline stages. Larger values allow more in-flight work between model stages at the cost of higher memory usage during processing."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 501,
+                        lineNumber: 502,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1421,7 +1530,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "How frequently (in seconds) the pipeline checks each stage for completed batches. Lower values reduce latency between stages but increase CPU overhead. The default of 0.5s is suitable for most use cases."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 511,
+                        lineNumber: 512,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1434,13 +1543,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Maximum seconds to wait for a pipeline stage to flush its queue and shut down after processing completes. Increase this value if you see incomplete output on very large documents (100+ pages)."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 521,
+                        lineNumber: 522,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 471,
+                lineNumber: 472,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1455,7 +1564,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "If enabled, yields group items as well as leaf items."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 534,
+                        lineNumber: 535,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1466,7 +1575,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "If enabled, iterates through elements embedded within picture items."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 541,
+                        lineNumber: 542,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1479,7 +1588,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Only iterate items on a specific 1-indexed page. Leave blank to iterate all pages."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 548,
+                        lineNumber: 549,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["MultiCheckField"], {
@@ -1512,13 +1621,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Filter which layers of content are yielded."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 557,
+                        lineNumber: 558,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 533,
+                lineNumber: 534,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1560,7 +1669,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Select all output formats to generate for each run. Markdown and JSON are recommended for most RAG pipelines. DocTags is Docling's token format for fine-tuning. HTML requires a recent Docling version."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 575,
+                        lineNumber: 576,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1571,7 +1680,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Render each page in its own section with the page image as background. Requires 'Generate Page Images' to be enabled."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 591,
+                        lineNumber: 592,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1582,7 +1691,7 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "Overlay bounding-box annotations for every detected element (text blocks, tables, figures, etc.) on the HTML page images."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 599,
+                        lineNumber: 600,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TextField"], {
@@ -1595,13 +1704,13 @@ function ConfigPanel({ config, onUpdate }) {
                         tooltip: "A human-readable description of what this configuration profile is tuned for. Stored alongside every run output for reproducibility documentation."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                        lineNumber: 608,
+                        lineNumber: 609,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ConfigPanel/index.tsx",
-                lineNumber: 574,
+                lineNumber: 575,
                 columnNumber: 7
             }, this)
         ]
@@ -3362,11 +3471,12 @@ function useRunStream() {
         lastDuration: null,
         lastOutputFiles: [],
         lastOutputDir: null,
-        errorMessage: null
+        errorMessage: null,
+        progress: 0
     });
     const abortRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(null);
     const startRun = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
-        "useRunStream.useCallback[startRun]": (profileName)=>{
+        "useRunStream.useCallback[startRun]": (profileName, filename)=>{
             // Cancel any previous run stream
             abortRef.current?.abort();
             abortRef.current = new AbortController();
@@ -3380,7 +3490,8 @@ function useRunStream() {
                         lastDuration: null,
                         lastOutputFiles: [],
                         lastOutputDir: null,
-                        errorMessage: null
+                        errorMessage: null,
+                        progress: 0
                     })
             }["useRunStream.useCallback[startRun]"]);
             const fetchStream = {
@@ -3392,7 +3503,8 @@ function useRunStream() {
                                 "Content-Type": "application/json"
                             },
                             body: JSON.stringify({
-                                profile_name: profileName
+                                profile_name: profileName,
+                                filename
                             }),
                             signal: abortRef.current.signal
                         });
@@ -3425,28 +3537,42 @@ function useRunStream() {
                                 const jsonStr = line.slice(6).trim();
                                 if (!jsonStr) continue;
                                 try {
-                                    const event = JSON.parse(jsonStr);
-                                    if (event.type === "log") {
+                                    const evt = JSON.parse(jsonStr);
+                                    if (evt.type === "log") {
                                         setState({
                                             "useRunStream.useCallback[startRun].fetchStream": (prev)=>({
                                                     ...prev,
                                                     logs: [
                                                         ...prev.logs,
-                                                        event.message
+                                                        evt.message
                                                     ]
                                                 })
                                         }["useRunStream.useCallback[startRun].fetchStream"]);
-                                    } else if (event.type === "done") {
+                                    } else if (evt.type === "run_id") {
+                                        setState({
+                                            "useRunStream.useCallback[startRun].fetchStream": (prev)=>({
+                                                    ...prev,
+                                                    lastRunId: evt.run_id
+                                                })
+                                        }["useRunStream.useCallback[startRun].fetchStream"]);
+                                    } else if (evt.type === "progress") {
+                                        setState({
+                                            "useRunStream.useCallback[startRun].fetchStream": (prev)=>({
+                                                    ...prev,
+                                                    progress: evt.data.percent
+                                                })
+                                        }["useRunStream.useCallback[startRun].fetchStream"]);
+                                    } else if (evt.type === "done") {
                                         setState({
                                             "useRunStream.useCallback[startRun].fetchStream": (prev)=>({
                                                     ...prev,
                                                     isRunning: false,
-                                                    lastRunId: event.run_id,
-                                                    lastStatus: event.status,
-                                                    lastDuration: event.duration_seconds,
-                                                    lastOutputFiles: event.output_files,
-                                                    lastOutputDir: event.output_dir,
-                                                    errorMessage: event.error_message
+                                                    lastRunId: evt.run_id,
+                                                    lastStatus: evt.status,
+                                                    lastDuration: evt.duration_seconds,
+                                                    lastOutputFiles: evt.output_files,
+                                                    lastOutputDir: evt.output_dir,
+                                                    errorMessage: evt.error_message
                                                 })
                                         }["useRunStream.useCallback[startRun].fetchStream"]);
                                     }
@@ -3471,6 +3597,32 @@ function useRunStream() {
             fetchStream();
         }
     }["useRunStream.useCallback[startRun]"], []);
+    const cancelRun = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "useRunStream.useCallback[cancelRun]": async ()=>{
+            if (abortRef.current) {
+                abortRef.current.abort();
+            }
+            setState({
+                "useRunStream.useCallback[cancelRun]": (prev)=>({
+                        ...prev,
+                        isRunning: false,
+                        errorMessage: "Run cancelled by user."
+                    })
+            }["useRunStream.useCallback[cancelRun]"]);
+            // Attempt to terminate backend process
+            if (state.lastRunId) {
+                try {
+                    await fetch(`${BASE_URL}/api/pipeline/run/${state.lastRunId}/cancel`, {
+                        method: "POST"
+                    });
+                } catch (e) {
+                    console.error("Failed to cancel on backend", e);
+                }
+            }
+        }
+    }["useRunStream.useCallback[cancelRun]"], [
+        state.lastRunId
+    ]);
     const clearLogs = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
         "useRunStream.useCallback[clearLogs]": ()=>{
             setState({
@@ -3484,10 +3636,11 @@ function useRunStream() {
     return {
         ...state,
         startRun,
+        cancelRun,
         clearLogs
     };
 }
-_s(useRunStream, "/Go/MN1knIBuplYPrbTwmdLw9zw=");
+_s(useRunStream, "mgYXZz6Z60WgIVMqI6TfZjcw4rY=");
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
 }
@@ -3507,6 +3660,8 @@ if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelper
     ()=>getRun,
     "getRunFileUrl",
     ()=>getRunFileUrl,
+    "listDocuments",
+    ()=>listDocuments,
     "listProfiles",
     ()=>listProfiles,
     "listRuns",
@@ -3561,6 +3716,9 @@ async function deleteProfile(name) {
 }
 async function listRuns() {
     return apiFetch("/api/pipeline/runs");
+}
+async function listDocuments() {
+    return apiFetch("/api/pipeline/documents");
 }
 async function getRun(runId) {
     return apiFetch(`/api/pipeline/run/${encodeURIComponent(runId)}`);

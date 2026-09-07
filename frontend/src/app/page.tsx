@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { checkHealth } from "@/lib/api";
+import { checkHealth, listDocuments, DocumentInfo } from "@/lib/api";
 import { useConfig } from "@/hooks/useConfig";
 import { useRunStream } from "@/hooks/useRunStream";
 import type { RunResult } from "@/types/config";
@@ -25,6 +25,8 @@ export default function Home() {
   const [serverOk, setServerOk] = useState<boolean | null>(null);
   const [historyTick, setHistoryTick] = useState(0);
   const [selectedRun, setSelectedRun] = useState<RunResult | null>(null);
+  const [documents, setDocuments] = useState<DocumentInfo[]>([]);
+  const [selectedDoc, setSelectedDoc] = useState<string>("");
 
   // Config state — manages active profile, debounced auto-save
   const { config, isSaving, isLoading, error: configError, updateField, switchProfile, saveAs } = useConfig("default");
@@ -40,14 +42,23 @@ export default function Home() {
     lastOutputDir,
     errorMessage,
     startRun,
+    cancelRun,
     clearLogs,
+    progress,
   } = useRunStream();
 
-  // Health check on mount
+  // Health check and docs fetch on mount
   useEffect(() => {
     checkHealth()
       .then(() => setServerOk(true))
       .catch(() => setServerOk(false));
+      
+    listDocuments()
+      .then((docs) => {
+        setDocuments(docs);
+        if (docs.length > 0) setSelectedDoc(docs[0].filename);
+      })
+      .catch(console.error);
   }, []);
 
   // Refresh run history after each run completes
@@ -188,22 +199,52 @@ export default function Home() {
         </div>
 
         {/* Run + Stats summary */}
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--c-border)", flexShrink: 0 }}>
-          <button
-            id="run-pipeline-btn"
-            className={`run-btn ${isRunning ? "run-btn--running" : ""}`}
-            disabled={isRunning || !config || !serverOk}
-            onClick={() => config && startRun(config.profile_name)}
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--c-border)", flexShrink: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
+          <select
+            value={selectedDoc}
+            onChange={(e) => setSelectedDoc(e.target.value)}
+            disabled={isRunning || documents.length === 0}
+            style={{ padding: "8px", borderRadius: "4px", border: "1px solid var(--c-border)", background: "var(--c-bg-2)", color: "var(--c-text)", fontSize: "0.85rem" }}
           >
-            {isRunning ? (
-              <>
-                <div className="run-btn__spinner" />
-                Running Pipeline…
-              </>
-            ) : (
-              <>▶ Run Pipeline</>
+            {documents.length === 0 && <option value="">No documents found</option>}
+            {documents.map((doc) => (
+              <option key={doc.filename} value={doc.filename}>
+                {doc.filename} ({doc.estimated_seconds}s)
+              </option>
+            ))}
+          </select>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              id="run-pipeline-btn"
+              className={`run-btn ${isRunning ? "run-btn--running" : ""}`}
+              disabled={isRunning || !config || !serverOk || !selectedDoc}
+              onClick={() => config && startRun(config.profile_name, selectedDoc)}
+              style={{ flex: 1 }}
+            >
+              {isRunning ? (
+                <>
+                  <div className="run-btn__spinner" />
+                  Running Pipeline…
+                </>
+              ) : (
+                <>▶ Run Pipeline</>
+              )}
+            </button>
+            {isRunning && (
+              <button
+                className="run-btn"
+                style={{ background: "var(--c-danger)", color: "white" }}
+                onClick={cancelRun}
+              >
+                ■ Cancel
+              </button>
             )}
-          </button>
+          </div>
+          {isRunning && (
+            <div style={{ width: "100%", background: "var(--c-bg-2)", height: "6px", borderRadius: "3px", overflow: "hidden", marginTop: "4px" }}>
+              <div style={{ width: `${progress}%`, background: "var(--c-accent)", height: "100%", transition: "width 0.3s ease" }} />
+            </div>
+          )}
 
           {/* Mini stats from last run */}
           {lastStatus && !isRunning && (

@@ -8,23 +8,25 @@
  */
 
 import { useCallback, useRef, useState } from "react";
-import type { RunEvent } from "@/types/config";
+import type { RunEvent, RunStatus } from "@/types/config";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-interface RunStreamState {
+export interface RunStreamState {
   isRunning: boolean;
   logs: string[];
   lastRunId: string | null;
-  lastStatus: "success" | "error" | null;
+  lastStatus: RunStatus | null;
   lastDuration: number | null;
   lastOutputFiles: string[];
   lastOutputDir: string | null;
   errorMessage: string | null;
+  progress: number;
 }
 
 interface UseRunStreamReturn extends RunStreamState {
-  startRun: (profileName: string) => void;
+  startRun: (profileName: string, filename: string) => void;
+  cancelRun: () => void;
   clearLogs: () => void;
 }
 
@@ -38,11 +40,12 @@ export function useRunStream(): UseRunStreamReturn {
     lastOutputFiles: [],
     lastOutputDir: null,
     errorMessage: null,
+    progress: 0,
   });
 
   const abortRef = useRef<AbortController | null>(null);
 
-  const startRun = useCallback((profileName: string) => {
+  const startRun = useCallback((profileName: string, filename: string) => {
     // Cancel any previous run stream
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -57,6 +60,7 @@ export function useRunStream(): UseRunStreamReturn {
       lastOutputFiles: [],
       lastOutputDir: null,
       errorMessage: null,
+      progress: 0,
     }));
 
     const fetchStream = async () => {
@@ -64,7 +68,7 @@ export function useRunStream(): UseRunStreamReturn {
         const res = await fetch(`${BASE_URL}/api/pipeline/run`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ profile_name: profileName }),
+          body: JSON.stringify({ profile_name: profileName, filename }),
           signal: abortRef.current!.signal,
         });
 
@@ -98,23 +102,24 @@ export function useRunStream(): UseRunStreamReturn {
             if (!jsonStr) continue;
 
             try {
-              const event = JSON.parse(jsonStr) as RunEvent;
+              const evt = JSON.parse(jsonStr) as RunEvent;
 
-              if (event.type === "log") {
-                setState((prev) => ({
-                  ...prev,
-                  logs: [...prev.logs, event.message],
-                }));
-              } else if (event.type === "done") {
+              if (evt.type === "log") {
+                setState((prev) => ({ ...prev, logs: [...prev.logs, evt.message] }));
+              } else if (evt.type === "run_id") {
+                setState((prev) => ({ ...prev, lastRunId: evt.run_id }));
+              } else if (evt.type === "progress") {
+                setState((prev) => ({ ...prev, progress: evt.data.percent }));
+              } else if (evt.type === "done") {
                 setState((prev) => ({
                   ...prev,
                   isRunning: false,
-                  lastRunId: event.run_id,
-                  lastStatus: event.status,
-                  lastDuration: event.duration_seconds,
-                  lastOutputFiles: event.output_files,
-                  lastOutputDir: event.output_dir,
-                  errorMessage: event.error_message,
+                  lastRunId: evt.run_id,
+                  lastStatus: evt.status,
+                  lastDuration: evt.duration_seconds,
+                  lastOutputFiles: evt.output_files,
+                  lastOutputDir: evt.output_dir,
+                  errorMessage: evt.error_message,
                 }));
               }
             } catch {
@@ -136,9 +141,32 @@ export function useRunStream(): UseRunStreamReturn {
     fetchStream();
   }, []);
 
+  const cancelRun = useCallback(async () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    setState((prev) => ({ ...prev, isRunning: false, errorMessage: "Run cancelled by user." }));
+    
+    // Attempt to terminate backend process
+    if (state.lastRunId) {
+      try {
+        await fetch(`${BASE_URL}/api/pipeline/run/${state.lastRunId}/cancel`, {
+          method: "POST"
+        });
+      } catch (e) {
+        console.error("Failed to cancel on backend", e);
+      }
+    }
+  }, [state.lastRunId]);
+
   const clearLogs = useCallback(() => {
     setState((prev) => ({ ...prev, logs: [] }));
   }, []);
 
-  return { ...state, startRun, clearLogs };
+  return {
+    ...state,
+    startRun,
+    cancelRun,
+    clearLogs,
+  };
 }

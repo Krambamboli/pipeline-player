@@ -164,10 +164,9 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
             { value: "tesseract_cli", label: "Tesseract CLI (subprocess-based)" },
             { value: "ocrmypdf", label: "OCRmyPDF (searchable PDF output)" },
             { value: "ocrmac", label: "macOS Vision (Native Apple, excellent quality)" },
-            { value: "suryaocr", label: "SuryaOCR (Modern, complex layouts)" },
           ]}
           onChange={(v) => onUpdate(p("ocr_options.kind"), v)}
-          tooltip="The OCR backend engine. Auto selects best. EasyOCR handles 80+ languages with GPU support. RapidOCR is optimised for CPU. macOS Vision uses native Apple APIs. SuryaOCR is good for complex layouts."
+          tooltip="The OCR backend engine. Auto selects best. EasyOCR handles 80+ languages with GPU support. RapidOCR is optimised for CPU. macOS Vision uses native Apple APIs."
         />
 
         <TagListField
@@ -309,11 +308,13 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           value={o.layout_options.model}
           options={[
             { value: "default", label: "Default" },
-            { value: "layout_heron_default", label: "Heron Default (Balanced)" },
-            { value: "layout_heron_v1", label: "Heron V1 (Accurate)" },
-            { value: "layout_smock_v1", label: "Smock V1" },
+            { value: "layout_heron_default", label: "Heron Default" },
+            { value: "layout_heron_101", label: "Heron 101" },
+            { value: "layout_egret_medium", label: "Egret Medium" },
+            { value: "layout_egret_large", label: "Egret Large" },
+            { value: "layout_egret_xlarge", label: "Egret XLarge" },
           ]}
-          onChange={(v) => onUpdate(p("layout_options.model"), v)}
+          onChange={(v) => onUpdate(p("layout_options.model"), v as LayoutModelKind)}
           tooltip="Select the underlying object detection model used to identify layout elements (e.g. text blocks, formulas, tables). Heron is the standard robust choice, but other models like Smock might perform better on complex documents or sparse formulas."
         />
 
