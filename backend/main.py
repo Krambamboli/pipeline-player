@@ -14,6 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import config as config_router
 from routers import pipeline as pipeline_router
 from routers import status as status_router
+from routers import chunk as chunk_router
+from routers import qdrant as qdrant_router
 from services.config_manager import ensure_default_profile
 
 app = FastAPI(
@@ -23,7 +25,7 @@ app = FastAPI(
         "document ingestion pipelines. Exposes config management and live pipeline "
         "execution via Server-Sent Events."
     ),
-    version="1.0.0",
+    version="2.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
@@ -44,6 +46,8 @@ app.add_middleware(
 app.include_router(status_router.router)
 app.include_router(config_router.router)
 app.include_router(pipeline_router.router)
+app.include_router(chunk_router.router)
+app.include_router(qdrant_router.router)
 
 
 @app.on_event("startup")

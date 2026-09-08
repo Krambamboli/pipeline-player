@@ -198,11 +198,28 @@ def _build_docling_options(our_opts: OurPdfOptions):
         layout_options=layout_opts,
     )
 
-    # Apply optional fields if supported by installed version
+    # Apply optional or newer fields if supported by installed version
     if artifacts_path:
         pipeline_opts.artifacts_path = artifacts_path
     if o.document_timeout is not None:
         pipeline_opts.document_timeout = o.document_timeout
+
+    # Map missing fields dynamically if they exist on the target version
+    optional_fields = {
+        "do_chart_extraction": o.do_chart_extraction,
+        "enable_remote_services": o.enable_remote_services,
+        "allow_external_plugins": o.allow_external_plugins,
+        "layout_batch_size": o.layout_batch_size,
+        "ocr_batch_size": o.ocr_batch_size,
+        "table_batch_size": o.table_batch_size,
+        "queue_max_size": o.queue_max_size,
+        "batch_polling_interval_seconds": o.batch_polling_interval_seconds,
+        "stage_shutdown_timeout_seconds": o.stage_shutdown_timeout_seconds,
+    }
+    
+    for key, val in optional_fields.items():
+        if hasattr(pipeline_opts, key):
+            setattr(pipeline_opts, key, val)
 
     return pipeline_opts
 

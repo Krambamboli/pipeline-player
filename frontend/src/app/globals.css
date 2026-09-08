@@ -62,6 +62,8 @@ body {
   color: var(--c-text);
   min-height: 100vh;
   line-height: 1.6;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -69,18 +71,87 @@ body {
 ───────────────────────────────────────────────────────────────────────────── */
 .app-shell {
   display: grid;
-  grid-template-rows: 56px 1fr;
+  /* No topbar row - now handled by TabNav in layout */
   grid-template-columns: 340px 1fr 380px;
-  grid-template-areas:
-    "topbar topbar topbar"
-    "config main console";
-  height: 100vh;
+  grid-template-areas: "config main console";
+  height: 100%;
   overflow: hidden;
+  flex: 1;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Top Bar
+   Tab Navigation (global pipeline step bar)
 ───────────────────────────────────────────────────────────────────────────── */
+.tabnav {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 48px;
+  padding: 0 var(--sp-4);
+  background: var(--c-bg-2);
+  border-bottom: 1px solid var(--c-border);
+  backdrop-filter: blur(12px);
+  z-index: 50;
+  flex-shrink: 0;
+}
+
+.tabnav__logo {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-right: var(--sp-6);
+  border-right: 1px solid var(--c-border);
+  margin-right: var(--sp-4);
+}
+
+.tabnav__logo-icon {
+  font-size: 1.2rem;
+}
+
+.tabnav__logo-text {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--c-text);
+  letter-spacing: 0.02em;
+}
+
+.tabnav__logo-sub {
+  font-size: 0.65rem;
+  color: var(--c-text-3);
+  margin-left: 4px;
+}
+
+.tabnav__tabs {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  gap: 2px;
+}
+
+.tabnav__tab {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-4);
+  font-size: 0.8rem;
+  color: var(--c-text-3);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: color var(--t-fast), border-color var(--t-fast);
+  white-space: nowrap;
+}
+
+.tabnav__tab:hover {
+  color: var(--c-text-2);
+  border-bottom-color: var(--c-border);
+}
+
+.tabnav__tab--active {
+  color: var(--c-accent);
+  border-bottom-color: var(--c-accent);
+  font-weight: 500;
+}
+
+/* Legacy topbar kept for backward compatibility with existing page.tsx */
 .topbar {
   grid-area: topbar;
   display: flex;
@@ -841,3 +912,213 @@ body {
   text-decoration: none;
 }
 .file-chip:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent-glow); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Phase 2: Chunk & Inspector Components
+───────────────────────────────────────────────────────────────────────────── */
+
+/* Chunk result summary card */
+.chunk-result-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+}
+.chunk-result-card__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--c-success);
+  margin-bottom: 4px;
+}
+
+/* Chunk card in inspector */
+.chunk-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-3);
+  transition: border-color var(--t-fast);
+}
+.chunk-card:hover { border-color: var(--c-surface-2); }
+
+.chunk-card__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.chunk-card__headings {
+  font-size: 0.7rem;
+  color: var(--c-accent);
+  margin-bottom: 6px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chunk-card__text {
+  font-size: 0.78rem;
+  color: var(--c-text-2);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chunk-card__expand-btn {
+  margin-top: 4px;
+  background: none;
+  border: none;
+  color: var(--c-accent);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.chunk-card__extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.chunk-card__vector {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--c-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chunk-card__vector-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chunk-card__vector-label {
+  font-size: 0.65rem;
+  color: var(--c-text-3);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+/* Chunk badges */
+.chunk-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chunk-badge--index {
+  background: var(--c-bg-3);
+  color: var(--c-text-3);
+  font-family: var(--font-mono);
+}
+.chunk-badge--tokens {
+  background: rgba(91,138,240,0.12);
+  color: var(--c-accent);
+  border: 1px solid rgba(91,138,240,0.2);
+}
+.chunk-badge--page {
+  background: rgba(124,91,240,0.12);
+  color: #a07af0;
+  border: 1px solid rgba(124,91,240,0.2);
+}
+.chunk-badge--type {
+  background: rgba(52,211,153,0.1);
+  color: var(--c-success);
+  border: 1px solid rgba(52,211,153,0.15);
+}
+.chunk-badge--custom {
+  background: rgba(251,191,36,0.1);
+  color: var(--c-warn);
+  border: 1px solid rgba(251,191,36,0.15);
+  font-family: var(--font-mono);
+}
+.chunk-badge--sparse {
+  background: rgba(248,113,113,0.08);
+  color: var(--c-error);
+  border: 1px solid rgba(248,113,113,0.12);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+}
+
+/* Collection sidebar items */
+.collection-item {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background var(--t-fast);
+  margin-bottom: 2px;
+  position: relative;
+}
+.collection-item:hover { background: var(--c-surface); }
+.collection-item--active {
+  background: var(--c-surface);
+  border: 1px solid var(--c-accent);
+}
+.collection-item__name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--c-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.collection-item__meta {
+  font-size: 0.65rem;
+  color: var(--c-text-3);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.collection-item__delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--c-text-3);
+  cursor: pointer;
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+.collection-item:hover .collection-item__delete { opacity: 1; }
+
+/* Form fields for ChunkConfigPanel */
+.form-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--c-text-3);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.form-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--c-bg-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  color: var(--c-text);
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: border-color var(--t-fast);
+}
+.form-select:focus {
+  outline: none;
+  border-color: var(--c-border-focus);
+}

@@ -1,3 +1,4 @@
 {
+  "/chunk/page": "app/chunk/page.js",
   "/page": "app/page.js"
 }

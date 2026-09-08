@@ -40,3 +40,11 @@ pyyaml>=6.0
 
 # IBM Granite Vision / code models  (picture_description, code_formula)
 # pip install docling-ibm-models
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 2 — Chunking & Vectorization (Qdrant + fastembed)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Qdrant vector DB client with fastembed for local dense/sparse embedding
+# (no Docker required — uses local file storage by default)
+qdrant-client[fastembed]>=1.12.0

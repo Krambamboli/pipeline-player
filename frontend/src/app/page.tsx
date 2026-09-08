@@ -88,44 +88,25 @@ export default function Home() {
 
   return (
     <div className="app-shell">
-
-      {/* ── Top Bar ─────────────────────────────────────────────────────── */}
-      <header className="topbar">
-        <div className="topbar__logo">
-          <div className="topbar__logo-icon">⚡</div>
-          Pipeline Player
-        </div>
-        <span style={{ fontSize: "0.7rem", color: "var(--c-text-3)", marginLeft: 8 }}>
-          Docling & ColPali Benchmark Studio
-        </span>
-
-        <div className="topbar__divider" />
-
-        {/* Active profile indicator */}
-        {config && (
-          <span style={{ fontSize: "0.75rem", color: "var(--c-text-3)" }}>
-            Profile: <strong style={{ color: "var(--c-text)" }}>{config.profile_name}</strong>
-          </span>
-        )}
-
-        {/* Backend status */}
-        <div className="topbar__status">
-          <div className={`status-dot ${statusDotClass}`} />
-          <span>
-            {serverOk === null ? "Connecting…"
-             : serverOk
-             ? (isSaving ? "Saving…" : "Backend connected")
-             : "Backend offline"}
-          </span>
-        </div>
-      </header>
-
       {/* ── Left: Config Panel ───────────────────────────────────────────── */}
       <aside className="panel panel--config">
         <div className="panel__header">
           <span className="panel__title">🛠 Docling Configuration</span>
+          {/* Backend status + profile — moved here from removed topbar */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            {config && (
+              <span style={{ fontSize: "0.68rem", color: "var(--c-text-3)" }}>
+                <strong style={{ color: "var(--c-text)" }}>{config.profile_name}</strong>
+              </span>
+            )}
+            <div className={`status-dot ${statusDotClass}`} title={
+              serverOk === null ? "Connecting…"
+              : serverOk ? (isSaving ? "Saving…" : "Backend connected")
+              : "Backend offline"
+            } />
+          </div>
           {configError && (
-            <span style={{ fontSize: "0.7rem", color: "var(--c-error)", marginLeft: "auto" }}>
+            <span style={{ fontSize: "0.7rem", color: "var(--c-error)", marginLeft: 4 }}>
               {configError}
             </span>
           )}

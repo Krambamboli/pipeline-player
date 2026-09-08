@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import TabNav from "@/components/TabNav";
 
 export const metadata: Metadata = {
   title: "Pipeline Player — Docling & ColPali Benchmark Studio",
@@ -14,7 +15,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {/* Global tab navigation across all pipeline steps */}
+        <TabNav />
+        {/* Page content fills remaining height */}
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", height: "calc(100vh - 48px)" }}>
+          {children}
+        </div>
+      </body>
     </html>
   );
 }

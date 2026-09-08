@@ -1,16 +1,18 @@
 # Pipeline Player ⚡
 
-A localhost web application for **testing, configuring, and benchmarking Docling and ColPali document ingestion pipelines**.
+A localhost web application for **testing, configuring, and benchmarking Docling and ColPali document ingestion pipelines**. 
 
-## What it does
+Pipeline Player is a production-ready GUI wrapper for Docling v2, designed to make tuning complex AI document parsing pipelines intuitive, fast, and robust.
 
-- Exposes **every `PdfPipelineOptions` parameter** from Docling as an annotated UI control (toggles, sliders, dropdowns, tooltips).
-- Generates **Rich Annotated HTML Output** in a split-page view using `docling-core`'s native LayoutVisualizer, overlaying bounding boxes for elements over page images.
-- **Intelligently manages hardware acceleration** (like properly splitting MPS and CPU on Apple Silicon) via `device: auto`.
-- **Immediately persists** every config change to a YAML file on disk (debounced 300ms).
-- Executes Docling's `DocumentConverter` against a test PDF and **streams live logs** to the browser.
-- Saves every run's output, config snapshot, and timing log in `/outputs/run_{timestamp}_{profile}/`.
-- Supports **multiple named config profiles** — Save As, switch, delete.
+## What's New & Key Features
+
+- **Real-Time Progress Tracking & ETA**: The backend utilizes a multiprocessing architecture to parse logs and stream Server-Sent Events (SSE) to the UI. You get a live progress bar and an estimated time of completion based on document size.
+- **Pipeline Cancellation**: Stuck on a heavy 100-page document? You can gracefully terminate the backend pipeline worker at any time with the "Cancel" button.
+- **Graceful Hardware Fallbacks**: If you select `MPS` (Apple Silicon) but enable Vision-Language Models (VLM) that don't support it, the backend automatically intercepts and falls back to `AUTO` to prevent hard crashes.
+- **Complete Feature Coverage**: Exposes **every `PdfPipelineOptions` parameter** from Docling. Tweak OCR engines (EasyOCR, Tesseract, Mac Vision), Table extraction models, Heading Hierarchy heuristics, and Code/Formula VLMs.
+- **Rich Annotated HTML Output**: Generates a split-page view using `docling-core`'s native LayoutVisualizer, overlaying bounding boxes for elements perfectly over page images.
+- **Immediate Config Persistence**: Every config change in the UI is saved to a YAML profile on disk instantly (debounced 300ms). Supports multiple named profiles (Save As, Delete).
+- **Reproducible Artifacts**: Saves every run's output, config snapshot, and timing log in `/outputs/run_{timestamp}_{profile}/`.
 
 ---
 
@@ -18,10 +20,10 @@ A localhost web application for **testing, configuring, and benchmarking Docling
 
 ```
 pipeline-player/
-├── backend/          # FastAPI (Python) — Docling execution + config management
-├── frontend/         # Next.js (React) — annotated config UI + iframe output viewer
+├── backend/          # FastAPI (Python) — Multiprocess Docling execution + SSE streaming
+├── frontend/         # Next.js (React) — Annotated config UI + output viewer
 ├── configs/          # YAML config profiles (source of truth)
-├── test_data/        # Place your test_document.pdf here
+├── test_data/        # Place your test documents here
 ├── outputs/          # Auto-created; one subdirectory per run
 └── src/pipelines/    # Stub folders for future pipeline stages
     ├── serialization/
@@ -98,9 +100,9 @@ The FastAPI docs are available at **http://localhost:8000/api/docs**.
 ## Using the UI
 
 ### Config Panel (left)
-- Every Docling `PdfPipelineOptions` parameter is exposed as an interactive control.
+- Every Docling parameter is exposed as an interactive control.
 - Hover the **?** icon on any parameter for a detailed tooltip explaining its effect.
-- Changes are **automatically saved** to the active YAML profile (debounced 300ms).
+- Changes are **automatically saved** to the active YAML profile.
 - A **saving…** indicator in the top bar confirms writes.
 
 ### Profile Manager
@@ -110,10 +112,11 @@ The FastAPI docs are available at **http://localhost:8000/api/docs**.
 
 ### Running the Pipeline
 1. Adjust config parameters in the left panel.
-2. Click **▶ Run Pipeline** (top right panel).
-3. Live logs stream in the console pane in real time.
-4. When complete, click any output file tab to preview its content. 
-5. If **HTML output** is enabled, it renders inside a sandboxed iframe with high-fidelity annotations drawn perfectly over the document pages.
+2. Select a document and click **▶ Run Pipeline** (top right panel).
+3. Watch the progress bar and ETA. Live logs stream in the console pane.
+4. (Optional) Click **Cancel** if you need to abort.
+5. When complete, click any output file tab to preview its content. 
+6. If **HTML output** is enabled, it renders inside a sandboxed iframe with high-fidelity annotations drawn perfectly over the document pages.
 
 ### Reproducibility
 Every run saves to `/outputs/run_{YYYYMMDD_HHMMSS}_{profile}/`:
@@ -140,7 +143,8 @@ https://docling-project.github.io/docling/reference/pipeline_options/
 | **OCR** | `ocr_options.kind` (easyocr/rapidocr/tesseract), `ocr_options.lang`, `force_full_page_ocr`, `bitmap_area_threshold` |
 | **Tables** | `table_structure_options.mode` (fast/accurate), `do_cell_matching` |
 | **Images** | `generate_page_images` (required for HTML annotations), `generate_picture_images`, `generate_table_images`, `images_scale` |
-| **Layout** | `keep_images`, `use_legacy_layout`, `heading_hierarchy_options.hierarchy_expansion_depth` |
+| **Layout** | `layout_options.model`, `keep_images`, `use_legacy_layout` |
+| **Heading Hierarchy** | `heading_hierarchy_options.use_style`, `use_bookmarks`, `use_font_style`, `max_level` |
 | **Enrichment** | `picture_description_options`, `picture_classification_options`, `code_formula_options`, `chart_extraction_options` |
 | **Accelerator** | `accelerator_options.device` (cpu/cuda/mps/auto), `num_threads` |
 | **Performance** | `layout_batch_size`, `ocr_batch_size`, `table_batch_size`, `queue_max_size` |
@@ -164,7 +168,7 @@ The following stub modules are ready to implement:
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | FastAPI, Uvicorn, Pydantic, PyYAML, `docling` and `docling-core` |
+| Backend | FastAPI, Uvicorn, Multiprocessing, `docling` and `docling-core` |
 | Frontend | Next.js 14 (App Router), TypeScript |
 | Styling | Vanilla CSS (custom dark theme, no Tailwind) |
-| Config | YAML files |
+| Config | Pydantic validation mapped to YAML |

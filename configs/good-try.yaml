@@ -11,7 +11,7 @@ pdf_options:
   do_code_enrichment: true
   do_formula_enrichment: true
   do_picture_classification: true
-  do_picture_description: true
+  do_picture_description: false
   force_backend_text: false
   enable_remote_services: false
   allow_external_plugins: true
