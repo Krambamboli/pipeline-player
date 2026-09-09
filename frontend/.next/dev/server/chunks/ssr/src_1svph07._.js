@@ -3059,17 +3059,30 @@ function Tooltip({ text }) {
     const show = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useCallback"])(()=>{
         if (!iconRef.current) return;
         const rect = iconRef.current.getBoundingClientRect();
-        // Position bubble to the right of the icon, vertically centred.
-        // If it would overflow the right edge of the viewport, flip it left.
         const bubbleWidth = 260;
+        const bubbleEstimatedHeight = 120; // conservative estimate to avoid bottom overflow
         const gap = 10;
+        const margin = 12; // min distance from viewport edges
+        // --- Horizontal: prefer right of icon, flip left if it overflows ---
         let left = rect.right + gap;
-        if (left + bubbleWidth > window.innerWidth - 12) {
-            // Flip: appear to the left of the icon instead
+        if (left + bubbleWidth > window.innerWidth - margin) {
+            // Flip: appear to the left of the icon
             left = rect.left - bubbleWidth - gap;
         }
+        // Final clamp: ensure bubble never escapes either horizontal edge
+        left = Math.max(margin, Math.min(left, window.innerWidth - bubbleWidth - margin));
+        // --- Vertical: centre on icon, clamp so bubble stays in viewport ---
+        let top = rect.top + rect.height / 2;
+        // Clamp so bubble doesn't overflow bottom
+        if (top + bubbleEstimatedHeight / 2 > window.innerHeight - margin) {
+            top = window.innerHeight - bubbleEstimatedHeight / 2 - margin;
+        }
+        // Clamp so bubble doesn't overflow top
+        if (top - bubbleEstimatedHeight / 2 < margin) {
+            top = bubbleEstimatedHeight / 2 + margin;
+        }
         setPos({
-            top: rect.top + rect.height / 2,
+            top,
             left
         });
         setVisible(true);
@@ -3098,7 +3111,7 @@ function Tooltip({ text }) {
         children: text
     }, void 0, false, {
         fileName: "[project]/src/components/ui/Controls.tsx",
-        lineNumber: 449,
+        lineNumber: 464,
         columnNumber: 5
     }, this), document.body) : null;
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Fragment"], {
@@ -3116,14 +3129,14 @@ function Tooltip({ text }) {
                 children: "?"
             }, void 0, false, {
                 fileName: "[project]/src/components/ui/Controls.tsx",
-                lineNumber: 477,
+                lineNumber: 492,
                 columnNumber: 7
             }, this),
             bubble
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/ui/Controls.tsx",
-        lineNumber: 476,
+        lineNumber: 491,
         columnNumber: 5
     }, this);
 }

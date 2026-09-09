@@ -360,13 +360,23 @@ body {
   color: var(--c-text);
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  /* Allow wrapping so long paramKeys don't push tooltip off-screen */
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-2);
+  /* Tooltip ? always stays visible by being last in the flex flow */
 }
 .toggle-row__key {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--c-accent);
-  opacity: 0.8;
+  opacity: 0.75;
+  /* Truncate very long paramKey strings with ellipsis */
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Never shrink below 0 so it can truncate */
+  min-width: 0;
 }
 
 .toggle-switch {

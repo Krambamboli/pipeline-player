@@ -234,11 +234,29 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
 
         payloads.append(payload)
 
+    # ------------------------------------------------------------------
+    # Filter out empty / whitespace-only chunks — these would produce
+    # NaN embeddings and cause Qdrant upsert to fail.
+    # ------------------------------------------------------------------
+    before_filter = len(texts)
+    filtered = [(t, p) for t, p in zip(texts, payloads) if t and t.strip()]
+    if not filtered:
+        yield emit("❌ All chunks were empty after filtering. Nothing to embed.")
+        return {"status": "error", "error": "No non-empty chunks produced."}
+
+    texts, payloads = zip(*filtered)  # type: ignore[assignment]
+    texts = list(texts)
+    payloads = list(payloads)
+
+    skipped = before_filter - len(texts)
+    if skipped:
+        yield emit(f"⚠️  Skipped {skipped} empty chunk(s) (headings with no body text)")
+
     avg_tokens = (
         sum(p.get("token_count", 0) for p in payloads) / len(payloads)
         if payloads else 0
     )
-    yield emit(f"📊 Avg token count per chunk: {avg_tokens:.0f}")
+    yield emit(f"📊 Avg token count per chunk: {avg_tokens:.0f} ({len(texts)} non-empty chunks)")
 
     # ------------------------------------------------------------------
     # Step 4: Build Qdrant collection + embed + upsert
@@ -343,36 +361,53 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     # ------------------------------------------------------------------
     yield emit("⬆️  Upserting points to Qdrant...")
 
+    import math
     BATCH_SIZE = 64
     points: List[PointStruct] = []
+    nan_skipped = 0
 
     for i, (text, payload) in enumerate(zip(texts, payloads)):
         point_id = str(uuid.uuid4())
 
         if mode == EmbeddingMode.DENSE:
-            vector = dense_vectors[i].tolist()
-            point = PointStruct(id=point_id, vector=vector, payload=payload)
+            vec = dense_vectors[i].tolist()
+            # Guard: skip points with NaN/Inf in dense vector
+            if any(math.isnan(v) or math.isinf(v) for v in vec):
+                nan_skipped += 1
+                continue
+            point = PointStruct(id=point_id, vector=vec, payload=payload)
 
         elif mode == EmbeddingMode.SPARSE:
             sv = sparse_vectors[i]
+            sv_vals = sv.values.tolist()
+            if any(math.isnan(v) or math.isinf(v) for v in sv_vals):
+                nan_skipped += 1
+                continue
             point = PointStruct(
                 id=point_id,
                 vector={"sparse": SparseVector(
                     indices=sv.indices.tolist(),
-                    values=sv.values.tolist(),
+                    values=sv_vals,
                 )},
                 payload=payload,
             )
 
         else:  # HYBRID
             sv = sparse_vectors[i]
+            dv = dense_vectors[i].tolist()
+            sv_vals = sv.values.tolist()
+            # Guard: skip if either vector has NaN/Inf
+            if (any(math.isnan(v) or math.isinf(v) for v in dv) or
+                    any(math.isnan(v) or math.isinf(v) for v in sv_vals)):
+                nan_skipped += 1
+                continue
             point = PointStruct(
                 id=point_id,
                 vector={
-                    "dense": dense_vectors[i].tolist(),
+                    "dense": dv,
                     "sparse": SparseVector(
                         indices=sv.indices.tolist(),
-                        values=sv.values.tolist(),
+                        values=sv_vals,
                     ),
                 },
                 payload=payload,
@@ -382,19 +417,24 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
 
         # Upsert in batches for progress reporting
         if len(points) == BATCH_SIZE or i == len(texts) - 1:
-            client.upsert(collection_name=collection_name, points=points)
+            if points:  # only upsert if there's something to send
+                client.upsert(collection_name=collection_name, points=points)
             yield f"__PROGRESS__={min(100, int((i + 1) / len(texts) * 100))}"
             points = []
 
+    if nan_skipped:
+        yield emit(f"⚠️  Skipped {nan_skipped} chunk(s) with NaN/Inf vectors")
+
+    upserted_count = len(texts) - nan_skipped
     elapsed = time.time() - start_time
-    yield emit(f"✅ Upserted {len(texts)} chunks into '{collection_name}' in {elapsed:.1f}s")
+    yield emit(f"✅ Upserted {upserted_count} chunks into '{collection_name}' in {elapsed:.1f}s")
     yield emit(f"🏁 Chunk pipeline complete. Collection: {collection_name}")
 
     return {
         "status": "success",
         "chunk_run_id": chunk_run_id,
         "collection_name": collection_name,
-        "chunk_count": len(texts),
+        "chunk_count": upserted_count,
         "avg_tokens": round(avg_tokens, 1),
         "elapsed_seconds": round(elapsed, 2),
         "source_run_id": cfg.source_run_id,

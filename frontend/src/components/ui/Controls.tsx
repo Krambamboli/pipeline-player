@@ -427,21 +427,36 @@ export function Tooltip({ text }: { text: string }) {
   const show = useCallback(() => {
     if (!iconRef.current) return;
     const rect = iconRef.current.getBoundingClientRect();
-    // Position bubble to the right of the icon, vertically centred.
-    // If it would overflow the right edge of the viewport, flip it left.
+
     const bubbleWidth = 260;
+    const bubbleEstimatedHeight = 120; // conservative estimate to avoid bottom overflow
     const gap = 10;
+    const margin = 12; // min distance from viewport edges
+
+    // --- Horizontal: prefer right of icon, flip left if it overflows ---
     let left = rect.right + gap;
-    if (left + bubbleWidth > window.innerWidth - 12) {
-      // Flip: appear to the left of the icon instead
+    if (left + bubbleWidth > window.innerWidth - margin) {
+      // Flip: appear to the left of the icon
       left = rect.left - bubbleWidth - gap;
     }
-    setPos({
-      top: rect.top + rect.height / 2,
-      left,
-    });
+    // Final clamp: ensure bubble never escapes either horizontal edge
+    left = Math.max(margin, Math.min(left, window.innerWidth - bubbleWidth - margin));
+
+    // --- Vertical: centre on icon, clamp so bubble stays in viewport ---
+    let top = rect.top + rect.height / 2;
+    // Clamp so bubble doesn't overflow bottom
+    if (top + bubbleEstimatedHeight / 2 > window.innerHeight - margin) {
+      top = window.innerHeight - bubbleEstimatedHeight / 2 - margin;
+    }
+    // Clamp so bubble doesn't overflow top
+    if (top - bubbleEstimatedHeight / 2 < margin) {
+      top = bubbleEstimatedHeight / 2 + margin;
+    }
+
+    setPos({ top, left });
     setVisible(true);
   }, []);
+
 
   const hide = useCallback(() => setVisible(false), []);
 

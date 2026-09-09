@@ -4,10 +4,20 @@
  * ChunkConfigPanel
  * ----------------
  * Config form for all chunking, serialization, metadata enrichment,
- * embedding and Qdrant options. Mirrors ConfigPanel.tsx in style.
+ * embedding and Qdrant options.
+ *
+ * Uses the same Controls.tsx components as the Docling ConfigPanel
+ * (Step 1) so the visual style, tooltips and paramKey labels are identical.
  */
 
 import type { ChunkConfig } from "@/hooks/useChunkStream";
+import {
+  ConfigSection,
+  NumberField,
+  SelectField,
+  TextField,
+  ToggleRow,
+} from "@/components/ui/Controls";
 
 interface Props {
   config: ChunkConfig;
@@ -20,149 +30,25 @@ interface Props {
   onRemoveCustomField: (key: string) => void;
 }
 
-// Reusable form field components
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="config-section">
-      <div className="config-section__title">{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function Toggle({
-  label,
-  value,
-  path,
-  tooltip,
-  onUpdate,
-}: {
-  label: string;
-  value: boolean;
-  path: string;
-  tooltip?: string;
-  onUpdate: (path: string, value: unknown) => void;
-}) {
-  return (
-    <div className="config-row config-row--toggle">
-      <label className="config-label" title={tooltip}>
-        {label}
-        {tooltip && <span className="config-tooltip">?</span>}
-      </label>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={value}
-          onChange={(e) => onUpdate(path, e.target.checked)}
-        />
-        <span className="toggle__track" />
-      </label>
-    </div>
-  );
-}
-
-function NumberField({
-  label,
-  value,
-  path,
-  min,
-  max,
-  tooltip,
-  onUpdate,
-}: {
-  label: string;
-  value: number;
-  path: string;
-  min?: number;
-  max?: number;
-  tooltip?: string;
-  onUpdate: (path: string, value: unknown) => void;
-}) {
-  return (
-    <div className="config-row">
-      <label className="config-label" title={tooltip}>
-        {label}
-        {tooltip && <span className="config-tooltip">?</span>}
-      </label>
-      <input
-        type="number"
-        className="config-input"
-        value={value}
-        min={min}
-        max={max}
-        onChange={(e) => onUpdate(path, Number(e.target.value))}
-      />
-    </div>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  path,
-  options,
-  tooltip,
-  onUpdate,
-}: {
-  label: string;
-  value: string;
-  path: string;
-  options: { label: string; value: string }[];
-  tooltip?: string;
-  onUpdate: (path: string, value: unknown) => void;
-}) {
-  return (
-    <div className="config-row">
-      <label className="config-label" title={tooltip}>
-        {label}
-        {tooltip && <span className="config-tooltip">?</span>}
-      </label>
-      <select
-        className="config-select"
-        value={value}
-        onChange={(e) => onUpdate(path, e.target.value)}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function TextField({
-  label,
-  value,
-  path,
-  placeholder,
-  tooltip,
-  onUpdate,
-}: {
-  label: string;
-  value: string;
-  path: string;
-  placeholder?: string;
-  tooltip?: string;
-  onUpdate: (path: string, value: unknown) => void;
-}) {
-  return (
-    <div className="config-row">
-      <label className="config-label" title={tooltip}>
-        {label}
-        {tooltip && <span className="config-tooltip">?</span>}
-      </label>
-      <input
-        type="text"
-        className="config-input"
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onUpdate(path, e.target.value)}
-      />
-    </div>
-  );
-}
+/** Dense embedding model options — all natively supported by fastembed */
+const DENSE_MODELS = [
+  {
+    value: "BAAI/bge-small-en-v1.5",
+    label: "BGE-Small-EN (English · Fast · 384d · 67 MB)",
+  },
+  {
+    value: "jinaai/jina-embeddings-v2-base-de",
+    label: "Jina-DE (German + EN · 8 192 ctx · 768d · 320 MB)",
+  },
+  {
+    value: "intfloat/multilingual-e5-large",
+    label: "E5-Large (100+ Langs · High Qual · 1 024d · 2.2 GB)",
+  },
+  {
+    value: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    label: "MiniLM-L12 (50+ Langs · Compact · 384d · 220 MB)",
+  },
+];
 
 export default function ChunkConfigPanel({
   config,
@@ -177,265 +63,426 @@ export default function ChunkConfigPanel({
   const o = config;
   const isHybrid = o.chunker === "hybrid";
   const isHierarchical = o.chunker === "hierarchical";
+  const useDense =
+    o.embedding.mode === "dense" || o.embedding.mode === "hybrid";
+  const useSparse =
+    o.embedding.mode === "sparse" || o.embedding.mode === "hybrid";
 
   return (
-    <div>
-      {/* ── Chunker Strategy ─────────────────────────────────────── */}
-      <Section title="✂️ Chunker Strategy">
-        <SelectField
-          label="Chunker"
-          value={o.chunker}
-          path="chunker"
-          tooltip="hybrid: token-aware with heading hierarchy (best for RAG). hierarchical: one chunk per section. page: one chunk per page."
-          options={[
-            { value: "hybrid", label: "Hybrid (token-aware)" },
-            { value: "hierarchical", label: "Hierarchical" },
-            { value: "page", label: "Page" },
-          ]}
-          onUpdate={onUpdate}
-        />
-      </Section>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
 
-      {/* ── HybridChunker Options ─────────────────────────────────── */}
+      {/* ── Section: Chunker Strategy ──────────────────────────────────── */}
+      <ConfigSection icon="✂️" title="Chunker Strategy" defaultOpen={true}>
+        <SelectField
+          id="chunker"
+          label="Strategy"
+          paramKey="chunker"
+          value={o.chunker}
+          options={[
+            { value: "hybrid", label: "HybridChunker — Hierarchie + Token-Limit (empfohlen)" },
+            { value: "hierarchical", label: "HierarchicalChunker — Hierarchie, kein Token-Limit" },
+            { value: "page", label: "PageChunker — 1 Chunk pro Seite" },
+          ]}
+          onChange={(v) => onUpdate("chunker", v)}
+          tooltip="Docling-Chunking-Algorithmus. HybridChunker: teilt Abschnitte respektiert Heading-Struktur UND erzwingt ein Token-Limit — empfohlen für RAG. HINWEIS: 'Hybrid' hier ist ein Docling-Algorithmus-Name und hat nichts mit dem Embedding-Modus 'Hybrid (Dense + Sparse)' zu tun. HierarchicalChunker: ein Chunk pro Dokument-Abschnitt, kein Token-Limit — konkurriert mit HybridChunker, nicht mit semantischem Chunking. PageChunker: eine PDF-Seite = ein Chunk."
+        />
+      </ConfigSection>
+
+      {/* ── Section: Hybrid Chunker Options (conditional) ─────────────── */}
       {isHybrid && (
-        <Section title="⚙️ Hybrid Chunker Options">
-          <TextField
+        <ConfigSection icon="⚙️" title="HybridChunker — Optionen" defaultOpen={true}>
+          <SelectField
+            id="hybrid_tokenizer"
             label="Tokenizer Model"
+            paramKey="hybrid_chunker_options.tokenizer_model"
             value={o.hybrid_chunker_options.tokenizer_model}
-            path="hybrid_chunker_options.tokenizer_model"
-            placeholder="BAAI/bge-small-en-v1.5"
-            tooltip="HuggingFace tokenizer to use for token counting. Should match the embedding model."
-            onUpdate={onUpdate}
+            options={[
+              {
+                value: "BAAI/bge-small-en-v1.5",
+                label: "BGE-Small-EN (matches default dense model)",
+              },
+              {
+                value: "jinaai/jina-embeddings-v2-base-de",
+                label: "Jina-DE (for German/multilingual, 8 192 ctx)",
+              },
+              {
+                value: "intfloat/multilingual-e5-large",
+                label: "E5-Large (multilingual, 512 ctx)",
+              },
+              {
+                value: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+                label: "MiniLM-L12 (multilingual, 512 ctx)",
+              },
+            ]}
+            onChange={(v) => onUpdate("hybrid_chunker_options.tokenizer_model", v)}
+            tooltip="HuggingFace tokenizer used to count tokens and enforce max_tokens. Should match the dense embedding model so the chunk fits inside the model's context window exactly."
           />
+
           <NumberField
-            label="Max Tokens"
+            id="max_tokens"
+            label="Max Tokens per Chunk"
+            paramKey="hybrid_chunker_options.max_tokens"
             value={o.hybrid_chunker_options.max_tokens}
-            path="hybrid_chunker_options.max_tokens"
             min={32}
             max={8192}
-            tooltip="Maximum tokens per chunk. Typical: 256–512 for retrieval models."
-            onUpdate={onUpdate}
+            onChange={(v) => onUpdate("hybrid_chunker_options.max_tokens", v ?? 512)}
+            tooltip="Maximum number of tokens a single chunk may contain. Chunks that exceed this are split further. Typical values: 256–512 for dense retrieval models (512 ctx window), up to 8 192 for Jina-DE."
           />
-          <Toggle
+
+          <ToggleRow
+            id="repeat_table_header"
             label="Repeat Table Header"
-            value={o.hybrid_chunker_options.repeat_table_header}
-            path="hybrid_chunker_options.repeat_table_header"
-            tooltip="Repeat the table header row at the start of each continuation chunk."
-            onUpdate={onUpdate}
+            paramKey="hybrid_chunker_options.repeat_table_header"
+            checked={o.hybrid_chunker_options.repeat_table_header}
+            onChange={(v) => onUpdate("hybrid_chunker_options.repeat_table_header", v)}
+            tooltip="When a table is split across multiple chunks, repeat the header row at the beginning of each continuation chunk. Keeps the column context intact for retrieval."
           />
-          <Toggle
-            label="Merge Peers"
-            value={o.hybrid_chunker_options.merge_peers}
-            path="hybrid_chunker_options.merge_peers"
-            tooltip="Merge small sibling chunks into one if they fit within max_tokens."
-            onUpdate={onUpdate}
+
+          <ToggleRow
+            id="merge_peers"
+            label="Merge Peer Chunks"
+            paramKey="hybrid_chunker_options.merge_peers"
+            checked={o.hybrid_chunker_options.merge_peers}
+            onChange={(v) => onUpdate("hybrid_chunker_options.merge_peers", v)}
+            tooltip="Merge small sibling chunks at the same heading level into one larger chunk if their combined token count is still below max_tokens. Reduces the number of tiny orphan chunks."
           />
-          <Toggle
+
+          <ToggleRow
+            id="omit_header_on_overflow"
             label="Omit Header on Overflow"
-            value={o.hybrid_chunker_options.omit_header_on_overflow}
-            path="hybrid_chunker_options.omit_header_on_overflow"
-            tooltip="Skip heading prefix if the content alone already exceeds max_tokens."
-            onUpdate={onUpdate}
+            paramKey="hybrid_chunker_options.omit_header_on_overflow"
+            checked={o.hybrid_chunker_options.omit_header_on_overflow}
+            onChange={(v) => onUpdate("hybrid_chunker_options.omit_header_on_overflow", v)}
+            tooltip="If a chunk's body content alone already exceeds max_tokens, skip the heading prefix rather than creating an oversized chunk. Use for documents with extremely long sections."
           />
-          <Toggle
+
+          <ToggleRow
+            id="always_emit_headings"
             label="Always Emit Headings"
-            value={o.hybrid_chunker_options.always_emit_headings}
-            path="hybrid_chunker_options.always_emit_headings"
-            tooltip="Emit standalone chunks for headings with no body text."
-            onUpdate={onUpdate}
+            paramKey="hybrid_chunker_options.always_emit_headings"
+            checked={o.hybrid_chunker_options.always_emit_headings}
+            onChange={(v) => onUpdate("hybrid_chunker_options.always_emit_headings", v)}
+            tooltip="Emit a standalone chunk for every heading element, even if the heading has no body text beneath it. Useful for navigation-heavy documents or indexes."
           />
-        </Section>
+        </ConfigSection>
       )}
 
-      {/* ── HierarchicalChunker Options ───────────────────────────── */}
+      {/* ── Section: Hierarchical Chunker Options (conditional) ────────── */}
       {isHierarchical && (
-        <Section title="⚙️ Hierarchical Chunker Options">
-          <Toggle
+        <ConfigSection icon="⚙️" title="HierarchicalChunker — Optionen" defaultOpen={true}>
+          <ToggleRow
+            id="hier_always_emit_headings"
             label="Always Emit Headings"
-            value={o.hierarchical_chunker_options.always_emit_headings}
-            path="hierarchical_chunker_options.always_emit_headings"
-            tooltip="Emit standalone chunks for headings with no body text."
-            onUpdate={onUpdate}
+            paramKey="hierarchical_chunker_options.always_emit_headings"
+            checked={o.hierarchical_chunker_options.always_emit_headings}
+            onChange={(v) => onUpdate("hierarchical_chunker_options.always_emit_headings", v)}
+            tooltip="Emit standalone chunks for headings with no body text. Without this, empty-body headings are merged into their next sibling chunk."
           />
-          <Toggle
+
+          <ToggleRow
+            id="merge_list_items"
             label="Merge List Items"
-            value={o.hierarchical_chunker_options.merge_list_items}
-            path="hierarchical_chunker_options.merge_list_items"
-            tooltip="Merge consecutive list items into one chunk instead of one per bullet."
-            onUpdate={onUpdate}
+            paramKey="hierarchical_chunker_options.merge_list_items"
+            checked={o.hierarchical_chunker_options.merge_list_items}
+            onChange={(v) => onUpdate("hierarchical_chunker_options.merge_list_items", v)}
+            tooltip="Merge consecutive list items at the same nesting level into a single chunk instead of one chunk per bullet point. Reduces fragmentation in documents with many bullet lists."
           />
-        </Section>
+        </ConfigSection>
       )}
 
-      {/* ── Serialization ─────────────────────────────────────────── */}
-      <Section title="📝 Serialization">
-        <Toggle
+      {/* ── Section: Serialization ─────────────────────────────────────── */}
+      <ConfigSection icon="📝" title="Serialization">
+        <ToggleRow
+          id="include_headings_in_text"
           label="Include Headings in Text"
-          value={o.serialization.include_headings_in_text}
-          path="serialization.include_headings_in_text"
-          tooltip="Prepend heading path to the text before embedding. Improves semantic accuracy."
-          onUpdate={onUpdate}
+          paramKey="serialization.include_headings_in_text"
+          checked={o.serialization.include_headings_in_text}
+          onChange={(v) => onUpdate("serialization.include_headings_in_text", v)}
+          tooltip="Prepend the full heading path (e.g. 'Chapter 1 > Section 2') to the embedded chunk text. Significantly improves retrieval accuracy for queries that reference section names or chapter titles."
         />
-        <Toggle
+
+        <ToggleRow
+          id="include_captions_in_text"
           label="Include Captions in Text"
-          value={o.serialization.include_captions_in_text}
-          path="serialization.include_captions_in_text"
-          tooltip="Include figure/table captions in the embedded chunk text."
-          onUpdate={onUpdate}
+          paramKey="serialization.include_captions_in_text"
+          checked={o.serialization.include_captions_in_text}
+          onChange={(v) => onUpdate("serialization.include_captions_in_text", v)}
+          tooltip="Include figure and table captions in the chunk text that is embedded. Captions often contain the most information-dense description of a visual element."
         />
-      </Section>
+      </ConfigSection>
 
-      {/* ── Metadata Enrichment ───────────────────────────────────── */}
-      <Section title="🏷️ Metadata Enrichment">
-        <Toggle label="Source Filename" value={o.metadata.add_doc_source} path="metadata.add_doc_source" onUpdate={onUpdate} />
-        <Toggle label="Run ID" value={o.metadata.add_run_id} path="metadata.add_run_id" onUpdate={onUpdate} />
-        <Toggle label="Page Numbers" value={o.metadata.add_page_numbers} path="metadata.add_page_numbers" tooltip="Extract and store page number(s) each chunk spans." onUpdate={onUpdate} />
-        <Toggle label="Headings" value={o.metadata.add_headings} path="metadata.add_headings" tooltip="Store the heading hierarchy above each chunk." onUpdate={onUpdate} />
-        <Toggle label="Element Types" value={o.metadata.add_element_types} path="metadata.add_element_types" tooltip="Store DocItem labels (text, table, figure...) in the chunk." onUpdate={onUpdate} />
-        <Toggle label="Token Count" value={o.metadata.add_token_count} path="metadata.add_token_count" onUpdate={onUpdate} />
+      {/* ── Section: Metadata Enrichment ──────────────────────────────── */}
+      <ConfigSection icon="🏷️" title="Metadata Enrichment">
+        <ToggleRow
+          id="add_doc_source"
+          label="Source Filename"
+          paramKey="metadata.add_doc_source"
+          checked={o.metadata.add_doc_source}
+          onChange={(v) => onUpdate("metadata.add_doc_source", v)}
+          tooltip="Store the original document filename (e.g. 'lecture_01.pdf') in the Qdrant payload. Enables filename-level filtering when querying multiple documents in one collection."
+        />
 
-        {/* Custom fields */}
-        <div style={{ marginTop: 8, fontSize: "0.78rem", color: "var(--c-text-3)", marginBottom: 4 }}>
-          Custom fields (e.g. course_id, semester):
-        </div>
-        {Object.entries(o.metadata.custom_fields).map(([k, v]) => (
-          <div key={k} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.72rem",
-                background: "var(--c-bg-3)",
-                padding: "2px 6px",
-                borderRadius: 4,
-                flex: 1,
-              }}
-            >
-              {k}: {String(v)}
-            </span>
-            <button
-              onClick={() => onRemoveCustomField(k)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--c-error)",
-                cursor: "pointer",
-                fontSize: "0.8rem",
-              }}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-        <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
-          <input
-            type="text"
-            className="config-input"
-            placeholder="key"
-            value={customKeyInput}
-            onChange={(e) => onCustomKeyChange(e.target.value)}
-            style={{ flex: 1 }}
-          />
-          <input
-            type="text"
-            className="config-input"
-            placeholder="value"
-            value={customValInput}
-            onChange={(e) => onCustomValChange(e.target.value)}
-            style={{ flex: 1 }}
-          />
-          <button
-            className="run-btn"
-            style={{ padding: "4px 10px", fontSize: "0.8rem", minWidth: 0 }}
-            onClick={onAddCustomField}
+        <ToggleRow
+          id="add_run_id"
+          label="Docling Run ID"
+          paramKey="metadata.add_run_id"
+          checked={o.metadata.add_run_id}
+          onChange={(v) => onUpdate("metadata.add_run_id", v)}
+          tooltip="Store the Docling parse run ID that produced this document. Lets you trace every chunk back to the exact parsing run for reproducibility and debugging."
+        />
+
+        <ToggleRow
+          id="add_page_numbers"
+          label="Page Numbers"
+          paramKey="metadata.add_page_numbers"
+          checked={o.metadata.add_page_numbers}
+          onChange={(v) => onUpdate("metadata.add_page_numbers", v)}
+          tooltip="Extract and store the page number(s) that each chunk spans. Enables page-level citation generation — e.g. 'Source: page 4 of lecture_01.pdf'."
+        />
+
+        <ToggleRow
+          id="add_headings"
+          label="Heading Path"
+          paramKey="metadata.add_headings"
+          checked={o.metadata.add_headings}
+          onChange={(v) => onUpdate("metadata.add_headings", v)}
+          tooltip="Store the heading hierarchy above each chunk as an ordered list (e.g. ['Chapter 3', 'Section 3.2']). Enables course/chapter/section reference generation automatically per chunk."
+        />
+
+        <ToggleRow
+          id="add_element_types"
+          label="Element Types"
+          paramKey="metadata.add_element_types"
+          checked={o.metadata.add_element_types}
+          onChange={(v) => onUpdate("metadata.add_element_types", v)}
+          tooltip="Store a list of DocItem labels present in the chunk (e.g. ['text', 'table', 'figure']). Useful for content-type filtering — e.g. retrieve only chunks that contain tables."
+        />
+
+        <ToggleRow
+          id="add_token_count"
+          label="Token Count"
+          paramKey="metadata.add_token_count"
+          checked={o.metadata.add_token_count}
+          onChange={(v) => onUpdate("metadata.add_token_count", v)}
+          tooltip="Store the number of tokens in the chunk text in the payload. Useful for size-aware retrieval strategies and for inspecting chunk quality in the Vector DB Inspector."
+        />
+
+        {/* Custom static fields ──────────────────────────────── */}
+        <div style={{ marginTop: 12 }}>
+          <div
+            className="field__label"
+            style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}
           >
-            +
-          </button>
-        </div>
-      </Section>
+            <span>Custom Fields</span>
+            <code style={{ fontSize: "0.7rem" }}>metadata.custom_fields</code>
+          </div>
+          <div
+            style={{
+              fontSize: "0.72rem",
+              color: "var(--c-text-3)",
+              marginBottom: 8,
+              lineHeight: 1.5,
+            }}
+          >
+            Static key-value pairs added to every chunk payload — e.g.&nbsp;
+            <code>course_id</code>, <code>semester</code>, <code>language</code>.
+          </div>
 
-      {/* ── Embedding ─────────────────────────────────────────────── */}
-      <Section title="🔢 Embedding">
+          {/* Existing custom fields */}
+          {Object.entries(o.metadata.custom_fields).map(([k, v]) => (
+            <div
+              key={k}
+              style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
+            >
+              <code
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.72rem",
+                  background: "var(--c-bg-3)",
+                  border: "1px solid var(--c-border)",
+                  padding: "2px 8px",
+                  borderRadius: 4,
+                  flex: 1,
+                  color: "var(--c-text-2)",
+                }}
+              >
+                {k}:{" "}
+                <span style={{ color: "var(--c-accent)" }}>{String(v)}</span>
+              </code>
+              <button
+                onClick={() => onRemoveCustomField(k)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--c-error)",
+                  cursor: "pointer",
+                  fontSize: "0.9rem",
+                  lineHeight: 1,
+                  padding: "2px 4px",
+                }}
+                title={`Remove ${k}`}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+
+          {/* Add new custom field ─ labeled row with compact button */}
+          <div style={{ marginTop: 8 }}>
+            {/* Column labels */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+              <span style={{ flex: 1, fontSize: "0.68rem", color: "var(--c-text-3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>Key</span>
+              <span style={{ flex: 1, fontSize: "0.68rem", color: "var(--c-text-3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>Value</span>
+              <span style={{ width: 28 }} />
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input
+                type="text"
+                className="input"
+                placeholder="e.g. course_id"
+                value={customKeyInput}
+                onChange={(e) => onCustomKeyChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") onAddCustomField(); }}
+                style={{ flex: 1, fontSize: "0.8rem" }}
+              />
+              <input
+                type="text"
+                className="input"
+                placeholder="e.g. ML101"
+                value={customValInput}
+                onChange={(e) => onCustomValChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") onAddCustomField(); }}
+                style={{ flex: 1, fontSize: "0.8rem" }}
+              />
+              <button
+                onClick={onAddCustomField}
+                disabled={!customKeyInput.trim() || !customValInput.trim()}
+                title="Add field (or press Enter)"
+                style={{
+                  width: 28,
+                  height: 28,
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: customKeyInput.trim() && customValInput.trim()
+                    ? "var(--c-accent)"
+                    : "var(--c-surface-2)",
+                  border: "1px solid var(--c-border)",
+                  borderRadius: "var(--r-sm)",
+                  color: customKeyInput.trim() && customValInput.trim()
+                    ? "#fff"
+                    : "var(--c-text-3)",
+                  cursor: customKeyInput.trim() && customValInput.trim()
+                    ? "pointer"
+                    : "not-allowed",
+                  fontSize: "1rem",
+                  lineHeight: 1,
+                  transition: "background var(--t-fast), color var(--t-fast)",
+                }}
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      </ConfigSection>
+
+      {/* ── Section: Embedding ────────────────────────────────────────── */}
+      <ConfigSection icon="🔢" title="Embedding">
         <SelectField
+          id="embedding_mode"
           label="Mode"
+          paramKey="embedding.mode"
           value={o.embedding.mode}
-          path="embedding.mode"
-          tooltip="dense: semantic vectors. sparse: BM25 keyword vectors. hybrid: both (enables RRF fusion)."
           options={[
-            { value: "dense", label: "Dense (semantic)" },
-            { value: "sparse", label: "Sparse (BM25)" },
-            { value: "hybrid", label: "Hybrid (dense + sparse)" },
+            { value: "dense", label: "Dense (semantic similarity)" },
+            { value: "sparse", label: "Sparse (BM25 keyword)" },
+            { value: "hybrid", label: "Hybrid (dense + sparse, enables RRF)" },
           ]}
-          onUpdate={onUpdate}
+          onChange={(v) => onUpdate("embedding.mode", v)}
+          tooltip="dense: one semantic vector per chunk using a neural encoder. sparse: BM25 keyword-frequency vector (no model needed). hybrid: both — stored as named vectors in Qdrant, enabling Reciprocal Rank Fusion (RRF) at query time."
         />
-        {(o.embedding.mode === "dense" || o.embedding.mode === "hybrid") && (
+
+        {useDense && (
           <SelectField
+            id="dense_model"
             label="Dense Model"
+            paramKey="embedding.dense_model"
             value={o.embedding.dense_model}
-            path="embedding.dense_model"
-            tooltip="fastembed dense models. Auto-downloaded on first run."
-            options={[
-              { value: "BAAI/bge-small-en-v1.5", label: "BAAI/bge-small-en (English, Fast, 384d)" },
-              { value: "jinaai/jina-embeddings-v2-base-de", label: "Jina DE (German+EN, 8k ctx, 768d)" },
-              { value: "intfloat/multilingual-e5-large", label: "E5-Large (100+ Langs, High Qual, 1024d)" },
-              { value: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", label: "MiniLM-L12 (50+ Langs, Fast, 384d)" }
-            ]}
-            onUpdate={onUpdate}
+            options={DENSE_MODELS}
+            onChange={(v) => onUpdate("embedding.dense_model", v)}
+            tooltip="fastembed model for dense embedding. Downloaded automatically on first use — no API key required. Choose Jina-DE for German or multilingual documents. E5-Large gives the best retrieval quality but is 2.2 GB."
           />
         )}
-        {(o.embedding.mode === "sparse" || o.embedding.mode === "hybrid") && (
-          <TextField
+
+        {useSparse && (
+          <SelectField
+            id="sparse_model"
             label="Sparse Model"
+            paramKey="embedding.sparse_model"
             value={o.embedding.sparse_model}
-            path="embedding.sparse_model"
-            placeholder="Qdrant/bm25"
-            tooltip="fastembed model for sparse BM25/BM42 embedding."
-            onUpdate={onUpdate}
+            options={[
+              { value: "Qdrant/bm25", label: "Qdrant/bm25 (BM25, language-aware)" },
+              { value: "prithivida/Splade_PP_en_v1", label: "SPLADE++ (learned sparse, EN)" },
+            ]}
+            onChange={(v) => onUpdate("embedding.sparse_model", v)}
+            tooltip="fastembed model for sparse embedding. Qdrant/bm25 is a classic BM25 term-frequency model — fast and language-aware. SPLADE++ is a learned sparse model with better recall but slower."
           />
         )}
+
         <NumberField
-          label="Batch Size"
+          id="batch_size"
+          label="Embedding Batch Size"
+          paramKey="embedding.batch_size"
           value={o.embedding.batch_size}
-          path="embedding.batch_size"
           min={1}
           max={512}
-          tooltip="Chunks embedded per batch. Larger = faster but more RAM."
-          onUpdate={onUpdate}
+          onChange={(v) => onUpdate("embedding.batch_size", v ?? 32)}
+          tooltip="Number of chunks embedded per batch. Larger batches are faster but require more RAM. 32 is a safe default for most machines. Increase to 128+ if you have ≥32 GB RAM and a large document."
         />
-      </Section>
+      </ConfigSection>
 
-      {/* ── Qdrant Storage ────────────────────────────────────────── */}
-      <Section title="🗄️ Qdrant Storage">
+      {/* ── Section: Qdrant Storage ───────────────────────────────────── */}
+      <ConfigSection icon="🗄️" title="Qdrant Storage">
         <TextField
+          id="storage_path"
           label="Storage Path"
+          paramKey="qdrant.storage_path"
           value={o.qdrant.storage_path}
-          path="qdrant.storage_path"
           placeholder="./qdrant_storage"
-          tooltip="On-disk storage directory. Shared between all collections (text + ColPali)."
-          onUpdate={onUpdate}
+          onChange={(v) => onUpdate("qdrant.storage_path", v ?? "./qdrant_storage")}
+          tooltip="Path to the on-disk Qdrant storage directory. Relative paths are resolved from the repo root. The same storage is shared between all Docling text collections and future ColPali image collections."
         />
+
         <TextField
+          id="collection_name"
           label="Collection Name"
-          value={o.qdrant.collection_name}
-          path="qdrant.collection_name"
-          placeholder="Auto-generated if empty"
-          tooltip="Leave empty to auto-generate from run ID + mode."
-          onUpdate={onUpdate}
+          paramKey="qdrant.collection_name"
+          value={o.qdrant.collection_name || null}
+          placeholder="Auto-generated (docling_dense_YYYYMMDD…)"
+          onChange={(v) => onUpdate("qdrant.collection_name", v ?? "")}
+          tooltip="Name of the Qdrant collection to write chunks into. Leave empty to auto-generate a name from the run ID and embedding mode (e.g. 'docling_hybrid_20240901'). Use a fixed name to append multiple documents into the same collection."
         />
-        <Toggle
+
+        <ToggleRow
+          id="overwrite_collection"
           label="Overwrite Collection"
-          value={o.qdrant.overwrite_collection}
-          path="qdrant.overwrite_collection"
-          tooltip="Delete and recreate the collection before upserting. If false, appends."
-          onUpdate={onUpdate}
+          paramKey="qdrant.overwrite_collection"
+          checked={o.qdrant.overwrite_collection}
+          onChange={(v) => onUpdate("qdrant.overwrite_collection", v)}
+          tooltip="If ON and the collection already exists, delete it and start fresh before upserting. If OFF, new chunks are appended to the existing collection. Turn ON when re-indexing a document after a config change."
         />
-        <Toggle
+
+        <ToggleRow
+          id="on_disk_payload"
           label="On-Disk Payload"
-          value={o.qdrant.on_disk_payload}
-          path="qdrant.on_disk_payload"
-          tooltip="Store metadata on disk instead of RAM. Lower memory usage for large collections."
-          onUpdate={onUpdate}
+          paramKey="qdrant.on_disk_payload"
+          checked={o.qdrant.on_disk_payload}
+          onChange={(v) => onUpdate("qdrant.on_disk_payload", v)}
+          tooltip="Store chunk metadata (payload) on disk rather than in RAM. Recommended for collections with thousands of chunks. Slightly higher latency on reads but much lower peak memory usage."
         />
-      </Section>
+      </ConfigSection>
     </div>
   );
 }

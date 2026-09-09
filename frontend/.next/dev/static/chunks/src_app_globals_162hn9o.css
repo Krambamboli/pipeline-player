@@ -394,7 +394,8 @@ body {
 .toggle-row__label {
   color: var(--c-text);
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1) var(--sp-2);
+  flex-wrap: wrap;
   font-size: .8rem;
   font-weight: 500;
   display: flex;
@@ -403,8 +404,13 @@ body {
 .toggle-row__key {
   font-family: var(--font-mono);
   color: var(--c-accent);
-  opacity: .8;
-  font-size: .68rem;
+  opacity: .75;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 180px;
+  font-size: .65rem;
+  overflow: hidden;
 }
 
 .toggle-switch {
