@@ -1,4 +1,4 @@
 {
   "status": "error",
-  "error": "Vector contains NaN values"
+  "error": "All dense vectors NaN \u2014 model load issue."
 }

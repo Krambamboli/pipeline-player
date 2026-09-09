@@ -48,3 +48,26 @@ pyyaml>=6.0
 # Qdrant vector DB client with fastembed for local dense/sparse embedding
 # (no Docker required — uses local file storage by default)
 qdrant-client[fastembed]>=1.12.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 3 — Collection Enrichment (Step 4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Ollama Python client — wraps the local Ollama REST API for LLM calls
+# Requires Ollama to be installed separately: https://ollama.com/download
+ollama>=0.3.0
+
+# NetworkX — in-memory graph for GraphRAG (no external process needed)
+networkx>=3.3
+
+# RAPTOR clustering stack
+umap-learn>=0.5.6          # dimensionality reduction for RAPTOR
+scikit-learn>=1.5.0        # GMM clustering for RAPTOR
+
+# Community detection (Louvain method) for GraphRAG
+# Note: package name on PyPI is "python-louvain" but imported as "community"
+python-louvain>=0.16
+
+# Neo4j driver — optional, only needed for GraphRAG with a real Neo4j instance
+# Install separately if you want to use Neo4j: pip install neo4j
+# neo4j>=5.20.0

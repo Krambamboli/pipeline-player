@@ -30,23 +30,37 @@ interface Props {
   onRemoveCustomField: (key: string) => void;
 }
 
-/** Dense embedding model options — all natively supported by fastembed */
+/**
+ * Dense embedding model options — verified working with fastembed.
+ * NOTE: jinaai/jina-embeddings-v2-base-de is excluded: it produces all-NaN
+ * vectors in the current fastembed ONNX runtime (known upstream bug).
+ * Use jina-embeddings-v2-base-en or paraphrase-multilingual-mpnet-base-v2
+ * for German text instead.
+ */
 const DENSE_MODELS = [
   {
     value: "BAAI/bge-small-en-v1.5",
     label: "BGE-Small-EN (English · Fast · 384d · 67 MB)",
   },
   {
-    value: "jinaai/jina-embeddings-v2-base-de",
-    label: "Jina-DE (German + EN · 8 192 ctx · 768d · 320 MB)",
-  },
-  {
-    value: "intfloat/multilingual-e5-large",
-    label: "E5-Large (100+ Langs · High Qual · 1 024d · 2.2 GB)",
+    value: "BAAI/bge-base-en-v1.5",
+    label: "BGE-Base-EN (English · Better Quality · 768d · 210 MB)",
   },
   {
     value: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-    label: "MiniLM-L12 (50+ Langs · Compact · 384d · 220 MB)",
+    label: "MiniLM-L12-Multilingual (50+ Langs · Compact · 384d · 220 MB)",
+  },
+  {
+    value: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+    label: "MPNet-Multilingual (50+ Langs · High Quality · 768d · 1.0 GB)",
+  },
+  {
+    value: "jinaai/jina-embeddings-v2-base-en",
+    label: "Jina-EN (German + EN · 8 192 ctx · 768d · 520 MB)",
+  },
+  {
+    value: "intfloat/multilingual-e5-large",
+    label: "E5-Large-Multilingual (100+ Langs · Top Quality · 1 024d · 2.2 GB)",
   },
 ];
 

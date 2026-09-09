@@ -294,16 +294,20 @@ function InspectorPage() {
             try {
                 const cols = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$qdrant$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["listCollections"])();
                 setCollections(cols);
-                if (cols.length > 0 && !selectedCol) {
-                    setSelectedCol(cols[0].name);
-                }
+                setSelectedCol({
+                    "InspectorPage.useCallback[loadCollections]": (current)=>{
+                        // Auto-select the first collection only if nothing is selected yet
+                        if (cols.length > 0 && !current) {
+                            return cols[0].name;
+                        }
+                        return current;
+                    }
+                }["InspectorPage.useCallback[loadCollections]"]);
             } catch (e) {
                 console.error(e);
             }
         }
-    }["InspectorPage.useCallback[loadCollections]"], [
-        selectedCol
-    ]);
+    }["InspectorPage.useCallback[loadCollections]"], []);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "InspectorPage.useEffect": ()=>{
             loadCollections();
@@ -390,7 +394,7 @@ function InspectorPage() {
                                 children: "🗄️ Collections"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 223,
+                                lineNumber: 227,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -407,13 +411,13 @@ function InspectorPage() {
                                 children: "↺"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 224,
+                                lineNumber: 228,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/inspector/page.tsx",
-                        lineNumber: 222,
+                        lineNumber: 226,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -433,14 +437,14 @@ function InspectorPage() {
                                     "No collections yet.",
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("br", {}, void 0, false, {
                                         fileName: "[project]/src/app/inspector/page.tsx",
-                                        lineNumber: 250,
+                                        lineNumber: 254,
                                         columnNumber: 15
                                     }, this),
                                     "Run Step 2 to create one."
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 241,
+                                lineNumber: 245,
                                 columnNumber: 13
                             }, this),
                             collections.map((col)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -452,14 +456,14 @@ function InspectorPage() {
                                             children: col.name
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/inspector/page.tsx",
-                                            lineNumber: 260,
+                                            lineNumber: 264,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "collection-item__meta",
                                             children: [
-                                                col.points_count?.toLocaleString() ?? "?",
-                                                " points",
+                                                typeof col.points_count === "number" ? col.points_count.toLocaleString() : "…",
+                                                " pts",
                                                 col.dense_vectors && Object.keys(col.dense_vectors).length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                     className: "chunk-badge chunk-badge--type",
                                                     style: {
@@ -468,7 +472,7 @@ function InspectorPage() {
                                                     children: "dense"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/inspector/page.tsx",
-                                                    lineNumber: 264,
+                                                    lineNumber: 270,
                                                     columnNumber: 19
                                                 }, this),
                                                 col.sparse_vectors && col.sparse_vectors.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -479,13 +483,13 @@ function InspectorPage() {
                                                     children: "sparse"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/inspector/page.tsx",
-                                                    lineNumber: 269,
+                                                    lineNumber: 275,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/inspector/page.tsx",
-                                            lineNumber: 261,
+                                            lineNumber: 265,
                                             columnNumber: 15
                                         }, this),
                                         confirmDelete === col.name ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -511,7 +515,7 @@ function InspectorPage() {
                                                     children: "Confirm"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/inspector/page.tsx",
-                                                    lineNumber: 277,
+                                                    lineNumber: 283,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -528,13 +532,13 @@ function InspectorPage() {
                                                     children: "Cancel"
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/app/inspector/page.tsx",
-                                                    lineNumber: 293,
+                                                    lineNumber: 299,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/app/inspector/page.tsx",
-                                            lineNumber: 276,
+                                            lineNumber: 282,
                                             columnNumber: 17
                                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                             className: "collection-item__delete",
@@ -546,25 +550,25 @@ function InspectorPage() {
                                             children: "🗑"
                                         }, void 0, false, {
                                             fileName: "[project]/src/app/inspector/page.tsx",
-                                            lineNumber: 305,
+                                            lineNumber: 311,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, col.name, true, {
                                     fileName: "[project]/src/app/inspector/page.tsx",
-                                    lineNumber: 255,
+                                    lineNumber: 259,
                                     columnNumber: 13
                                 }, this))
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/inspector/page.tsx",
-                        lineNumber: 239,
+                        lineNumber: 243,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/inspector/page.tsx",
-                lineNumber: 218,
+                lineNumber: 222,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
@@ -587,7 +591,7 @@ function InspectorPage() {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 327,
+                                lineNumber: 333,
                                 columnNumber: 11
                             }, this),
                             selectedColInfo && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -612,13 +616,13 @@ function InspectorPage() {
                                             ]
                                         }, k, true, {
                                             fileName: "[project]/src/app/inspector/page.tsx",
-                                            lineNumber: 334,
+                                            lineNumber: 340,
                                             columnNumber: 17
                                         }, this))
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 331,
+                                lineNumber: 337,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -638,20 +642,20 @@ function InspectorPage() {
                                         onChange: (e)=>setWithVectors(e.target.checked)
                                     }, void 0, false, {
                                         fileName: "[project]/src/app/inspector/page.tsx",
-                                        lineNumber: 352,
+                                        lineNumber: 358,
                                         columnNumber: 13
                                     }, this),
                                     "Show vectors"
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 341,
+                                lineNumber: 347,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/inspector/page.tsx",
-                        lineNumber: 326,
+                        lineNumber: 332,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -671,7 +675,7 @@ function InspectorPage() {
                                 children: "Loading chunks…"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 364,
+                                lineNumber: 370,
                                 columnNumber: 13
                             }, this),
                             !isLoading && !selectedCol && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -684,7 +688,7 @@ function InspectorPage() {
                                 children: "Select a collection from the left panel."
                             }, void 0, false, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 376,
+                                lineNumber: 382,
                                 columnNumber: 13
                             }, this),
                             !isLoading && page && page.points.length === 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -697,7 +701,7 @@ function InspectorPage() {
                                 children: "Collection is empty."
                             }, void 0, false, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 388,
+                                lineNumber: 394,
                                 columnNumber: 13
                             }, this),
                             !isLoading && page?.points.map((pt)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(ChunkCard, {
@@ -705,13 +709,13 @@ function InspectorPage() {
                                     withVectors: withVectors
                                 }, pt.id, false, {
                                     fileName: "[project]/src/app/inspector/page.tsx",
-                                    lineNumber: 401,
+                                    lineNumber: 407,
                                     columnNumber: 15
                                 }, this))
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/inspector/page.tsx",
-                        lineNumber: 362,
+                        lineNumber: 368,
                         columnNumber: 9
                     }, this),
                     page && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -738,7 +742,7 @@ function InspectorPage() {
                                 children: "← Prev"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 419,
+                                lineNumber: 425,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -749,11 +753,11 @@ function InspectorPage() {
                                     offset + page.points.length,
                                     " of",
                                     " ",
-                                    selectedColInfo?.points_count?.toLocaleString() ?? "?"
+                                    typeof selectedColInfo?.points_count === "number" ? selectedColInfo.points_count.toLocaleString() : "…"
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 427,
+                                lineNumber: 433,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -768,25 +772,25 @@ function InspectorPage() {
                                 children: "Next →"
                             }, void 0, false, {
                                 fileName: "[project]/src/app/inspector/page.tsx",
-                                lineNumber: 431,
+                                lineNumber: 439,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/app/inspector/page.tsx",
-                        lineNumber: 407,
+                        lineNumber: 413,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/app/inspector/page.tsx",
-                lineNumber: 322,
+                lineNumber: 328,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/app/inspector/page.tsx",
-        lineNumber: 216,
+        lineNumber: 220,
         columnNumber: 5
     }, this);
 }

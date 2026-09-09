@@ -53,12 +53,22 @@ def _resolve_qdrant_path(storage_path: str) -> Path:
 
 
 def _build_collection_name(cfg: ChunkPipelineConfig) -> str:
-    """Auto-generate a Qdrant collection name from the run/config if not set."""
+    """Auto-generate a Qdrant collection name from the run/config if not set.
+
+    NOTE: The name deliberately includes the CURRENT timestamp (not the source
+    run ID) so that every new pipeline execution creates a fresh collection by
+    default. If the user wants to re-use a collection, they set collection_name
+    explicitly in the config.
+    """
     if cfg.qdrant.collection_name.strip():
         return cfg.qdrant.collection_name.strip()
     mode = cfg.embedding.mode.value
-    ts = cfg.source_run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"docling_{mode}_{ts}"
+    # Always use the current time so repeated runs on the same document
+    # don't accidentally append into the same collection.
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Optionally suffix with the source run ID for traceability
+    src = cfg.source_run_id or "unknown"
+    return f"docling_{mode}_{src}_{ts}"
 
 
 def _get_page_numbers(doc_items: list) -> List[int]:
@@ -341,11 +351,42 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     sparse_vectors: Optional[List] = None
 
     if mode in (EmbeddingMode.DENSE, EmbeddingMode.HYBRID):
-        dense_model = TextEmbedding(
-            model_name=cfg.embedding.dense_model,
-            batch_size=cfg.embedding.batch_size,
+        try:
+            dense_model = TextEmbedding(
+                model_name=cfg.embedding.dense_model,
+                batch_size=cfg.embedding.batch_size,
+            )
+            dense_vectors = list(dense_model.embed(texts))
+        except Exception as exc:
+            yield emit(f"❌ Dense embedding failed: {exc}")
+            return {"status": "error", "error": str(exc)}
+
+        # --- Diagnostic: inspect first vector to catch silent NaN/zero issues ---
+        import numpy as np
+        first_vec = np.array(dense_vectors[0])
+        nan_count = int(np.isnan(first_vec).sum())
+        inf_count = int(np.isinf(first_vec).sum())
+        total_nan_chunks = sum(
+            1 for v in dense_vectors if np.isnan(np.array(v)).any() or np.isinf(np.array(v)).any()
         )
-        dense_vectors = list(dense_model.embed(texts))
+        sample_vals = [round(float(x), 5) for x in first_vec[:6]]
+        yield emit(
+            f"🔬 Dense vector diagnostic — dim: {len(first_vec)}, "
+            f"first 6 values: {sample_vals}, "
+            f"NaN in first vec: {nan_count}, Inf in first vec: {inf_count}, "
+            f"chunks with NaN/Inf: {total_nan_chunks}/{len(dense_vectors)}"
+        )
+
+        if total_nan_chunks == len(dense_vectors):
+            yield emit(
+                f"❌ ALL dense vectors are NaN/Inf. "
+                f"Model '{cfg.embedding.dense_model}' likely failed to load correctly. "
+                f"Try switching to 'BAAI/bge-small-en-v1.5' (the most reliable fallback). "
+                f"You may also need to clear the fastembed cache: "
+                f"rm -rf ~/.cache/fastembed/{cfg.embedding.dense_model.replace('/', '_')}"
+            )
+            return {"status": "error", "error": "All dense vectors NaN — model load issue."}
+
         yield emit(f"✅ Dense embeddings done ({len(dense_vectors)} vectors)")
 
     if mode in (EmbeddingMode.SPARSE, EmbeddingMode.HYBRID):
@@ -423,9 +464,34 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
             points = []
 
     if nan_skipped:
-        yield emit(f"⚠️  Skipped {nan_skipped} chunk(s) with NaN/Inf vectors")
+        yield emit(
+            f"⚠️  Skipped {nan_skipped}/{len(texts)} chunk(s) with NaN/Inf vectors. "
+            f"This usually means the embedding model produced bad output for those chunks. "
+            f"Try a different dense model or check for extremely short/unusual chunk texts."
+        )
 
     upserted_count = len(texts) - nan_skipped
+
+    # Abort with a clear error if nothing was upserted — avoids leaving
+    # an empty, misleading collection in Qdrant.
+    if upserted_count == 0:
+        # Clean up the empty collection we just created
+        try:
+            client.delete_collection(collection_name)
+        except Exception:
+            pass
+        yield emit(
+            "❌ All vectors were invalid (NaN/Inf) — no points upserted. "
+            "Collection has been removed. "
+            "Cause: the selected embedding model may not support the chunk texts. "
+            "Try Dense mode first, or switch to a different dense model."
+        )
+        return {
+            "status": "error",
+            "error": "All vectors were NaN/Inf — no points stored.",
+            "chunk_count": 0,
+        }
+
     elapsed = time.time() - start_time
     yield emit(f"✅ Upserted {upserted_count} chunks into '{collection_name}' in {elapsed:.1f}s")
     yield emit(f"🏁 Chunk pipeline complete. Collection: {collection_name}")

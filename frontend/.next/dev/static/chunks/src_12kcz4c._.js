@@ -661,22 +661,36 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$C
 "use client";
 ;
 ;
-/** Dense embedding model options — all natively supported by fastembed */ const DENSE_MODELS = [
+/**
+ * Dense embedding model options — verified working with fastembed.
+ * NOTE: jinaai/jina-embeddings-v2-base-de is excluded: it produces all-NaN
+ * vectors in the current fastembed ONNX runtime (known upstream bug).
+ * Use jina-embeddings-v2-base-en or paraphrase-multilingual-mpnet-base-v2
+ * for German text instead.
+ */ const DENSE_MODELS = [
     {
         value: "BAAI/bge-small-en-v1.5",
         label: "BGE-Small-EN (English · Fast · 384d · 67 MB)"
     },
     {
-        value: "jinaai/jina-embeddings-v2-base-de",
-        label: "Jina-DE (German + EN · 8 192 ctx · 768d · 320 MB)"
-    },
-    {
-        value: "intfloat/multilingual-e5-large",
-        label: "E5-Large (100+ Langs · High Qual · 1 024d · 2.2 GB)"
+        value: "BAAI/bge-base-en-v1.5",
+        label: "BGE-Base-EN (English · Better Quality · 768d · 210 MB)"
     },
     {
         value: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-        label: "MiniLM-L12 (50+ Langs · Compact · 384d · 220 MB)"
+        label: "MiniLM-L12-Multilingual (50+ Langs · Compact · 384d · 220 MB)"
+    },
+    {
+        value: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        label: "MPNet-Multilingual (50+ Langs · High Quality · 768d · 1.0 GB)"
+    },
+    {
+        value: "jinaai/jina-embeddings-v2-base-en",
+        label: "Jina-EN (German + EN · 8 192 ctx · 768d · 520 MB)"
+    },
+    {
+        value: "intfloat/multilingual-e5-large",
+        label: "E5-Large-Multilingual (100+ Langs · Top Quality · 1 024d · 2.2 GB)"
     }
 ];
 function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, onCustomKeyChange, onCustomValChange, onAddCustomField, onRemoveCustomField }) {
@@ -719,12 +733,12 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                     tooltip: "Docling-Chunking-Algorithmus. HybridChunker: teilt Abschnitte respektiert Heading-Struktur UND erzwingt ein Token-Limit — empfohlen für RAG. HINWEIS: 'Hybrid' hier ist ein Docling-Algorithmus-Name und hat nichts mit dem Embedding-Modus 'Hybrid (Dense + Sparse)' zu tun. HierarchicalChunker: ein Chunk pro Dokument-Abschnitt, kein Token-Limit — konkurriert mit HybridChunker, nicht mit semantischem Chunking. PageChunker: eine PDF-Seite = ein Chunk."
                 }, void 0, false, {
                     fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                    lineNumber: 76,
+                    lineNumber: 90,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                lineNumber: 75,
+                lineNumber: 89,
                 columnNumber: 7
             }, this),
             isHybrid && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -759,7 +773,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "HuggingFace tokenizer used to count tokens and enforce max_tokens. Should match the dense embedding model so the chunk fits inside the model's context window exactly."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 94,
+                        lineNumber: 108,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -773,7 +787,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Maximum number of tokens a single chunk may contain. Chunks that exceed this are split further. Typical values: 256–512 for dense retrieval models (512 ctx window), up to 8 192 for Jina-DE."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 121,
+                        lineNumber: 135,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -785,7 +799,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "When a table is split across multiple chunks, repeat the header row at the beginning of each continuation chunk. Keeps the column context intact for retrieval."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 132,
+                        lineNumber: 146,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -797,7 +811,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Merge small sibling chunks at the same heading level into one larger chunk if their combined token count is still below max_tokens. Reduces the number of tiny orphan chunks."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 141,
+                        lineNumber: 155,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -809,7 +823,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "If a chunk's body content alone already exceeds max_tokens, skip the heading prefix rather than creating an oversized chunk. Use for documents with extremely long sections."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 150,
+                        lineNumber: 164,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -821,13 +835,13 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Emit a standalone chunk for every heading element, even if the heading has no body text beneath it. Useful for navigation-heavy documents or indexes."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 159,
+                        lineNumber: 173,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                lineNumber: 93,
+                lineNumber: 107,
                 columnNumber: 9
             }, this),
             isHierarchical && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -844,7 +858,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Emit standalone chunks for headings with no body text. Without this, empty-body headings are merged into their next sibling chunk."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 173,
+                        lineNumber: 187,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -856,13 +870,13 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Merge consecutive list items at the same nesting level into a single chunk instead of one chunk per bullet point. Reduces fragmentation in documents with many bullet lists."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 182,
+                        lineNumber: 196,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                lineNumber: 172,
+                lineNumber: 186,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -878,7 +892,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Prepend the full heading path (e.g. 'Chapter 1 > Section 2') to the embedded chunk text. Significantly improves retrieval accuracy for queries that reference section names or chapter titles."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 195,
+                        lineNumber: 209,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -890,13 +904,13 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Include figure and table captions in the chunk text that is embedded. Captions often contain the most information-dense description of a visual element."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 204,
+                        lineNumber: 218,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                lineNumber: 194,
+                lineNumber: 208,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -912,7 +926,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Store the original document filename (e.g. 'lecture_01.pdf') in the Qdrant payload. Enables filename-level filtering when querying multiple documents in one collection."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 216,
+                        lineNumber: 230,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -924,7 +938,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Store the Docling parse run ID that produced this document. Lets you trace every chunk back to the exact parsing run for reproducibility and debugging."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 225,
+                        lineNumber: 239,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -936,7 +950,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Extract and store the page number(s) that each chunk spans. Enables page-level citation generation — e.g. 'Source: page 4 of lecture_01.pdf'."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 234,
+                        lineNumber: 248,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -948,7 +962,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Store the heading hierarchy above each chunk as an ordered list (e.g. ['Chapter 3', 'Section 3.2']). Enables course/chapter/section reference generation automatically per chunk."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 243,
+                        lineNumber: 257,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -960,7 +974,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Store a list of DocItem labels present in the chunk (e.g. ['text', 'table', 'figure']). Useful for content-type filtering — e.g. retrieve only chunks that contain tables."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 252,
+                        lineNumber: 266,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -972,7 +986,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Store the number of tokens in the chunk text in the payload. Useful for size-aware retrieval strategies and for inspecting chunk quality in the Vector DB Inspector."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 261,
+                        lineNumber: 275,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -993,7 +1007,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                         children: "Custom Fields"
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                        lineNumber: 276,
+                                        lineNumber: 290,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("code", {
@@ -1003,13 +1017,13 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                         children: "metadata.custom_fields"
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                        lineNumber: 277,
+                                        lineNumber: 291,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                lineNumber: 272,
+                                lineNumber: 286,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1025,7 +1039,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                         children: "course_id"
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                        lineNumber: 288,
+                                        lineNumber: 302,
                                         columnNumber: 13
                                     }, this),
                                     ", ",
@@ -1033,7 +1047,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                         children: "semester"
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                        lineNumber: 288,
+                                        lineNumber: 302,
                                         columnNumber: 37
                                     }, this),
                                     ", ",
@@ -1041,14 +1055,14 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                         children: "language"
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                        lineNumber: 288,
+                                        lineNumber: 302,
                                         columnNumber: 60
                                     }, this),
                                     "."
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                lineNumber: 279,
+                                lineNumber: 293,
                                 columnNumber: 11
                             }, this),
                             Object.entries(o.metadata.custom_fields).map(([k, v])=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1081,13 +1095,13 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                                     children: String(v)
                                                 }, void 0, false, {
                                                     fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                                    lineNumber: 310,
+                                                    lineNumber: 324,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                            lineNumber: 297,
+                                            lineNumber: 311,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1105,13 +1119,13 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                             children: "✕"
                                         }, void 0, false, {
                                             fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                            lineNumber: 312,
+                                            lineNumber: 326,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, k, true, {
                                     fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                    lineNumber: 293,
+                                    lineNumber: 307,
                                     columnNumber: 13
                                 }, this)),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1138,7 +1152,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                                 children: "Key"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                                lineNumber: 334,
+                                                lineNumber: 348,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1153,7 +1167,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                                 children: "Value"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                                lineNumber: 335,
+                                                lineNumber: 349,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1162,13 +1176,13 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                                 }
                                             }, void 0, false, {
                                                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                                lineNumber: 336,
+                                                lineNumber: 350,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                        lineNumber: 333,
+                                        lineNumber: 347,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1193,7 +1207,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                                 }
                                             }, void 0, false, {
                                                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                                lineNumber: 339,
+                                                lineNumber: 353,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1211,7 +1225,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                                 }
                                             }, void 0, false, {
                                                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                                lineNumber: 348,
+                                                lineNumber: 362,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1237,31 +1251,31 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                                                 children: "+"
                                             }, void 0, false, {
                                                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                                lineNumber: 357,
+                                                lineNumber: 371,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                        lineNumber: 338,
+                                        lineNumber: 352,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                                lineNumber: 331,
+                                lineNumber: 345,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 271,
+                        lineNumber: 285,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                lineNumber: 215,
+                lineNumber: 229,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1291,7 +1305,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "dense: one semantic vector per chunk using a neural encoder. sparse: BM25 keyword-frequency vector (no model needed). hybrid: both — stored as named vectors in Qdrant, enabling Reciprocal Rank Fusion (RRF) at query time."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 393,
+                        lineNumber: 407,
                         columnNumber: 9
                     }, this),
                     useDense && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1304,7 +1318,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "fastembed model for dense embedding. Downloaded automatically on first use — no API key required. Choose Jina-DE for German or multilingual documents. E5-Large gives the best retrieval quality but is 2.2 GB."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 408,
+                        lineNumber: 422,
                         columnNumber: 11
                     }, this),
                     useSparse && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectField"], {
@@ -1326,7 +1340,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "fastembed model for sparse embedding. Qdrant/bm25 is a classic BM25 term-frequency model — fast and language-aware. SPLADE++ is a learned sparse model with better recall but slower."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 420,
+                        lineNumber: 434,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["NumberField"], {
@@ -1340,13 +1354,13 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Number of chunks embedded per batch. Larger batches are faster but require more RAM. 32 is a safe default for most machines. Increase to 128+ if you have ≥32 GB RAM and a large document."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 434,
+                        lineNumber: 448,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                lineNumber: 392,
+                lineNumber: 406,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ConfigSection"], {
@@ -1363,7 +1377,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Path to the on-disk Qdrant storage directory. Relative paths are resolved from the repo root. The same storage is shared between all Docling text collections and future ColPali image collections."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 448,
+                        lineNumber: 462,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TextField"], {
@@ -1376,7 +1390,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Name of the Qdrant collection to write chunks into. Leave empty to auto-generate a name from the run ID and embedding mode (e.g. 'docling_hybrid_20240901'). Use a fixed name to append multiple documents into the same collection."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 458,
+                        lineNumber: 472,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1388,7 +1402,7 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "If ON and the collection already exists, delete it and start fresh before upserting. If OFF, new chunks are appended to the existing collection. Turn ON when re-indexing a document after a config change."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 468,
+                        lineNumber: 482,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$Controls$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ToggleRow"], {
@@ -1400,19 +1414,19 @@ function ChunkConfigPanel({ config, onUpdate, customKeyInput, customValInput, on
                         tooltip: "Store chunk metadata (payload) on disk rather than in RAM. Recommended for collections with thousands of chunks. Slightly higher latency on reads but much lower peak memory usage."
                     }, void 0, false, {
                         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                        lineNumber: 477,
+                        lineNumber: 491,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-                lineNumber: 447,
+                lineNumber: 461,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/ChunkConfigPanel.tsx",
-        lineNumber: 72,
+        lineNumber: 86,
         columnNumber: 5
     }, this);
 }

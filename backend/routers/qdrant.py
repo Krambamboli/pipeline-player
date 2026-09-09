@@ -66,10 +66,20 @@ def list_collections(storage_path: str = "") -> List[Dict[str, Any]]:
             if hasattr(info.config.params, "sparse_vectors") and info.config.params.sparse_vectors:
                 sparse_cfg = list(info.config.params.sparse_vectors.keys())
 
+            # points_count can be None for hybrid collections while the optimizer
+            # is still running. Fall back to count_points() for an exact number.
+            points_count = info.points_count
+            if points_count is None:
+                try:
+                    count_result = client.count(collection_name=col.name, exact=True)
+                    points_count = count_result.count
+                except Exception:
+                    points_count = 0
+
             result.append({
                 "name": col.name,
-                "points_count": info.points_count or 0,
-                "vectors_count": info.vectors_count or 0,
+                "points_count": points_count,
+                "vectors_count": getattr(info, "vectors_count", getattr(info, "indexed_vectors_count", 0)),
                 "dense_vectors": vectors_cfg,
                 "sparse_vectors": sparse_cfg,
                 "status": str(info.status),
@@ -193,7 +203,7 @@ def collection_stats(name: str, storage_path: str = "") -> Dict[str, Any]:
     return {
         "name": name,
         "points_count": info.points_count,
-        "vectors_count": info.vectors_count,
+        "vectors_count": getattr(info, "vectors_count", getattr(info, "indexed_vectors_count", 0)),
         "indexed_vectors_count": info.indexed_vectors_count,
         "status": str(info.status),
         "optimizer_status": str(info.optimizer_status),

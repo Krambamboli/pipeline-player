@@ -13,6 +13,7 @@ const TABS = [
   { href: "/", label: "📄 Step 1: Docling Parser", id: "tab-docling" },
   { href: "/chunk", label: "✂️ Step 2: Chunk & Vectorize", id: "tab-chunk" },
   { href: "/inspector", label: "🔍 Step 3: Vector DB Inspector", id: "tab-inspector" },
+  { href: "/enrich", label: "🧠 Step 4: Enrich Collection", id: "tab-enrich" },
 ];
 
 export default function TabNav() {

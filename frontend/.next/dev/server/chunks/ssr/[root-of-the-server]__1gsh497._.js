@@ -74,6 +74,11 @@ const TABS = [
         href: "/inspector",
         label: "🔍 Step 3: Vector DB Inspector",
         id: "tab-inspector"
+    },
+    {
+        href: "/enrich",
+        label: "🧠 Step 4: Enrich Collection",
+        id: "tab-enrich"
     }
 ];
 function TabNav() {
@@ -90,7 +95,7 @@ function TabNav() {
                         children: "⚡"
                     }, void 0, false, {
                         fileName: "[project]/src/components/TabNav.tsx",
-                        lineNumber: 24,
+                        lineNumber: 25,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -98,7 +103,7 @@ function TabNav() {
                         children: "Pipeline Player"
                     }, void 0, false, {
                         fileName: "[project]/src/components/TabNav.tsx",
-                        lineNumber: 25,
+                        lineNumber: 26,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -106,13 +111,13 @@ function TabNav() {
                         children: "Docling & ColPali Studio"
                     }, void 0, false, {
                         fileName: "[project]/src/components/TabNav.tsx",
-                        lineNumber: 26,
+                        lineNumber: 27,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/TabNav.tsx",
-                lineNumber: 23,
+                lineNumber: 24,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -127,19 +132,19 @@ function TabNav() {
                         children: tab.label
                     }, tab.href, false, {
                         fileName: "[project]/src/components/TabNav.tsx",
-                        lineNumber: 34,
+                        lineNumber: 35,
                         columnNumber: 13
                     }, this);
                 })
             }, void 0, false, {
                 fileName: "[project]/src/components/TabNav.tsx",
-                lineNumber: 28,
+                lineNumber: 29,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/TabNav.tsx",
-        lineNumber: 22,
+        lineNumber: 23,
         columnNumber: 5
     }, this);
 }

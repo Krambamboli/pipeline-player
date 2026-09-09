@@ -163,13 +163,17 @@ export default function InspectorPage() {
     try {
       const cols = await listCollections();
       setCollections(cols);
-      if (cols.length > 0 && !selectedCol) {
-        setSelectedCol(cols[0].name);
-      }
+      setSelectedCol((current) => {
+        // Auto-select the first collection only if nothing is selected yet
+        if (cols.length > 0 && !current) {
+          return cols[0].name;
+        }
+        return current;
+      });
     } catch (e) {
       console.error(e);
     }
-  }, [selectedCol]);
+  }, []);
 
   useEffect(() => {
     loadCollections();
@@ -259,7 +263,9 @@ export default function InspectorPage() {
             >
               <div className="collection-item__name">{col.name}</div>
               <div className="collection-item__meta">
-                {col.points_count?.toLocaleString() ?? "?"} points
+                {typeof col.points_count === "number"
+                  ? col.points_count.toLocaleString()
+                  : "…"} pts
                 {col.dense_vectors && Object.keys(col.dense_vectors).length > 0 && (
                   <span className="chunk-badge chunk-badge--type" style={{ marginLeft: 4 }}>
                     dense
@@ -425,8 +431,10 @@ export default function InspectorPage() {
               ← Prev
             </button>
             <span>
-              Showing {offset + 1}–{offset + (page.points.length)} of{" "}
-              {selectedColInfo?.points_count?.toLocaleString() ?? "?"} 
+              Showing {offset + 1}–{offset + page.points.length} of{" "}
+              {typeof selectedColInfo?.points_count === "number"
+                ? selectedColInfo.points_count.toLocaleString()
+                : "…"}
             </span>
             <button
               className="run-btn"

@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "chunk_run_id": "20260909_114730",
+  "collection_name": "docling_hybrid_20260907_095946_good-try_20260909_114731",
+  "chunk_count": 15,
+  "avg_tokens": 206.0,
+  "elapsed_seconds": 4.28,
+  "source_run_id": "20260907_095946_good-try"
+}
