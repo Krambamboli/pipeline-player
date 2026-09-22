@@ -287,7 +287,8 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     mode = cfg.embedding.mode
 
     yield emit(f"🗄️  Connecting to Qdrant at: {storage_path}")
-    client = QdrantClient(path=str(storage_path))
+    from services.qdrant_client_manager import get_qdrant_client
+    client = get_qdrant_client(str(storage_path))
 
     # Delete collection if overwrite requested
     if cfg.qdrant.overwrite_collection:

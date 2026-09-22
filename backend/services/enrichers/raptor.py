@@ -81,7 +81,8 @@ async def run_raptor(
     # 1. Open Qdrant + load source
     # ------------------------------------------------------------------
     yield emit("🗄️  Opening Qdrant storage...")
-    client = QdrantClient(path=str(qdrant_storage_path))
+    from services.qdrant_client_manager import get_qdrant_client
+    client = get_qdrant_client(str(qdrant_storage_path))
 
     yield emit(f"📥 Loading chunks + vectors from '{source_collection}'...")
     all_points = []
@@ -123,11 +124,30 @@ async def run_raptor(
     # 3. Create output collection
     # ------------------------------------------------------------------
     yield emit(f"🏗️  Creating output collection '{output_collection}'...")
+    src_info = client.get_collection(source_collection)
+    src_vectors = src_info.config.params.vectors
+    
+    if isinstance(src_vectors, dict):
+        vec_cfg = {k: VectorParams(size=v.size, distance=v.distance) for k, v in src_vectors.items()}
+        dense_vec_name = next(iter(vec_cfg.keys()))
+    else:
+        size = dim or getattr(src_vectors, "size", 384)
+        vec_cfg = VectorParams(size=size, distance=Distance.COSINE)
+        dense_vec_name = None
+
+    src_sparse = getattr(src_info.config.params, "sparse_vectors", None)
+    if src_sparse:
+        from qdrant_client.models import SparseVectorParams
+        sparse_cfg = {k: SparseVectorParams() for k in src_sparse.keys()}
+    else:
+        sparse_cfg = None
+
     if client.collection_exists(output_collection):
         client.delete_collection(output_collection)
     client.create_collection(
         collection_name=output_collection,
-        vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+        vectors_config=vec_cfg,
+        sparse_vectors_config=sparse_cfg,
     )
 
     # Copy all source points as level-0 nodes
@@ -142,7 +162,7 @@ async def run_raptor(
         for pt in batch:
             copied.append(PointStruct(
                 id=str(pt.id),
-                vector=pt.vector if isinstance(pt.vector, list) else list(pt.vector),
+                vector=pt.vector,
                 payload={**(pt.payload or {}), "raptor_level": 0},
             ))
         if next_off is None:
@@ -247,7 +267,8 @@ async def run_raptor(
                 "source_collection": source_collection,
             }
 
-            pt_struct = PointStruct(id=parent_id, vector=sv.tolist(), payload=payload)
+            vec_obj = {dense_vec_name: sv.tolist()} if dense_vec_name else sv.tolist()
+            pt_struct = PointStruct(id=parent_id, vector=vec_obj, payload=payload)
             client.upsert(collection_name=output_collection, points=[pt_struct])
             next_level_nodes.append(pt_struct)
             total_summaries_written += 1

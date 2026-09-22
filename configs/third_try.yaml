@@ -25,16 +25,17 @@ pdf_options:
   batch_polling_interval_seconds: 0.5
   stage_shutdown_timeout_seconds: 5.0
   ocr_options:
-    kind: easyocr
+    kind: ocrmac
     lang:
     - en
     - de
-    force_full_page_ocr: false
+    force_full_page_ocr: true
     bitmap_area_threshold: 0.05
   table_structure_options:
     mode: accurate
     do_cell_matching: true
   layout_options:
+    model: layout_heron_default
     keep_images: true
     use_legacy_layout: false
   heading_hierarchy_options:
@@ -63,5 +64,16 @@ output:
   formats:
   - html
   - markdown
+  - json
   html_split_page_view: true
   html_include_annotations: true
+iterate_items_options:
+  with_groups: false
+  traverse_pictures: false
+  page_no: null
+  included_content_layers:
+  - body
+  - furniture
+  - background
+  - invisible
+  - notes

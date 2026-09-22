@@ -155,7 +155,13 @@ export default function InspectorPage() {
   const [page, setPage] = useState<PointsPage | null>(null);
   const [withVectors, setWithVectors] = useState(false);
   const [offset, setOffset] = useState(0);
-  const [limit] = useState(20);
+  const [filterText, setFilterText] = useState("");
+  const [filterType, setFilterType] = useState("");
+  const [filterChunkType, setFilterChunkType] = useState("");
+  const [filterRaptorLevel, setFilterRaptorLevel] = useState("");
+  const [filterCluster, setFilterCluster] = useState("");
+  const [filterPage, setFilterPage] = useState("");
+  const [limit, setLimit] = useState(20);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
@@ -215,6 +221,44 @@ export default function InspectorPage() {
   }, [selectedCol]);
 
   const selectedColInfo = collections.find((c) => c.name === selectedCol);
+
+  // Extract unique RAPTOR cluster IDs from loaded points for the cluster dropdown
+  const uniqueClusters = Array.from(
+    new Set(
+      (page?.points ?? [])
+        .map((pt) => pt.extra_payload.raptor_cluster)
+        .filter((v) => v != null)
+        .map(Number)
+    )
+  ).sort((a, b) => a - b);
+
+  const filteredPoints = page?.points.filter((pt) => {
+    if (filterText && !pt.chunk_text.toLowerCase().includes(filterText.toLowerCase())) return false;
+    if (filterType) {
+      const ft = filterType.toLowerCase();
+      const matchElem = pt.element_types.some((t) => t.toLowerCase().includes(ft));
+      const matchExtra = Object.values(pt.extra_payload).some((v) => String(v).toLowerCase().includes(ft));
+      if (!matchElem && !matchExtra) return false;
+    }
+    if (filterChunkType) {
+      const ct = filterChunkType.toLowerCase();
+      const payloadCt = String(pt.extra_payload.chunk_type || "").toLowerCase();
+      if (!payloadCt.includes(ct)) return false;
+    }
+    if (filterRaptorLevel) {
+      const rl = Number(filterRaptorLevel);
+      if (pt.extra_payload.raptor_level !== rl) return false;
+    }
+    if (filterCluster) {
+      const cl = Number(filterCluster);
+      if (pt.extra_payload.raptor_cluster !== cl) return false;
+    }
+    if (filterPage) {
+      const fp = Number(filterPage);
+      if (!pt.page_numbers.includes(fp)) return false;
+    }
+    return true;
+  });
 
   return (
     <div style={{ display: "flex", height: "100%", gap: 0, overflow: "hidden" }}>
@@ -329,39 +373,139 @@ export default function InspectorPage() {
         className="panel"
         style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
-        <div className="panel__header">
-          <span className="panel__title">
-            🔍 {selectedCol ? selectedCol : "Select a collection"}
-          </span>
-          {selectedColInfo && (
-            <span style={{ marginLeft: 12, fontSize: "0.72rem", color: "var(--c-text-3)" }}>
-              {selectedColInfo.points_count?.toLocaleString()} points
-              {Object.keys(selectedColInfo.dense_vectors ?? {}).map((k) => (
-                <span key={k} style={{ marginLeft: 6 }}>
-                  · {k}: {selectedColInfo.dense_vectors[k]?.size}d
-                </span>
-              ))}
+        <div className="panel__header" style={{ flexWrap: "wrap", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+            <span className="panel__title">
+              🔍 {selectedCol ? selectedCol : "Select a collection"}
             </span>
+            {selectedColInfo && (
+              <span style={{ marginLeft: 12, fontSize: "0.72rem", color: "var(--c-text-3)" }}>
+                {selectedColInfo.points_count?.toLocaleString()} points
+                {Object.keys(selectedColInfo.dense_vectors ?? {}).map((k) => (
+                  <span key={k} style={{ marginLeft: 6 }}>
+                    · {k}: {selectedColInfo.dense_vectors[k]?.size}d
+                  </span>
+                ))}
+              </span>
+            )}
+            {/* Vector toggle */}
+            <label
+              style={{
+                marginLeft: "auto",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: "0.75rem",
+                color: "var(--c-text-2)",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={withVectors}
+                onChange={(e) => setWithVectors(e.target.checked)}
+              />
+              Show vectors
+            </label>
+          </div>
+
+          {/* Filters UI */}
+          {selectedCol && (
+            <div style={{ display: "flex", gap: "12px", width: "100%", alignItems: "flex-end" }}>
+              <label className="field" style={{ flex: 1 }}>
+                <span className="field__label">Search Text</span>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Search in chunk..."
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                />
+              </label>
+              <label className="field" style={{ width: 140 }}>
+                <span className="field__label">Element Type</span>
+                <select
+                  className="select"
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                >
+                  <option value="">All Types</option>
+                  <option value="text">text</option>
+                  <option value="table">table</option>
+                  <option value="list_item">list_item</option>
+                  <option value="section_header">section_header</option>
+                  <option value="page_header">page_header</option>
+                  <option value="page_footer">page_footer</option>
+                  <option value="picture">picture</option>
+                  <option value="formula">formula</option>
+                </select>
+              </label>
+              <label className="field" style={{ width: 120 }}>
+                <span className="field__label">Chunk Type</span>
+                <select
+                  className="select"
+                  value={filterChunkType}
+                  onChange={(e) => setFilterChunkType(e.target.value)}
+                >
+                  <option value="">All</option>
+                  <option value="parent">parent</option>
+                  <option value="child">child</option>
+                  <option value="raptor_leaf">raptor_leaf</option>
+                  <option value="raptor_summary">raptor_summary</option>
+                </select>
+              </label>
+              <label className="field" style={{ width: 80 }}>
+                <span className="field__label">Raptor Lvl</span>
+                <input
+                  type="number"
+                  className="input"
+                  placeholder="e.g. 1"
+                  value={filterRaptorLevel}
+                  onChange={(e) => setFilterRaptorLevel(e.target.value)}
+                />
+              </label>
+              {/* RAPTOR Cluster dropdown — only shows when clusters exist in the data */}
+              {uniqueClusters.length > 0 && (
+                <label className="field" style={{ width: 100 }}>
+                  <span className="field__label">Cluster</span>
+                  <select
+                    className="select"
+                    value={filterCluster}
+                    onChange={(e) => setFilterCluster(e.target.value)}
+                  >
+                    <option value="">All</option>
+                    {uniqueClusters.map((cl) => (
+                      <option key={cl} value={String(cl)}>
+                        Cluster {cl}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <label className="field" style={{ width: 80 }}>
+                <span className="field__label">Page</span>
+                <input
+                  type="number"
+                  className="input"
+                  placeholder="e.g. 5"
+                  value={filterPage}
+                  onChange={(e) => setFilterPage(e.target.value)}
+                />
+              </label>
+              <label className="field" style={{ width: 100 }}>
+                <span className="field__label">Fetch Limit</span>
+                <select
+                  className="select"
+                  value={limit}
+                  onChange={(e) => setLimit(Number(e.target.value))}
+                >
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100 (Max)</option>
+                </select>
+              </label>
+            </div>
           )}
-          {/* Vector toggle */}
-          <label
-            style={{
-              marginLeft: "auto",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: "0.75rem",
-              color: "var(--c-text-2)",
-              cursor: "pointer",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={withVectors}
-              onChange={(e) => setWithVectors(e.target.checked)}
-            />
-            Show vectors
-          </label>
         </div>
 
         {/* Points list */}
@@ -403,7 +547,7 @@ export default function InspectorPage() {
             </div>
           )}
           {!isLoading &&
-            page?.points.map((pt) => (
+            filteredPoints?.map((pt) => (
               <ChunkCard key={pt.id} point={pt} withVectors={withVectors} />
             ))}
         </div>

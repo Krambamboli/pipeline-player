@@ -17,6 +17,8 @@ from routers import status as status_router
 from routers import chunk as chunk_router
 from routers import qdrant as qdrant_router
 from routers import enrich as enrich_router
+from routers import retrieve as retrieve_router
+from routers import colpali as colpali_router
 from services.config_manager import ensure_default_profile
 
 app = FastAPI(
@@ -50,6 +52,8 @@ app.include_router(pipeline_router.router)
 app.include_router(chunk_router.router)
 app.include_router(qdrant_router.router)
 app.include_router(enrich_router.router)
+app.include_router(retrieve_router.router)
+app.include_router(colpali_router.router)
 
 
 @app.on_event("startup")

@@ -63,7 +63,9 @@ Text:
 
 def _parse_entity_json(raw: str) -> Dict:
     """Robustly parse LLM output that should be JSON."""
-    raw = raw.strip()
+    if not raw:
+        return {"entities": [], "relationships": []}
+    raw = str(raw).strip()
     # Strip markdown code fences if present
     if raw.startswith("```"):
         lines = raw.split("\n")
@@ -98,7 +100,8 @@ async def run_graph_rag(
     # 1. Setup
     # ------------------------------------------------------------------
     yield emit("🗄️  Opening Qdrant storage...")
-    client = QdrantClient(path=str(qdrant_storage_path))
+    from services.qdrant_client_manager import get_qdrant_client
+    client = get_qdrant_client(str(qdrant_storage_path))
 
     yield emit(f"📥 Loading chunks from '{source_collection}'...")
     all_points = []
@@ -135,23 +138,39 @@ async def run_graph_rag(
     # 2. Create output collection + copy source chunks
     # ------------------------------------------------------------------
     yield emit(f"🏗️  Creating output collection '{output_collection}'...")
+    src_info = client.get_collection(source_collection)
+    src_vectors = src_info.config.params.vectors
+    
+    if isinstance(src_vectors, dict):
+        vec_cfg = {k: VectorParams(size=v.size, distance=v.distance) for k, v in src_vectors.items()}
+        dense_vec_name = next(iter(vec_cfg.keys()))
+    else:
+        size = dim or getattr(src_vectors, "size", 384)
+        vec_cfg = VectorParams(size=size, distance=Distance.COSINE)
+        dense_vec_name = None
+
+    src_sparse = getattr(src_info.config.params, "sparse_vectors", None)
+    if src_sparse:
+        from qdrant_client.models import SparseVectorParams
+        sparse_cfg = {k: SparseVectorParams() for k in src_sparse.keys()}
+    else:
+        sparse_cfg = None
+
     if client.collection_exists(output_collection):
         client.delete_collection(output_collection)
     client.create_collection(
         collection_name=output_collection,
-        vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+        vectors_config=vec_cfg,
+        sparse_vectors_config=sparse_cfg,
     )
 
     for i in range(0, len(all_points), 64):
         batch_pts = all_points[i:i+64]
         pts = []
         for pt in batch_pts:
-            vec = pt.vector
-            if isinstance(vec, dict):
-                vec = vec.get("dense", list(vec.values())[0])
             pts.append(PointStruct(
                 id=str(pt.id),
-                vector=list(vec),
+                vector=pt.vector,
                 payload={**(pt.payload or {}), "chunk_type": "child"},
             ))
         client.upsert(collection_name=output_collection, points=pts)
@@ -247,9 +266,10 @@ async def run_graph_rag(
             "community_id": community_map.get(entity_name, -1),
             "source_collection": source_collection,
         }
+        vec_obj = {dense_vec_name: vec.tolist()} if dense_vec_name else vec.tolist()
         client.upsert(
             collection_name=output_collection,
-            points=[PointStruct(id=str(uuid.uuid4()), vector=vec.tolist(), payload=payload)],
+            points=[PointStruct(id=str(uuid.uuid4()), vector=vec_obj, payload=payload)],
         )
         entity_nodes_written += 1
 
@@ -274,7 +294,8 @@ async def run_graph_rag(
                 f"explaining what this group represents:\n\n{combined[:3000]}\n\nSummary:"
             )
             try:
-                summary = (await llm_client.complete(prompt)).strip()
+                raw_summary = await llm_client.complete(prompt)
+                summary = str(raw_summary).strip() if raw_summary else ""
             except Exception as exc:
                 yield emit(f"⚠️  Community {comm_id} summary failed: {exc}")
                 continue
@@ -291,9 +312,10 @@ async def run_graph_rag(
                 "community_members": members,
                 "source_collection": source_collection,
             }
+            vec_obj = {dense_vec_name: vec.tolist()} if dense_vec_name else vec.tolist()
             client.upsert(
                 collection_name=output_collection,
-                points=[PointStruct(id=str(uuid.uuid4()), vector=vec.tolist(), payload=payload)],
+                points=[PointStruct(id=str(uuid.uuid4()), vector=vec_obj, payload=payload)],
             )
             community_summaries_written += 1
 

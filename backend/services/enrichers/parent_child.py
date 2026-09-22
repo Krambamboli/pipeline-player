@@ -63,7 +63,8 @@ async def run_parent_child(
     # 1. Open Qdrant
     # ------------------------------------------------------------------
     yield emit("🗄️  Opening Qdrant storage...")
-    client = QdrantClient(path=str(qdrant_storage_path))
+    from services.qdrant_client_manager import get_qdrant_client
+    client = get_qdrant_client(str(qdrant_storage_path))
 
     # ------------------------------------------------------------------
     # 2. Load all points from the source collection via scroll
@@ -140,9 +141,18 @@ async def run_parent_child(
             k: VectorParams(size=v.size, distance=v.distance)
             for k, v in src_vectors.items()
         }
+        dense_vec_name = next(iter(vec_cfg.keys()))
     else:
         size = dim or getattr(src_vectors, "size", 384)
         vec_cfg = VectorParams(size=size, distance=Distance.COSINE)
+        dense_vec_name = None
+
+    src_sparse = getattr(src_info.config.params, "sparse_vectors", None)
+    if src_sparse:
+        from qdrant_client.models import SparseVectorParams
+        sparse_cfg = {k: SparseVectorParams() for k in src_sparse.keys()}
+    else:
+        sparse_cfg = None
 
     if client.collection_exists(output_collection):
         client.delete_collection(output_collection)
@@ -150,6 +160,7 @@ async def run_parent_child(
     client.create_collection(
         collection_name=output_collection,
         vectors_config=vec_cfg,
+        sparse_vectors_config=sparse_cfg,
     )
     yield emit("✅ Output collection ready")
 
@@ -243,11 +254,14 @@ async def run_parent_child(
             "source_collection": source_collection,
         }
 
-        if vector is not None:
-            parent_pt = PointStruct(id=parent_id, vector=vector, payload=parent_payload)
+        # Format vector depending on if collection uses named vectors
+        vec_data = vector if vector is not None else ([0.0] * dim if dim else [])
+        if dense_vec_name:
+            vec_obj = {dense_vec_name: vec_data}
         else:
-            parent_pt = PointStruct(id=parent_id, vector=[0.0] * dim, payload=parent_payload)
+            vec_obj = vec_data
 
+        parent_pt = PointStruct(id=parent_id, vector=vec_obj, payload=parent_payload)
         parent_points.append(parent_pt)
 
         for cid in child_ids:

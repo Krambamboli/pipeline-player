@@ -1132,3 +1132,8 @@ body {
   outline: none;
   border-color: var(--c-border-focus);
 }
+
+/* Blinking cursor animation for streaming answer generation */
+@keyframes blink {
+  50% { opacity: 0; }
+}

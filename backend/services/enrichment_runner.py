@@ -69,10 +69,10 @@ async def run_enrichment(cfg: EnrichmentConfig) -> AsyncGenerator[str, None]:
         cfg.qdrant_storage_path or str(REPO_ROOT / "qdrant_storage")
     )
 
-    # Verify source collection exists
-    from qdrant_client import QdrantClient
+    # Verify source collection exists using the shared singleton client
+    from services.qdrant_client_manager import get_qdrant_client
     try:
-        qc = QdrantClient(path=str(qdrant_path))
+        qc = get_qdrant_client(str(qdrant_path))
         if not qc.collection_exists(cfg.source_collection):
             yield emit(f"❌ Source collection '{cfg.source_collection}' not found.")
             return

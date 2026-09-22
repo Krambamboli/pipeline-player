@@ -71,3 +71,22 @@ python-louvain>=0.16
 # Neo4j driver — optional, only needed for GraphRAG with a real Neo4j instance
 # Install separately if you want to use Neo4j: pip install neo4j
 # neo4j>=5.20.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 4 — Answer Generation (GPT-4o)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# OpenAI Python SDK — for GPT-4o RAG answer generation from retrieved chunks
+# Requires OPENAI_API_KEY environment variable to be set
+openai>=1.40.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 5 — ColPali Visual Retrieval Pipeline
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Sentence Transformers with image support — provides MultiVectorEncoder
+# for ColPali/ColQwen2 models (late-interaction visual retrieval)
+sentence-transformers[image]>=3.0.0
+
+PyMuPDF>=1.24.0
+google-genai>=2.3.0

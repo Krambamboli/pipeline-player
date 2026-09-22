@@ -14,25 +14,20 @@ Routes:
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from services.chunk_runner import REPO_ROOT, _resolve_qdrant_path
+from services.qdrant_client_manager import get_qdrant_client
 
 router = APIRouter(prefix="/api/qdrant", tags=["qdrant"])
 logger = logging.getLogger(__name__)
 
-# Default storage path (mirrors chunk_runner default)
-DEFAULT_STORAGE = REPO_ROOT / "qdrant_storage"
 
-
+# Thin wrapper so callers inside this module can pass storage_path optionally
 def _get_client(storage_path: str = ""):
-    """Get a Qdrant client for the given (or default) storage path."""
-    from qdrant_client import QdrantClient
-    path = _resolve_qdrant_path(storage_path or str(DEFAULT_STORAGE))
-    return QdrantClient(path=str(path))
+    """Return the shared singleton Qdrant client."""
+    return get_qdrant_client(storage_path)
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +71,14 @@ def list_collections(storage_path: str = "") -> List[Dict[str, Any]]:
                 except Exception:
                     points_count = 0
 
+            # Detect multi-vector configuration (ColPali collections)
+            is_multivector = False
+            if isinstance(info.config.params.vectors, dict):
+                for vec_cfg in info.config.params.vectors.values():
+                    if hasattr(vec_cfg, "multivector_config") and vec_cfg.multivector_config:
+                        is_multivector = True
+                        break
+
             result.append({
                 "name": col.name,
                 "points_count": points_count,
@@ -83,6 +86,7 @@ def list_collections(storage_path: str = "") -> List[Dict[str, Any]]:
                 "dense_vectors": vectors_cfg,
                 "sparse_vectors": sparse_cfg,
                 "status": str(info.status),
+                "is_multivector": is_multivector,
             })
         except Exception as exc:
             result.append({"name": col.name, "error": str(exc)})

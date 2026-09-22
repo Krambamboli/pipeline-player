@@ -13,6 +13,9 @@ Pipeline Player is a production-ready GUI wrapper for Docling v2, designed to ma
 - **Rich Annotated HTML Output**: Generates a split-page view using `docling-core`'s native LayoutVisualizer, overlaying bounding boxes for elements perfectly over page images.
 - **Immediate Config Persistence**: Every config change in the UI is saved to a YAML profile on disk instantly (debounced 300ms). Supports multiple named profiles (Save As, Delete).
 - **Reproducible Artifacts**: Saves every run's output, config snapshot, and timing log in `/outputs/run_{timestamp}_{profile}/`.
+- **Advanced Chunking**: Experiment with Parent-Child chunking and RAPTOR (Recursive Abstractive Processing for Tree-Organized Retrieval) leveraging local LLMs via Ollama.
+- **Graph RAG & Enrichment**: Extract entities and relationships from chunks to build a knowledge graph, and generate community summaries for macro-level insights.
+- **Hybrid Retrieval Engine**: Query Qdrant vector databases using both Dense (e.g., BGE) and Sparse (BM25) embeddings. Features advanced fusion strategies (RRF, DBSF) and language-aware query rewriting.
 
 ---
 
@@ -38,6 +41,8 @@ pipeline-player/
 
 - **Python 3.12+** (Recommended to avoid ONNX/MPS compatibility bugs)
 - **Node.js 18+** and npm
+- **Qdrant** (Running locally, typically via Docker) for vector storage
+- **Ollama** (Running locally at `localhost:11434`) with models like `llama3.2:latest` for RAPTOR and Graph RAG
 - (Optional) NVIDIA GPU with CUDA or Apple Silicon for fast inference
 
 ---
@@ -151,16 +156,17 @@ https://docling-project.github.io/docling/reference/pipeline_options/
 
 ---
 
-## Future Pipeline Stages (Phase 2+)
+## Pipeline Stages (Phase 2)
 
-The following stub modules are ready to implement:
+The following advanced pipeline stages are now implemented and available in the UI:
 
 | Module | Path | Purpose |
 |--------|------|---------|
-| **Serialization** | `src/pipelines/serialization/` | Custom output format adapters |
-| **Chunking** | `src/pipelines/chunking/` | Hierarchical, semantic, fixed-size chunking |
-| **RAG** | `src/pipelines/rag/` | Embedding + vector store + retrieval pipeline |
-| **ColPali** | `src/pipelines/colpali/` | Visual page-level retrieval (requires `generate_page_images=True`) |
+| **Chunking** | `backend/services/chunking/` | Hierarchical Parent-Child chunking and recursive RAPTOR summarization using Ollama. |
+| **Enrichment** | `backend/services/enrichers/` | Graph RAG entity extraction, relationship building, and community summarization. |
+| **Retrieval** | `backend/services/retriever.py` | Qdrant-backed Hybrid Search (Dense + Sparse), RRF/DBSF fusion, and Query Rewriting. |
+| **Inspector** | `frontend/src/app/inspector/` | Vector DB inspector with advanced client-side filtering for chunk types, element types, and metadata. |
+| **ColPali** | `src/pipelines/colpali/` | Visual page-level retrieval *(Coming Soon)* |
 
 ---
 

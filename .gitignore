@@ -21,7 +21,7 @@
 /build
 
 # misc
-.DS_Store
+.DS_Store*
 *DS_Store
 *.pem
 .venv*
@@ -31,6 +31,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+outputs/*
+test_data*
+qdrant_storage*
 
 # vercel
 .vercel
@@ -38,3 +41,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# environment variables
+.env
+.env.*
+*.env

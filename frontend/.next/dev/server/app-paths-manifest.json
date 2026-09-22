@@ -1,5 +1,5 @@
 {
-  "/chunk/page": "app/chunk/page.js",
-  "/inspector/page": "app/inspector/page.js",
-  "/page": "app/page.js"
+  "/colpali/page": "app/colpali/page.js",
+  "/colpali/retrieve/page": "app/colpali/retrieve/page.js",
+  "/inspector/page": "app/inspector/page.js"
 }

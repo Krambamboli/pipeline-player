@@ -2645,6 +2645,24 @@ const TABS = [
         href: "/enrich",
         label: "🧠 Step 4: Enrich Collection",
         id: "tab-enrich"
+    },
+    {
+        href: "/retrieve",
+        label: "🔎 Step 5: Retrieval",
+        id: "tab-retrieve"
+    },
+    // Visual separator handled via CSS gap — ColPali parallel pipeline
+    {
+        href: "/colpali",
+        label: "🖼️ ColPali: Process",
+        id: "tab-colpali",
+        group: "colpali"
+    },
+    {
+        href: "/colpali/retrieve",
+        label: "🔎 ColPali: Retrieve",
+        id: "tab-colpali-retrieve",
+        group: "colpali"
     }
 ];
 function TabNav() {
@@ -2662,7 +2680,7 @@ function TabNav() {
                         children: "⚡"
                     }, void 0, false, {
                         fileName: "[project]/src/components/TabNav.tsx",
-                        lineNumber: 25,
+                        lineNumber: 29,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2670,7 +2688,7 @@ function TabNav() {
                         children: "Pipeline Player"
                     }, void 0, false, {
                         fileName: "[project]/src/components/TabNav.tsx",
-                        lineNumber: 26,
+                        lineNumber: 30,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2678,40 +2696,48 @@ function TabNav() {
                         children: "Docling & ColPali Studio"
                     }, void 0, false, {
                         fileName: "[project]/src/components/TabNav.tsx",
-                        lineNumber: 27,
+                        lineNumber: 31,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/TabNav.tsx",
-                lineNumber: 24,
+                lineNumber: 28,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "tabnav__tabs",
-                children: TABS.map((tab)=>{
-                    // exact match for root, prefix match for others
-                    const isActive = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
+                children: TABS.map((tab, idx)=>{
+                    // Exact match for root, colpali root, and colpali/retrieve
+                    // Prefix match for all others
+                    const isActive = tab.href === "/" ? pathname === "/" : tab.href === "/colpali" ? pathname === "/colpali" : pathname.startsWith(tab.href);
+                    // Add visual separator before the first ColPali tab
+                    const isFirstColpali = "group" in tab && tab.group === "colpali" && (idx === 0 || !("group" in TABS[idx - 1]));
                     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                         id: tab.id,
                         href: tab.href,
                         className: `tabnav__tab ${isActive ? "tabnav__tab--active" : ""}`,
+                        style: isFirstColpali ? {
+                            borderLeft: "1px solid var(--c-border)",
+                            marginLeft: 8,
+                            paddingLeft: 16
+                        } : undefined,
                         children: tab.label
                     }, tab.href, false, {
                         fileName: "[project]/src/components/TabNav.tsx",
-                        lineNumber: 35,
+                        lineNumber: 48,
                         columnNumber: 13
                     }, this);
                 })
             }, void 0, false, {
                 fileName: "[project]/src/components/TabNav.tsx",
-                lineNumber: 29,
+                lineNumber: 33,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/TabNav.tsx",
-        lineNumber: 23,
+        lineNumber: 27,
         columnNumber: 5
     }, this);
 }
