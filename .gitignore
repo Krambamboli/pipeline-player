@@ -41,6 +41,10 @@ test_data/*
 !test_data/.gitkeep
 test_data.zip
 
+# ── Config profiles — only track the default, ignore user experiments ──────
+configs/*
+!configs/default.yaml
+
 # ── Auto-generated Graph RAG artefacts ────────────────────────────────────
 graph_*.json
 
