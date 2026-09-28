@@ -1,4 +1,4 @@
-# Pipeline Player ⚡
+# Pipeline Player
 
 A localhost web application for **testing, configuring, and benchmarking Docling and ColPali document ingestion pipelines**.
 
