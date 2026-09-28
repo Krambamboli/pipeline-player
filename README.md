@@ -1,5 +1,7 @@
 # Pipeline Player
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 A localhost web application for **testing, configuring, and benchmarking Docling and ColPali document ingestion pipelines**.
 
 Pipeline Player is a GUI wrapper for Docling v2 and ColPali/ColQwen2, designed to make tuning complex AI document parsing and visual retrieval pipelines intuitive, fast, and reproducible — without writing a single line of code.
@@ -383,3 +385,31 @@ https://docling-project.github.io/docling/reference/pipeline_options/
 | **Enrichment** | `picture_description_options`, `code_formula_options`, `chart_extraction_options` |
 | **Accelerator** | `accelerator_options.device`, `num_threads` |
 | **Performance** | `layout_batch_size`, `ocr_batch_size`, `table_batch_size`, `queue_max_size` |
+
+---
+
+## License
+
+Copyright (C) 2024 Oliver Schneider
+
+This program is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License version 3** as published by the Free Software Foundation.
+
+See [`LICENSE`](LICENSE) for the full license text.
+
+### Dependency Licenses
+
+Pipeline Player uses the following key open source libraries:
+
+| Library | License | Notes |
+|---|---|---|
+| [Docling](https://github.com/docling-project/docling) | MIT | IBM document parser |
+| [PyMuPDF](https://github.com/pymupdf/PyMuPDF) | GNU AGPL-3.0 | PDF rasterizer — AGPL applies to network distribution |
+| [sentence-transformers](https://github.com/UKPLab/sentence-transformers) | Apache 2.0 | ColPali/ColQwen2 model loader |
+| [PyTorch](https://github.com/pytorch/pytorch) | BSD-3-Clause | ML inference backend |
+| [Qdrant client](https://github.com/qdrant/qdrant-client) | Apache 2.0 | Vector DB client |
+| [FastAPI](https://github.com/tiangolo/fastapi) | MIT | Backend framework |
+| [Transformers](https://github.com/huggingface/transformers) | Apache 2.0 | HuggingFace model hub |
+| [PEFT](https://github.com/huggingface/peft) | Apache 2.0 | LoRA adapter support |
+| [Next.js](https://github.com/vercel/next.js) | MIT | Frontend framework |
+| [scikit-learn](https://github.com/scikit-learn/scikit-learn) | BSD-3-Clause | RAPTOR clustering |
+| [NetworkX](https://github.com/networkx/networkx) | BSD-3-Clause | Graph RAG |
