@@ -59,3 +59,8 @@ backend/test_gemini.py
 
 # ── Vercel ─────────────────────────────────────────────────────────────────
 .vercel
+
+# ── Dead scaffolding / AI assistant instructions (not for end users) ───────
+src/
+AGENTS.md
+CLAUDE.md
