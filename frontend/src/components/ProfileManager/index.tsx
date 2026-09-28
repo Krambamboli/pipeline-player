@@ -11,9 +11,11 @@ interface Props {
   currentProfile: string;
   onSwitch: (name: string) => void;
   onSaveAs: (name: string) => void;
+  /** Optional: if provided, a "⬇ Download Settings" button is rendered */
+  onDownload?: () => void;
 }
 
-export default function ProfileManager({ currentProfile, onSwitch, onSaveAs }: Props) {
+export default function ProfileManager({ currentProfile, onSwitch, onSaveAs, onDownload }: Props) {
   const [profiles, setProfiles] = useState<string[]>([]);
   const [isSaveAsOpen, setIsSaveAsOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -77,6 +79,17 @@ export default function ProfileManager({ currentProfile, onSwitch, onSaveAs }: P
           {currentProfile !== "default" && (
             <button className="btn-icon" onClick={handleDelete} title="Delete profile" style={{ color: "var(--c-error)" }}>
               🗑
+            </button>
+          )}
+          {/* Download current profile as annotated Markdown */}
+          {onDownload && (
+            <button
+              className="btn-icon"
+              onClick={onDownload}
+              title="Download current profile as annotated Markdown"
+              style={{ fontSize: "0.85rem" }}
+            >
+              ⬇
             </button>
           )}
         </>

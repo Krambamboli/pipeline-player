@@ -14,6 +14,7 @@ import { checkHealth, listDocuments, DocumentInfo } from "@/lib/api";
 import { useConfig } from "@/hooks/useConfig";
 import { useRunStream } from "@/hooks/useRunStream";
 import type { RunResult } from "@/types/config";
+import { downloadDoclingProfile } from "@/lib/downloadSettings";
 
 import ConfigPanel from "@/components/ConfigPanel";
 import ProfileManager from "@/components/ProfileManager";
@@ -112,12 +113,13 @@ export default function Home() {
           )}
         </div>
 
-        {/* Profile switcher */}
+        {/* Profile switcher — with download button */}
         {config && (
           <ProfileManager
             currentProfile={config.profile_name}
             onSwitch={switchProfile}
             onSaveAs={saveAs}
+            onDownload={() => downloadDoclingProfile(config)}
           />
         )}
 

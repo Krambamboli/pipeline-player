@@ -1,6 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# ── Node / Next.js ─────────────────────────────────────────────────────────
 /node_modules
 /.pnp
 .pnp.*
@@ -9,40 +9,49 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
-# testing
 /coverage
-
-# next.js
 /.next/
 /out/
-
-# production
 /build
-
-# misc
-.DS_Store*
-*DS_Store
-*.pem
-.venv*
-
-# debug
+*.tsbuildinfo
+next-env.d.ts
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-outputs/*
-test_data*
-qdrant_storage*
 
-# vercel
-.vercel
+# ── Python ─────────────────────────────────────────────────────────────────
+**/__pycache__/
+*.py[cod]
+*$py.class
+.venv*
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# environment variables
+# ── Environment & Secrets ───────────────────────────────────────────────────
 .env
 .env.*
 *.env
+
+# ── Auto-generated pipeline outputs (never commit) ─────────────────────────
+outputs/
+chunk_runs/
+qdrant_storage/
+
+# ── Local test data (user-specific, can be large) ──────────────────────────
+test_data/*
+!test_data/.gitkeep
+test_data.zip
+
+# ── Auto-generated Graph RAG artefacts ────────────────────────────────────
+graph_*.json
+
+# ── Temporary / scratch files ──────────────────────────────────────────────
+backend/test_gemini.py
+
+# ── macOS ──────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store*
+*DS_Store
+*.pem
+
+# ── Vercel ─────────────────────────────────────────────────────────────────
+.vercel

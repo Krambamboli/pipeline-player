@@ -1,59 +1,62 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Pipeline Player — Backend Dependencies
 # Requires Python 3.10 or newer (Docling does not support Python 3.9).
-# Install with: pip install -r requirements.txt
+# Install with: pip install -r backend/requirements.txt
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Core backend framework
+# ── Core backend framework ────────────────────────────────────────────────────
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 
-# Docling — the document parser we are benchmarking.
-# The [standard] extra pulls in rapidocr; onnxruntime is its inference backend
-# (rapidocr 3.x ships the two separately).
+# ── Docling — document parser (Step 1) ───────────────────────────────────────
+# The [standard] extra pulls in rapidocr; onnxruntime is its inference backend.
 docling[standard]>=2.31.0
-onnxruntime>=1.18.0   # inference backend for rapidocr
+onnxruntime>=1.18.0
 
-# Data validation (mirrors Docling's own model classes)
+# ── Data validation ───────────────────────────────────────────────────────────
 pydantic>=2.0,<3.0
 pydantic-settings>=2.0
 
-# YAML config file support
+# ── YAML config file support ──────────────────────────────────────────────────
 pyyaml>=6.0
 
+# ── Environment variables ─────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
 # ─────────────────────────────────────────────────────────────────────────────
-# OPTIONAL — install these extras to unlock additional OCR engines /
-# enrichment models. Enable the corresponding flags in the UI after
-# installing the relevant package.
+# OPTIONAL — install these extras to unlock additional OCR engines.
+# Enable the corresponding flag in the UI after installing.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # EasyOCR engine  (ocr_options.kind = "easyocr")
-# Heavy: downloads a ~300 MB model on first use, needs PyTorch.
+# Heavy: downloads ~300 MB model on first use, requires PyTorch.
 # pip install easyocr
 
 # Tesseract (system) + Python bindings  (ocr_options.kind = "tesseract")
-# Requires the tesseract binary: `brew install tesseract`
+# Requires the Tesseract binary: `brew install tesseract` (macOS)
 # pip install pytesseract
 
 # OCRmyPDF engine  (ocr_options.kind = "ocrmypdf")
+# Requires system packages: `brew install ghostscript tesseract` (macOS)
 # pip install ocrmypdf
 
 # IBM Granite Vision / code models  (picture_description, code_formula)
 # pip install docling-ibm-models
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Phase 2 — Chunking & Vectorization (Qdrant + fastembed)
+# Step 2 — Chunking & Vectorization (Qdrant + fastembed)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Qdrant vector DB client with fastembed for local dense/sparse embedding
-# (no Docker required — uses local file storage by default)
+# Qdrant vector DB client with fastembed for local dense/sparse embedding.
+# No Docker required — uses local file storage (qdrant_storage/) by default.
+# fastembed auto-downloads BGE-Small (~130 MB) and BM25 on first use.
 qdrant-client[fastembed]>=1.12.0
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Phase 3 — Collection Enrichment (Step 4)
+# Step 3 (Inspector) + Step 4 (Enrichment) — RAPTOR & Graph RAG
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Ollama Python client — wraps the local Ollama REST API for LLM calls
+# Ollama Python client — wraps the local Ollama REST API for LLM calls.
 # Requires Ollama to be installed separately: https://ollama.com/download
 ollama>=0.3.0
 
@@ -68,25 +71,46 @@ scikit-learn>=1.5.0        # GMM clustering for RAPTOR
 # Note: package name on PyPI is "python-louvain" but imported as "community"
 python-louvain>=0.16
 
-# Neo4j driver — optional, only needed for GraphRAG with a real Neo4j instance
-# Install separately if you want to use Neo4j: pip install neo4j
-# neo4j>=5.20.0
-
 # ─────────────────────────────────────────────────────────────────────────────
-# Phase 4 — Answer Generation (GPT-4o)
+# Step 5 — Answer Generation (Multi-model)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# OpenAI Python SDK — for GPT-4o RAG answer generation from retrieved chunks
+# OpenAI Python SDK — for GPT-4o RAG answer generation
 # Requires OPENAI_API_KEY environment variable to be set
 openai>=1.40.0
 
+# Google Gemini SDK — for Gemini Flash / Pro answer generation
+# Requires GEMINI_API_KEY environment variable to be set
+google-genai>=2.3.0
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Phase 5 — ColPali Visual Retrieval Pipeline
+# ColPali — Visual Retrieval Pipeline (parallel to Steps 1–5)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Sentence Transformers with image support — provides MultiVectorEncoder
-# for ColPali/ColQwen2 models (late-interaction visual retrieval)
+# PyTorch — inference backend for ColQwen2 / ColPali models.
+# The correct version depends on your hardware:
+#   Apple Silicon (MPS): pip install torch torchvision  (standard PyPI build)
+#   NVIDIA GPU  (CUDA):  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#   CPU only:            pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# PyPI default below works for macOS. Override for your platform if needed.
+torch>=2.2.0
+torchvision>=0.17.0
+
+# sentence-transformers with image support — provides MultiVectorEncoder
+# for ColPali/ColQwen2 late-interaction multi-vector models.
+# First use downloads ColQwen2 model weights (~5 GB from HuggingFace).
 sentence-transformers[image]>=3.0.0
 
+# peft — required by sentence-transformers to load LoRA-based ColQwen2 adapters
+peft>=0.10.0
+
+# Pillow — PIL image handling (PDF page→image conversion & encoding)
+Pillow>=10.0.0
+
+# PyMuPDF — fast, no-dependency PDF → page-image rasterizer (replaces poppler)
 PyMuPDF>=1.24.0
-google-genai>=2.3.0
+
+# transformers + accelerate — HuggingFace model loading (transitive dependency
+# of sentence-transformers, pinned here for ColQwen2 compatibility)
+transformers>=4.40.0
+accelerate>=0.27.0

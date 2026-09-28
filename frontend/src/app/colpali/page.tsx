@@ -15,6 +15,7 @@
 
 import { useCallback, useRef, useState, useEffect } from "react";
 import { PdfFile, ColPaliConfig, listPdfs, runColPali } from "@/lib/colpali";
+import { downloadColPaliSettings } from "@/lib/downloadSettings";
 
 export default function ColPaliPage() {
   // ── PDF file list ─────────────────────────────────────────────────
@@ -285,6 +286,40 @@ export default function ColPaliPage() {
             style={{ width: "100%", marginTop: 8 }}
           >
             {isRunning ? "⏳ Running…" : "▶ Run ColPali Pipeline"}
+          </button>
+
+          {/* Download settings button — available any time */}
+          <button
+            onClick={() =>
+              downloadColPaliSettings({
+                selectedPdf,
+                modelName,
+                device,
+                batchSize,
+                dpi,
+                maxPages,
+                collectionName,
+                metadata: buildMetadata(),
+              })
+            }
+            style={{
+              width: "100%",
+              marginTop: 4,
+              background: "none",
+              border: "1px solid var(--c-border)",
+              borderRadius: 6,
+              color: "var(--c-text-3)",
+              cursor: "pointer",
+              fontSize: "0.72rem",
+              padding: "6px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+            title="Download current ColPali settings as annotated Markdown"
+          >
+            ⬇ Download Settings
           </button>
         </div>
       </aside>
