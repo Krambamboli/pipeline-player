@@ -75,6 +75,8 @@ cd pipeline-player
 cp /path/to/your-document.pdf test_data/
 ```
 
+> **Looking for test documents?** The [ViDoRe Benchmark v3](https://huggingface.co/collections/vidore/vidore-benchmark-v3) collection on HuggingFace contains a curated set of scientific and university-level PDFs — ideal for benchmarking visual retrieval quality.
+
 ### 3 — Python virtual environment & backend
 
 ```bash
@@ -87,15 +89,15 @@ source .venv/bin/activate       # macOS / Linux
 pip install -r backend/requirements.txt
 ```
 
-> **Model downloads on first use:** Pipeline Player pulls model weights automatically the first time each stage is used. Plan for ~7–15 GB total across all stages for a full local setup:
+> **Model downloads on first use:** Pipeline Player pulls model weights automatically the first time each stage is used. The models listed below are the **defaults** — most can be swapped for alternatives in the UI. Plan for ~7–15 GB total for a full local setup:
 >
-> | Stage | Model | Size | When |
+> | Stage | Default Model | Size | When |
 > |---|---|---|---|
 > | Docling Parser | Layout + Table + OCR models | ~1–2 GB | First pipeline run |
-> | Chunk & Vectorize | BGE-Small (dense) + BM25 | ~130 MB | First chunk run |
+> | Chunk & Vectorize | fastembed BGE-Small (dense) + BM25 | ~130 MB | First chunk run |
 > | ColPali Pipeline | ColQwen2 v1.0 via HuggingFace | ~5 GB | First ColPali run |
-> | Enrichment (RAPTOR/Graph RAG) | Ollama model (e.g. llama3.2) | ~2 GB | `ollama pull` — manual |
-> | Answer Generation (local) | Ollama LLaVA (vision) | ~4 GB | `ollama pull llava` — manual |
+> | Enrichment (RAPTOR/Graph RAG) | Any Ollama text model, e.g. `llama3.2` | ~2 GB | `ollama pull` — manual |
+> | Answer Generation (local) | Any Ollama vision model, e.g. `llava` | ~4 GB | `ollama pull llava` — manual |
 >
 > Cloud-based answer generation (Gemini, GPT-4o) has no local download — only an API key is needed.
 
@@ -373,11 +375,11 @@ https://docling-project.github.io/docling/reference/pipeline_options/
 |---|---|
 | **Core** | `do_ocr`, `do_table_structure`, `do_chart_extraction`, `do_code_enrichment`, `do_formula_enrichment`, `do_picture_classification`, `do_picture_description` |
 | **Output** | `formats` (HTML/MD/JSON), `html_split_page_view`, `html_include_annotations` |
-| **OCR** | `ocr_options.kind` (rapidocr/easyocr/tesseract/ocrmypdf), `lang`, `force_full_page_ocr` |
-| **Tables** | `table_structure_options.mode` (fast/accurate), `do_cell_matching` |
+| **OCR** | `ocr_options.kind`, `lang`, `force_full_page_ocr`, `bitmap_area_threshold` |
+| **Tables** | `table_structure_options.mode`, `do_cell_matching` |
 | **Images** | `generate_page_images`, `generate_picture_images`, `images_scale` |
 | **Layout** | `layout_options.model`, `keep_images`, `use_legacy_layout` |
-| **Headings** | `heading_hierarchy_options` — bookmarks, font style, numbering, max level |
+| **Headings** | `heading_hierarchy_options` |
 | **Enrichment** | `picture_description_options`, `code_formula_options`, `chart_extraction_options` |
-| **Accelerator** | `accelerator_options.device` (cpu/cuda/mps/auto), `num_threads` |
+| **Accelerator** | `accelerator_options.device`, `num_threads` |
 | **Performance** | `layout_batch_size`, `ocr_batch_size`, `table_batch_size`, `queue_max_size` |
