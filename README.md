@@ -374,7 +374,7 @@ https://docling-project.github.io/docling/reference/pipeline_options/
 | Section | Key Parameters |
 |---|---|
 | **Core** | `do_ocr`, `do_table_structure`, `do_chart_extraction`, `do_code_enrichment`, `do_formula_enrichment`, `do_picture_classification`, `do_picture_description` |
-| **Output** | `formats` (HTML/MD/JSON), `html_split_page_view`, `html_include_annotations` |
+| **Output** | `formats`, `html_split_page_view`, `html_include_annotations` |
 | **OCR** | `ocr_options.kind`, `lang`, `force_full_page_ocr`, `bitmap_area_threshold` |
 | **Tables** | `table_structure_options.mode`, `do_cell_matching` |
 | **Images** | `generate_page_images`, `generate_picture_images`, `images_scale` |
