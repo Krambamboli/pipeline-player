@@ -390,7 +390,7 @@ https://docling-project.github.io/docling/reference/pipeline_options/
 
 ## License
 
-Copyright (C) 2024 Oliver Schneider
+Copyright (C) 2026 Oliver Schneider
 
 This program is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License version 3** as published by the Free Software Foundation.
 
