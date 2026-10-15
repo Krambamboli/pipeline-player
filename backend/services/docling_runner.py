@@ -65,12 +65,83 @@ OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 # Helper: map our enums/models → Docling's native objects
 # ---------------------------------------------------------------------------
 
-def _build_docling_options(our_opts: OurPdfOptions):
+def _build_picture_description_options(pd, notes: List[str]):
+    """
+    Map our PictureDescriptionOptions → a Docling picture-description options
+    object (either a VLM preset or the OpenAI-compatible API client).
+
+    Docs: https://docling-project.github.io/docling/examples/pictures_description/
+          (PictureDescriptionVlmEngineOptions.from_preset / PictureDescriptionApiOptions)
+
+    Args:
+        pd:    our `PictureDescriptionOptions` model.
+        notes: list that collects human-readable decisions for the run log.
+
+    Returns:
+        A Docling options instance ready for `picture_description_options`.
+    """
+    import os
+    from docling.datamodel.pipeline_options import (
+        PictureDescriptionApiOptions,
+        PictureDescriptionVlmEngineOptions,
+    )
+
+    kind = pd.kind
+    # Shared fields understood by every Docling picture-description backend.
+    common = {
+        "prompt": pd.prompt,
+        "picture_area_threshold": pd.picture_area_threshold,
+    }
+
+    if kind == PictureDescriptionKind.API:
+        # OpenAI-compatible endpoint (Ollama, LM Studio, vLLM, OpenAI …).
+        headers = {}
+        if pd.api_key_env:
+            token = os.environ.get(pd.api_key_env)
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+            else:
+                notes.append(
+                    f"⚠ Picture description API: env var '{pd.api_key_env}' is not set — "
+                    "sending requests without Authorization header."
+                )
+        notes.append(
+            f"🖼 Picture description: API '{pd.api_model}' @ {pd.api_url} "
+            f"(timeout {pd.api_timeout:.0f}s, concurrency {pd.api_concurrency})"
+        )
+        return PictureDescriptionApiOptions(
+            url=pd.api_url,
+            params={"model": pd.api_model},
+            headers=headers,
+            timeout=pd.api_timeout,
+            concurrency=pd.api_concurrency,
+            provenance=f"api:{pd.api_model}",
+            **common,
+        )
+
+    # Local VLM preset. 'disabled' with the toggle ON falls back to Docling's
+    # own default (SmolVLM) — that is what Docling did implicitly before.
+    preset_id = kind.value if kind != PictureDescriptionKind.DISABLED else "smolvlm"
+    opts = PictureDescriptionVlmEngineOptions.from_preset(preset_id, **common)
+    repo = getattr(opts.model_spec, "default_repo_id", preset_id)
+    notes.append(f"🖼 Picture description: local preset '{preset_id}' ({repo})")
+    return opts
+
+
+def _build_docling_options(our_opts: OurPdfOptions, notes: List[str] | None = None):
     """
     Convert our Pydantic PdfPipelineOptions model to Docling's native
     PdfPipelineOptions object. This function is the bridge between our
     config schema and the live Docling library.
+
+    Args:
+        our_opts: the `pdf_options` block of a PipelineConfig.
+        notes:    optional list; receives human-readable notes about how
+                  settings were resolved (fallbacks, auto-enabled stages …)
+                  so the worker can print them into the run log.
     """
+    if notes is None:
+        notes = []
     # Import Docling here so the rest of the app doesn't fail if it's not installed.
     from docling.datamodel.pipeline_options import (
         AcceleratorOptions as DAcceleratorOptions,
@@ -91,24 +162,68 @@ def _build_docling_options(our_opts: OurPdfOptions):
     # Build the options object; if a chosen engine's package isn't installed
     # (e.g. easyocr selected but `pip install easyocr` not done yet) we fall
     # back to RapidOCR, which is always available via docling[standard].
+    # The UI stores ISO 639-1 codes ('de', 'en'); each engine expects its own
+    # format, so we translate them here.
+    _TESS = {"en": "eng", "de": "deu", "fr": "fra", "es": "spa", "it": "ita", "pt": "por",
+             "nl": "nld", "pl": "pol", "cs": "ces", "sv": "swe", "da": "dan", "fi": "fin",
+             "no": "nor", "ru": "rus", "uk": "ukr", "tr": "tur", "el": "ell", "zh": "chi_sim",
+             "ja": "jpn", "ko": "kor", "ar": "ara", "he": "heb", "hu": "hun", "ro": "ron"}
+    _APPLE = {"en": "en-US", "de": "de-DE", "fr": "fr-FR", "es": "es-ES", "it": "it-IT",
+              "pt": "pt-BR", "nl": "nl-NL", "pl": "pl-PL", "cs": "cs-CZ", "sv": "sv-SE",
+              "da": "da-DK", "no": "nb-NO", "ru": "ru-RU", "uk": "uk-UA", "tr": "tr-TR",
+              "zh": "zh-Hans", "ja": "ja-JP", "ko": "ko-KR", "ar": "ar-SA"}
+    langs = [l.strip() for l in o.ocr_options.lang if l and l.strip()]
+
+    def _map_langs(table: dict) -> list:
+        """Translate 2-letter codes via `table`; codes already in the target format pass through."""
+        return [table.get(l.lower(), l) for l in langs]
+
+    def _rapid_with_lang():
+        """
+        RapidOCR options with the FIRST UI language (RapidOCR recognises one
+        language per run; PP-OCRv6 accepts ISO codes like 'de', 'en').
+        Validated with Docling's own resolver so an unsupported code falls
+        back to Docling's default instead of crashing at model load time.
+        """
+        if not langs:
+            return RapidOcrOptions()
+        first = langs[0]
+        try:
+            # Private helper, but it is exactly what Docling runs at init time.
+            from docling.models.stages.ocr.rapid_ocr_model import _resolve_rapidocr
+            _resolve_rapidocr(first, RapidOcrOptions().backend)
+        except Exception as exc:  # unsupported code or API change → keep default
+            notes.append(f"⚠ RapidOCR does not support language '{first}' ({exc}) — using Docling default.")
+            return RapidOcrOptions()
+        if len(langs) > 1:
+            notes.append(f"ℹ RapidOCR uses one language per run — using '{first}', ignoring {langs[1:]}.")
+        return RapidOcrOptions(lang=[first])
+
     def _make_ocr_options():
         kind = o.ocr_options.kind
         try:
             if kind == OcrEngine.EASYOCR:
                 import easyocr  # noqa: F401  — just validate it's installed
-                return EasyOcrOptions(lang=o.ocr_options.lang)
+                return EasyOcrOptions(lang=langs or ["en"])
             elif kind == OcrEngine.TESSERACT:
-                return TesseractOcrOptions(lang="+".join(o.ocr_options.lang))
+                import tesserocr  # noqa: F401  — Python bindings must be installed
+                return TesseractOcrOptions(lang=_map_langs(_TESS) or ["eng"])
             elif kind == OcrEngine.TESSERACT_CLI:
-                return TesseractCliOcrOptions(lang="+".join(o.ocr_options.lang))
+                import shutil
+                if shutil.which("tesseract") is None:
+                    raise ImportError("`tesseract` binary not found on PATH (brew install tesseract)")
+                return TesseractCliOcrOptions(lang=_map_langs(_TESS) or ["eng"])
             elif kind == OcrEngine.MAC_OS_VISION:
                 import ocrmac  # noqa: F401
-                return OcrMacOptions()
+                mapped = _map_langs(_APPLE)
+                return OcrMacOptions(lang=mapped) if mapped else OcrMacOptions()
             elif kind == OcrEngine.AUTO:
                 return OcrAutoOptions()
             else:
-                # RAPIDOCR / OCRMYPDF / unknown — all use RapidOCR as the safe default
-                return RapidOcrOptions()
+                # RAPIDOCR / OCRMYPDF / unknown — all use RapidOCR as the safe default.
+                if kind == OcrEngine.OCRMYPDF:
+                    notes.append("⚠ OCR engine 'ocrmypdf' is not a Docling engine — using RapidOCR instead.")
+                return _rapid_with_lang()
         except ImportError as exc:
             # The requested engine's package isn't installed; fall back and warn
             import logging
@@ -117,7 +232,10 @@ def _build_docling_options(our_opts: OurPdfOptions):
                 "(%s). Falling back to RapidOCR. Install the missing package "
                 "or switch the engine in the UI.", kind, exc
             )
-            return RapidOcrOptions()
+            notes.append(
+                f"⚠ OCR engine '{kind.value}' is not installed ({exc}) — using RapidOCR instead."
+            )
+            return _rapid_with_lang()
 
     ocr_options = _make_ocr_options()
     # Apply shared fields
@@ -152,14 +270,53 @@ def _build_docling_options(our_opts: OurPdfOptions):
     }
     
     selected_device = dev_map.get(o.accelerator_options.device, DAccDevice.AUTO)
-    
+
+    # --- Reconcile enrichment toggles with their model selectors -----------
+    # The UI exposes both a boolean toggle (do_*) and a model dropdown (kind)
+    # for several stages. Previously only the toggle reached Docling and the
+    # dropdown went nowhere. Rule now: the TOGGLE is the master switch (keeps
+    # the behaviour of existing profiles — no surprise multi-GB downloads),
+    # the dropdown selects the model. Contradictions are reported in the run
+    # log; the UI keeps both in sync for new edits.
+    pd_kind = o.picture_description_options.kind
+    do_picture_description = bool(o.do_picture_description)
+    if not do_picture_description and pd_kind != PictureDescriptionKind.DISABLED:
+        notes.append(
+            f"ℹ VLM backend '{pd_kind.value}' is selected but 'Generate Picture Captions' is OFF — "
+            "picture description skipped."
+        )
+
+    pc_kind = o.picture_classification_options.kind
+    do_picture_classification = bool(o.do_picture_classification)
+    if not do_picture_classification and pc_kind != PictureClassificationKind.DISABLED:
+        notes.append("ℹ Classification model 'docling' is selected but 'Classify Pictures' is OFF — skipped.")
+
+    ce_kind = o.chart_extraction_options.kind
+    do_chart_extraction = bool(o.do_chart_extraction)
+    if not do_chart_extraction and ce_kind != ChartExtractionKind.DISABLED:
+        notes.append("ℹ Chart extraction model 'docling' is selected but 'Chart Data Extraction' is OFF — skipped.")
+    if do_chart_extraction and not do_picture_classification:
+        # The chart extractor only processes pictures the classifier labelled
+        # as bar/pie/line charts. Docling enables classification internally in
+        # this case anyway (pipeline/base_pipeline.py) — we mirror it so the
+        # run log states it explicitly.
+        do_picture_classification = True
+        notes.append("ℹ Picture classification auto-enabled (required by chart extraction).")
+
+    # API-based picture description needs Docling's remote-services guard off.
+    enable_remote_services = bool(o.enable_remote_services)
+    if do_picture_description and pd_kind == PictureDescriptionKind.API and not enable_remote_services:
+        enable_remote_services = True
+        notes.append("ℹ enable_remote_services auto-enabled (picture description backend = 'api').")
+
     # Force AUTO if user chose MPS but enabled VLM models that don't support it
-    if selected_device == DAccDevice.MPS and (o.do_code_enrichment or o.do_formula_enrichment or getattr(o, "do_picture_description", False)):
+    if selected_device == DAccDevice.MPS and (o.do_code_enrichment or o.do_formula_enrichment or do_picture_description):
         import logging
         logging.getLogger(__name__).warning(
             "MPS is not supported by VLM models (Code/Formula/Picture Description). "
             "Falling back to AUTO so supported models use MPS and VLMs use CPU."
         )
+        notes.append("ℹ Device MPS → AUTO (VLM enrichment models pick their own device).")
         selected_device = DAccDevice.AUTO
 
     acc_opts = DAcceleratorOptions(
@@ -184,9 +341,13 @@ def _build_docling_options(our_opts: OurPdfOptions):
         bookmark_match_threshold=o.heading_hierarchy_options.bookmark_match_threshold,
     )
 
+    # Code/formula model: 'granite' → granite_docling preset; 'codeformulav2'
+    # or 'disabled' (with a toggle ON) → Docling's default CodeFormulaV2.
     code_formula_opts = CodeFormulaVlmOptions.from_preset("codeformulav2")
-    if o.code_formula_options and o.code_formula_options.kind == "granite":
+    if o.code_formula_options and o.code_formula_options.kind == CodeFormulaKind.GRANITE:
         code_formula_opts = CodeFormulaVlmOptions.from_preset("granite_docling")
+    if (o.do_code_enrichment or o.do_formula_enrichment) and o.code_formula_options.kind == CodeFormulaKind.DISABLED:
+        notes.append("ℹ Code/formula model is 'disabled' but a toggle is ON — using CodeFormulaV2 (Docling default).")
 
     from docling.datamodel.pipeline_options import LayoutObjectDetectionOptions
 
@@ -200,8 +361,8 @@ def _build_docling_options(our_opts: OurPdfOptions):
         do_table_structure=o.do_table_structure,
         do_code_enrichment=o.do_code_enrichment,
         do_formula_enrichment=o.do_formula_enrichment,
-        do_picture_classification=o.do_picture_classification,
-        do_picture_description=o.do_picture_description,
+        do_picture_classification=do_picture_classification,
+        do_picture_description=do_picture_description,
         force_backend_text=o.force_backend_text,
         generate_page_images=o.generate_page_images,
         generate_picture_images=o.generate_picture_images,
@@ -216,6 +377,12 @@ def _build_docling_options(our_opts: OurPdfOptions):
         layout_options=layout_opts,
     )
 
+    # Picture description model (previously never passed → always SmolVLM).
+    if do_picture_description:
+        pipeline_opts.picture_description_options = _build_picture_description_options(
+            o.picture_description_options, notes
+        )
+
     # Apply optional or newer fields if supported by installed version
     if artifacts_path:
         pipeline_opts.artifacts_path = artifacts_path
@@ -224,8 +391,8 @@ def _build_docling_options(our_opts: OurPdfOptions):
 
     # Map missing fields dynamically if they exist on the target version
     optional_fields = {
-        "do_chart_extraction": o.do_chart_extraction,
-        "enable_remote_services": o.enable_remote_services,
+        "do_chart_extraction": do_chart_extraction,
+        "enable_remote_services": enable_remote_services,
         "allow_external_plugins": o.allow_external_plugins,
         "layout_batch_size": o.layout_batch_size,
         "ocr_batch_size": o.ocr_batch_size,

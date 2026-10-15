@@ -51,6 +51,11 @@ _lock = threading.Lock()
 _client = None
 _client_path: Optional[str] = None
 
+# Serialises WRITE operations (create/delete collection, upsert) on the shared
+# local client. Qdrant's local mode is not designed for concurrent writers, and
+# the RAG Tester runs a text track and a visual track in parallel threads.
+qdrant_write_lock = threading.RLock()
+
 
 def get_qdrant_client(storage_path: str = ""):
     """

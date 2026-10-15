@@ -26,7 +26,25 @@ Run with:
     uvicorn main:app --reload --port 8000
 """
 
-from fastapi import FastAPI
+import os
+from pathlib import Path
+
+# --- Persistent model caches -------------------------------------------------
+# fastembed (dense + sparse/BM25 embedding models used by Steps 3/5, the RAG
+# Tester and the Fusion Retriever) defaults to `tempfile.gettempdir()/fastembed_cache`.
+# On macOS that is /var/folders/.../T/, which the OS purges periodically —
+# leaving broken HF-style snapshots whose blobs are gone. We therefore pin the
+# cache to ~/.cache/fastembed (next to the Hugging Face hub cache).
+# Must run BEFORE any module imports fastembed; child processes (Docling and
+# chunk workers) inherit the variable. An explicit value in the environment /
+# .env file always wins thanks to setdefault().
+# Docs: fastembed/common/utils.py::define_cache_dir (reads FASTEMBED_CACHE_PATH)
+os.environ.setdefault(
+    "FASTEMBED_CACHE_PATH", str(Path.home() / ".cache" / "fastembed")
+)
+Path(os.environ["FASTEMBED_CACHE_PATH"]).mkdir(parents=True, exist_ok=True)
+
+from fastapi import FastAPI  # noqa: E402  (imports must follow the env setup)
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers import config as config_router
@@ -37,6 +55,9 @@ from routers import qdrant as qdrant_router
 from routers import enrich as enrich_router
 from routers import retrieve as retrieve_router
 from routers import colpali as colpali_router
+from routers import profiles as profiles_router
+from routers import rag_tester as rag_tester_router
+from routers import fusion as fusion_router
 from services.config_manager import ensure_default_profile
 
 app = FastAPI(
@@ -72,6 +93,9 @@ app.include_router(qdrant_router.router)
 app.include_router(enrich_router.router)
 app.include_router(retrieve_router.router)
 app.include_router(colpali_router.router)
+app.include_router(profiles_router.router)
+app.include_router(rag_tester_router.router)
+app.include_router(fusion_router.router)
 
 
 @app.on_event("startup")

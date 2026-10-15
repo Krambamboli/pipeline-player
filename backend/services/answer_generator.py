@@ -47,6 +47,7 @@ def generate_answer_stream(
     chunks: list[str],
     model: str = "gpt-4o",
     image_references: list[dict] | None = None,
+    prelabeled: bool = False,
 ) -> Generator[str, None, None]:
     """
     Stream tokens from GPT-4o given a query, context chunks, and optional images.
@@ -84,17 +85,22 @@ def generate_answer_stream(
     # Build the RAG prompt — numbered chunks for easy citation
     numbered_chunks = []
     for i, chunk in enumerate(chunks, 1):
-        if image_references:
+        if prelabeled:
+            # Caller already labelled each context item (e.g. Fusion Retriever:
+            # "[Source 2 — page image · doc.pdf p.14]") → use as-is
+            numbered_chunks.append(chunk)
+        elif image_references:
             # If we have images, the chunk text usually contains the page metadata.
             numbered_chunks.append(f"[Page {i}]\n{chunk}")
         else:
             numbered_chunks.append(f"[Chunk {i}]\n{chunk}")
     context_text = "\n\n---\n\n".join(numbered_chunks)
 
+    cite_hint = "[Source N]" if prelabeled else "[Chunk N] or [Page N]"
     system_prompt = (
         "You are a helpful research assistant. Answer the user's question "
         "based ONLY on the provided context chunks or images. "
-        "When you use information, cite it (e.g. [Chunk N] or [Page N]). "
+        f"When you use information, cite it (e.g. {cite_hint}). "
         "If the answer cannot be found in the context, say so clearly. "
         "Answer in the same language as the question."
     )
@@ -114,7 +120,10 @@ def generate_answer_stream(
         
         for ref in image_references:
             try:
-                pdf_path = TEST_DATA_DIR / ref["source"]
+                # Prefer an absolute path (RAG Tester / Fusion Retriever store
+                # file_path); fall back to the legacy test_data/<source> lookup.
+                fp = ref.get("file_path")
+                pdf_path = Path(fp) if fp else TEST_DATA_DIR / ref["source"]
                 if not pdf_path.exists():
                     logger.warning(f"PDF not found for image rendering: {pdf_path}")
                     continue

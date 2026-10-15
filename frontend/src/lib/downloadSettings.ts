@@ -139,8 +139,22 @@ export function downloadDoclingProfile(config: PipelineConfig): void {
 
 | Setting | Value | Description |
 |---|---|---|
-| \`keep_images\` | \`${p.layout_options?.keep_images}\` | Retain picture elements in the output document. |
-| \`use_legacy_layout\` | \`${p.layout_options?.use_legacy_layout}\` | Use the older rule-based layout model instead of the deep-learning one. |
+| \`model\` | \`${p.layout_options?.model ?? "default"}\` | Layout object-detection model preset (Heron / Egret). |
+
+---
+
+## Enrichment Models
+
+| Setting | Value | Description |
+|---|---|---|
+| \`picture_description_options.kind\` | \`${p.picture_description_options?.kind ?? "disabled"}\` | VLM for picture captions: Docling preset (\`smolvlm\`, \`granite_vision\`, \`qwen\`, \`pixtral\`) or \`api\` (OpenAI-compatible, e.g. Ollama). |
+| \`picture_description_options.prompt\` | \`${(p.picture_description_options?.prompt ?? "").replace(/\|/g, "\\|")}\` | Prompt sent to the VLM per picture. |
+| \`picture_description_options.picture_area_threshold\` | \`${p.picture_description_options?.picture_area_threshold ?? 0.05}\` | Pictures smaller than this page-area fraction are skipped. |
+${p.picture_description_options?.kind === "api" ? `| \`picture_description_options.api_url\` | \`${p.picture_description_options.api_url}\` | OpenAI-compatible endpoint. |
+| \`picture_description_options.api_model\` | \`${p.picture_description_options.api_model}\` | Model name sent to the API. |
+` : ""}| \`picture_classification_options.kind\` | \`${p.picture_classification_options?.kind ?? "disabled"}\` | Picture classifier (DocumentFigureClassifier-v2.5). |
+| \`code_formula_options.kind\` | \`${p.code_formula_options?.kind ?? "disabled"}\` | Model for code/formula enrichment (\`codeformulav2\` or \`granite\` = granite-docling-258M). |
+| \`chart_extraction_options.kind\` | \`${p.chart_extraction_options?.kind ?? "disabled"}\` | Chart-to-table extractor (granite-vision-v4). |
 
 ---
 

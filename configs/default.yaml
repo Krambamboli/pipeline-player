@@ -7,7 +7,7 @@ description: 'Default Docling pipeline — fast & safe baseline. Uses RapidOCR (
 pdf_options:
   do_ocr: true
   do_table_structure: true
-  do_chart_extraction: true
+  do_chart_extraction: false
   do_code_enrichment: true
   do_formula_enrichment: true
   do_picture_classification: true
@@ -29,7 +29,7 @@ pdf_options:
   batch_polling_interval_seconds: 0.5
   stage_shutdown_timeout_seconds: 5.0
   ocr_options:
-    kind: ocrmypdf
+    kind: ocrmac
     lang:
     - en
     - de
@@ -39,6 +39,7 @@ pdf_options:
     mode: accurate
     do_cell_matching: true
   layout_options:
+    model: default
     keep_images: true
     use_legacy_layout: false
   heading_hierarchy_options:

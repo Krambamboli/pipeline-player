@@ -40,7 +40,7 @@ pipeline-player/
 │       ├── components/# Shared UI components
 │       ├── hooks/     # SSE streaming hooks (useRunStream, useChunkStream, …)
 │       └── lib/       # API client helpers + settings export utility
-├── configs/           # YAML config profiles (Docling pipeline)
+├── configs/           # Saved profiles (git-ignored): Docling *.yaml, chunk/, colpali/, reranker/
 └── test_data/         # Place your PDFs here (git-ignored)
 ```
 
@@ -179,19 +179,34 @@ Each stage is independent. Nothing beyond `pip install -r requirements.txt` is n
 
 Parse PDFs with full parameter control. Docling model weights (~1–2 GB) are downloaded automatically on first run into HuggingFace's default cache (`~/.cache/huggingface/`).
 
-**Optional OCR engines** (enable in UI after installing):
+**OCR engines.** RapidOCR (bundled) and macOS Vision (`ocrmac`) work out of the box. If the selected engine is not installed, the backend falls back to RapidOCR and writes a `⚠` line into the run log. The recognition languages from the UI are forwarded to every engine in its own format: macOS Vision `de`→`de-DE`, Tesseract `de`→`deu`, RapidOCR uses the first language only.
 
 ```bash
-# OCRmyPDF — recommended for scanned/image-only PDFs
-brew install ghostscript tesseract   # macOS system deps
-pip install ocrmypdf
-
 # EasyOCR — GPU-accelerated, downloads ~300 MB model on first use
 pip install easyocr
 
-# Tesseract bindings only
-brew install tesseract && pip install pytesseract
+# Tesseract (Python bindings used by Docling's "tesseract" engine)
+brew install tesseract && pip install tesserocr
+# Tesseract CLI engine only needs the binary:
+brew install tesseract
 ```
+
+> [!NOTE]
+> "OCRmyPDF" is listed for completeness but is not a Docling OCR engine; it runs as RapidOCR.
+
+**Picture description (VLM captions).** Turn on *Generate Picture Captions* and pick the model under *Enrichment Models → VLM Backend*. Both controls stay in sync, and the toggle is the master switch. The generated descriptions are part of the chunk text in Step 2 and the RAG Tester.
+
+| Backend | Model | Size (first download) |
+|---|---|---|
+| `smolvlm` | HuggingFaceTB/SmolVLM-256M-Instruct (Docling default) | ~0.5 GB |
+| `granite_vision` | ibm-granite/granite-vision-3.3-2b | ~5 GB |
+| `qwen` | Qwen/Qwen2.5-VL-3B-Instruct | ~7 GB |
+| `pixtral` | mistral-community/pixtral-12b | ~25 GB |
+| `api` | any OpenAI-compatible endpoint, e.g. Ollama `http://localhost:11434/v1/chat/completions` with `llama3.2-vision` / `llava` | — |
+
+For `api`, *Allow Remote Services* is switched on automatically. An API key is read from the env var named in *API Key Env Var*, and only that variable's name is stored in the profile. The run log shows which model was actually used.
+
+*Classify Pictures* uses DocumentFigureClassifier-v2.5. *Chart Data Extraction* uses granite-vision-v4 and enables classification automatically, because only pictures classified as charts are processed.
 
 ---
 
@@ -200,9 +215,10 @@ brew install tesseract && pip install pytesseract
 Chunks Docling output, embeds it, and upserts into a local Qdrant collection.
 
 - **Qdrant** runs in local file mode (stored in `qdrant_storage/`) — no Docker needed.
-- **fastembed** auto-downloads embedding models on first use:
+- **fastembed** auto-downloads embedding models on first use into `~/.cache/fastembed`. The backend sets `FASTEMBED_CACHE_PATH` at startup; fastembed's default, the macOS temp dir, gets purged by the OS. You can override the path in `backend/.env`.
   - BGE-Small-EN-v1.5 (dense, ~130 MB)
   - BM25 (sparse, negligible size)
+- **Include captions in text** (Serialization) removes figure/table captions from the chunk text when switched off.
 
 ---
 
@@ -233,6 +249,9 @@ ollama serve   # starts automatically on macOS if installed via the app
 ### Step 5 — Retrieval & Answer Generation
 
 Hybrid dense + sparse RAG search over Qdrant. No extra setup beyond Step 2.
+
+> [!NOTE]
+> Step 5 picks the dense query model from the collection's vector size (384 → BGE-Small, …), not from the model stored in the payload. Size-ambiguous collections (e.g. 768-dim jina vs. e5-base) can therefore be queried with the wrong model. The **Fusion Retriever** reads the stored model and lets you override it.
 
 **For answer generation**, choose your model:
 
@@ -265,6 +284,55 @@ ollama pull llava
 
 ---
 
+### RAG Tester — Whole Course Folder → Two Collections
+
+Builds **two complete Qdrant collections for a whole folder of PDFs** (e.g. one course) in a single run, re-using your proven, saved settings:
+
+| Collection | Built from | Search | Used in |
+|---|---|---|---|
+| `<course>_hybrid` | Docling profile (Step 1) → chunk profile (Step 2) → dense + sparse | Hybrid / RRF | Step 4 Enrich, Step 5 Retrieval |
+| `<course>_colpali` | ColPali process profile → page images → ColQwen2 multi-vectors | MaxSim late interaction | ColPali: Retrieve |
+
+- The **text track** parses several PDFs in parallel (configurable Docling workers, ~2–3 GB RAM each). Each document is chunked, embedded and upserted as soon as its parse finishes.
+- The **visual track** runs at the same time. It loads the ColPali model **once** and encodes the documents one after another.
+- Every point in **both** collections carries the same metadata: `doc_name`, `file_path`, `rel_path`, `course`, `doc_source` and the page (`page_numbers` / `page_start` for chunks, `page_number` for ColPali pages), plus optional custom fields.
+- Only PDFs are ingested, so that both collections contain exactly the same documents.
+
+**Prerequisites:** at least one saved **chunk profile** (Step 2 → 💾 Profile bar) and one saved **ColPali profile** (ColPali: Process → 💾 Profile bar). No extra installation is needed beyond Steps 1, 2 and ColPali.
+
+---
+
+### Fusion Retriever — Hybrid + MaxSim + Your Own Reranker
+
+Queries a **text collection** (hybrid dense + sparse, Qdrant RRF) and a **ColPali collection** (MaxSim) with the same question, in parallel. A small **Python reranker** that you write in the browser merges both lists. The final top-k items that would go to the LLM update live while you edit the code.
+
+- **Model detection.** The dense model of a text collection is read from the point payload (`dense_model` / `sparse_model`, written by Step 2 and the RAG Tester). For older collections it comes from the RAG Tester manifest. As a last resort it is guessed from the vector size; such guesses show a warning chip and can be overridden.
+- **Model dropdowns.** The dense and sparse query models can be overridden from dropdowns filled by the installed fastembed version. Only dense models with the collection's vector size can be selected. A warning appears if you pick a model other than the one used for indexing.
+- **Text fusion.** The dense and sparse lists of the text collection can be merged in four ways, all computed by Qdrant:
+  - **RRF** with adjustable `k` and per-list weights. Qdrant scores `Σ 1 / (rank / w + k − 1)`, so the weight divides the rank.
+  - **DBSF**: scores normalised to mean ± 3σ, then summed.
+  - **Dense only** or **sparse only**.
+- **Transparency.** Every text candidate shows its rank in the dense and the sparse list, how much of its fused score came from each list (blue/amber bar), and a badge: *dense-driven* (≥ 60 %), *sparse-driven* (≤ 40 %), *both*, or *only dense/sparse* if just one retriever found it. These shares are recomputed with the same formulas as qdrant-client and add up to Qdrant's fused score.
+- **Reranker contract.** The script must define the function below. Every hit is a dict with:
+  - `source` (`"text"` / `"colpali"`), `id`, `rank`, `score`, `score_norm` (0..1 within its list), `doc_name`, `file_path` and page fields;
+  - for text hits also `text`, `dense_rank`/`dense_score`, `sparse_rank`/`sparse_score`, `dense_contrib`/`sparse_contrib`, `dense_share`, `found_by` and `driver`.
+
+  Returned hits may add `fused_score` and `reason`, which are shown in the UI.
+
+  ```python
+  def rerank(text_hits: list[dict], colpali_hits: list[dict], k: int) -> list[dict]:
+      ...
+  ```
+
+- **Sandbox.** The script runs in a separate, isolated Python process (`python -I`) with a 3-second timeout. `print()` output is shown below the editor, and syntax or runtime errors highlight the affected line.
+- **Saved scripts** are stored as `configs/reranker/<name>.py`. Like all of `configs/`, this folder is git-ignored. The built-in default is weighted RRF (`k = 60`), with a commented-out example rule: *"if ColPali #1 scores ≥ 30 % higher than ColPali #2, put it first"*.
+- **Generate answer** uses the same models as ColPali: Retrieve. Text chunks are sent as text, ColPali pages as page images, each labelled `[Source N]`.
+
+> [!WARNING]
+> The reranker runs **arbitrary Python code on your machine**. The timeout guards against endless loops, but the process is not a security sandbox. Keep the backend bound to `localhost` and only run scripts you trust.
+
+---
+
 ## Using the UI
 
 ### Tab Navigation
@@ -278,6 +346,8 @@ ollama pull llava
 | **🔎 Step 5: Retrieval** | `/retrieve` | Hybrid RAG search + answer generation |
 | **🖼️ ColPali: Process** | `/colpali` | Visual page-level embedding pipeline |
 | **🔎 ColPali: Retrieve** | `/colpali/retrieve` | MaxSim retrieval + visual answer generation |
+| **🧪 RAG Tester** | `/rag-tester` | Whole folder → hybrid + ColPali collections in one run |
+| **🔀 Fusion Retriever** | `/fusion` | Hybrid + MaxSim in parallel, custom Python reranker, answer generation |
 
 ---
 
@@ -295,6 +365,7 @@ ollama pull llava
 
 - Select the source Docling run from the dropdown.
 - Configure the chunker (Hybrid/Hierarchical/Page), embedding mode (Dense/Sparse/Hybrid), and Qdrant collection settings.
+- Use the **💾 Profile** bar to save proven chunking + embedding settings (`configs/chunk/<name>.yaml`) for re-use in the RAG Tester. The source run and collection name are not stored in the profile.
 - Click **▶ Run Chunk Pipeline** — progress streams live.
 - The resulting Qdrant collection is immediately available in Steps 3–5.
 
@@ -320,6 +391,7 @@ ollama pull llava
 
 - Select a PDF from `test_data/`.
 - Configure model (`colqwen2-v1.0` or `colpali-v1.3`), device, DPI, and batch size.
+- Use the **💾 Profile** bar to save these process settings (`configs/colpali/<name>.yaml`) for re-use in the RAG Tester.
 - Click **▶ Run ColPali Pipeline** — pages are rasterized, encoded, and upserted as multi-vector points.
 - Click **⬇ Download Settings** to save the current configuration as annotated Markdown.
 
@@ -328,6 +400,24 @@ ollama pull llava
 - Select a ColPali collection.
 - Enter a query — MaxSim scoring ranks pages by visual similarity.
 - Click **▶ Generate Answer** to run visual answer generation using Gemini, GPT-4o, or LLaVA.
+
+### RAG Tester
+
+1. **Course folder.** Pick a sub-folder of `test_data/` or type any path (`/abs/path`, `~/path`). A preview lists every PDF with its page count.
+2. **Profiles.** Choose the Docling, chunk and ColPali profiles. *Force hybrid embedding* (on by default) always stores dense + sparse vectors. Either track can be switched off.
+3. **Collections.** Names are suggested from the folder name and can be edited. If a collection already exists, the run stops unless **Overwrite** is ticked.
+4. **Parallel Docling workers.** Default is 3. Optionally add extra metadata (e.g. `semester: FS13`), which is written into both collections.
+5. Click **🧪 Build both collections**. The table shows the live status of every document in both tracks. Failed documents are reported and skipped; the rest continue.
+
+Keep the tab open during the run. Closing it cancels the run.
+
+### Fusion Retriever
+
+1. **Query and collections.** Enter a question. When you pick a `<course>_hybrid` collection, its `<course>_colpali` sibling is selected automatically. Either side can be set to *none*.
+2. **Limits.** Set top-N per list (default 5) and *→ LLM (k)*, the number of items passed to the model (default 3).
+3. Click **🔎 Search both** (or press ⌘/Ctrl + Enter). The first search loads the models (~15–30 s); later searches take well under a second. The candidates appear side by side, with ColPali pages as thumbnails (click to enlarge).
+4. **Edit the reranker** on the right (CodeMirror editor with Python syntax highlighting). It re-runs about 400 ms after every change. Selected candidates get a **→ LLM #n** badge. Save proven scripts with **💾**, or go back to the built-in RRF with **↺ RRF**.
+5. When the ranking looks right, click **▶ Generate answer**.
 
 ### Download Settings
 
@@ -350,6 +440,15 @@ outputs/run_20240901_143022_default/
 
 > `outputs/` and `qdrant_storage/` are **git-ignored** and stay local.
 
+Every **RAG Tester** run additionally writes:
+
+```
+outputs/rag_{run_id}/run_01_<doc>/   # Docling outputs per document (parsed_doc.json, config.yaml, run.log)
+rag_runs/{run_id}.json               # Manifest: request, full copies of all 3 profiles, collections, per-document results
+```
+
+> `rag_runs/` is git-ignored as well.
+
 ---
 
 ## Tech Stack
@@ -360,7 +459,7 @@ outputs/run_20240901_143022_default/
 | **Document Parsing** | Docling v2, docling-core |
 | **Visual Retrieval** | ColQwen2 / ColPali (via sentence-transformers MultiVectorEncoder) |
 | **Vector DB** | Qdrant (local file mode) with fastembed |
-| **Embeddings** | BGE-Small-EN-v1.5 (dense), BM25 (sparse) via fastembed |
+| **Embeddings** | fastembed: BGE-Small-EN-v1.5 (dense, default) + BM25 (sparse); any other fastembed model selectable per chunk profile |
 | **LLM / Enrichment** | Ollama (local), OpenAI, Google Gemini |
 | **Frontend** | Next.js 16 (App Router), TypeScript |
 | **Styling** | Vanilla CSS — custom dark theme, no Tailwind |
@@ -380,9 +479,9 @@ https://docling-project.github.io/docling/reference/pipeline_options/
 | **OCR** | `ocr_options.kind`, `lang`, `force_full_page_ocr`, `bitmap_area_threshold` |
 | **Tables** | `table_structure_options.mode`, `do_cell_matching` |
 | **Images** | `generate_page_images`, `generate_picture_images`, `images_scale` |
-| **Layout** | `layout_options.model`, `keep_images`, `use_legacy_layout` |
+| **Layout** | `layout_options.model` |
 | **Headings** | `heading_hierarchy_options` |
-| **Enrichment** | `picture_description_options`, `code_formula_options`, `chart_extraction_options` |
+| **Enrichment** | `picture_description_options` (VLM preset or API, prompt, area threshold), `picture_classification_options`, `code_formula_options`, `chart_extraction_options` |
 | **Accelerator** | `accelerator_options.device`, `num_threads` |
 | **Performance** | `layout_batch_size`, `ocr_batch_size`, `table_batch_size`, `queue_max_size` |
 

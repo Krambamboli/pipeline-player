@@ -39,12 +39,40 @@ References:
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 from models.colpali_schema import ColPaliRetrievedPage, ColPaliRetrieveResponse
 
 logger = logging.getLogger(__name__)
+
+# In-memory cache: model name → loaded MultiVectorEncoder. Loading ColQwen2
+# takes ~20 s; keeping it (~5 GB) makes every further query take ~1 s.
+_QUERY_MODELS: Dict[str, object] = {}
+_QUERY_MODELS_LOCK = threading.Lock()
+
+
+def get_query_model(model_name: str):
+    """Return a cached MultiVectorEncoder for query encoding (thread-safe)."""
+    with _QUERY_MODELS_LOCK:
+        model = _QUERY_MODELS.get(model_name)
+        if model is None:
+            from sentence_transformers import MultiVectorEncoder
+            logger.info("Loading ColPali query model %s (cached afterwards)", model_name)
+            model = MultiVectorEncoder(model_name)
+            _QUERY_MODELS[model_name] = model
+        return model
+
+
+def encode_query(model_name: str, query: str) -> list:
+    """Encode a text query into ColPali query token vectors (list of lists)."""
+    model = get_query_model(model_name)
+    # Many ColPali checkpoints (like v1.3-merged) don't have a modules.json that sets prompt_name="query".
+    # They were trained with the "Question: " prefix. Forcing it dramatically improves maxsim scores.
+    prefix = "Question: " if not query.startswith("Question:") else ""
+    emb = model.encode_query([f"{prefix}{query}"])[0]
+    return emb.tolist() if hasattr(emb, "tolist") else emb
 
 # Root paths
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -106,18 +134,8 @@ def run_colpali_retrieval(
     model_name = _detect_model_from_collection(client, collection_name)
     logger.info("Using model %s for query encoding", model_name)
 
-    # Load the model and encode the query
-    from sentence_transformers import MultiVectorEncoder
-    model = MultiVectorEncoder(model_name)
-
-    # Many ColPali checkpoints (like v1.3-merged) don't have a modules.json that sets prompt_name="query".
-    # They were trained with the "Question: " prefix. Forcing it dramatically improves maxsim scores.
-    prefix = "Question: " if not query.startswith("Question:") else ""
-    query_embeddings = model.encode_query([f"{prefix}{query}"])[0]
-
-    # Convert to list if numpy
-    if hasattr(query_embeddings, 'tolist'):
-        query_embeddings = query_embeddings.tolist()
+    # Load the (cached) model and encode the query
+    query_embeddings = encode_query(model_name, query)
 
     # Query Qdrant with MaxSim (the collection is already configured for it)
     results = client.query_points(

@@ -37,6 +37,10 @@ const TABS = [
   // Visual separator handled via CSS gap — ColPali parallel pipeline
   { href: "/colpali", label: "🖼️ ColPali: Process", id: "tab-colpali", group: "colpali" },
   { href: "/colpali/retrieve", label: "🔎 ColPali: Retrieve", id: "tab-colpali-retrieve", group: "colpali" },
+  // Batch tool: whole course folder → hybrid + ColPali collections
+  { href: "/rag-tester", label: "🧪 RAG Tester", id: "tab-rag-tester", group: "rag" },
+  // Query both collections (hybrid + MaxSim) and fuse them with a Python reranker
+  { href: "/fusion", label: "🔀 Fusion Retriever", id: "tab-fusion", group: "rag" },
 ] as const;
 
 export default function TabNav() {
@@ -60,8 +64,11 @@ export default function TabNav() {
               ? pathname === "/colpali"
               : pathname.startsWith(tab.href);
 
-          // Add visual separator before the first ColPali tab
-          const isFirstColpali = "group" in tab && tab.group === "colpali" && (idx === 0 || !("group" in TABS[idx - 1]));
+          // Add a visual separator before the first tab of each group (ColPali, RAG Tester)
+          const prev = idx > 0 ? TABS[idx - 1] : undefined;
+          const group = "group" in tab ? tab.group : undefined;
+          const prevGroup = prev && "group" in prev ? prev.group : undefined;
+          const isFirstColpali = group !== undefined && group !== prevGroup;
 
           return (
             <Link

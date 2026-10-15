@@ -125,7 +125,308 @@ def _count_tokens_simple(text: str, tokenizer=None) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Main runner
+# Reusable building blocks (shared by Step 2 and the RAG Tester)
+# ---------------------------------------------------------------------------
+
+def _serializer_provider(cfg: ChunkPipelineConfig):
+    """
+    Return a docling-core serializer provider honouring the serialization
+    options, or None to keep the chunker's built-in default.
+
+    docling-core only emits figure/table captions when DocItemLabel.CAPTION is
+    part of the serializer params' `labels` set (serializer/common.py
+    ::serialize_captions). To drop captions we subclass the default
+    ChunkingSerializerProvider and remove that label.
+    """
+    if cfg.serialization.include_captions_in_text:
+        return None  # default behaviour already includes captions
+
+    from docling_core.transforms.chunker.hierarchical_chunker import (
+        ChunkingDocSerializer,
+        ChunkingSerializerProvider,
+    )
+    from docling_core.types.doc.labels import DocItemLabel
+
+    class _NoCaptionProvider(ChunkingSerializerProvider):
+        """Chunking serializer without captions."""
+
+        def get_serializer(self, doc):
+            ser = ChunkingDocSerializer(doc=doc)
+            # Copy the default params with CAPTION removed from the label set
+            ser.params = ser.params.model_copy(
+                update={"labels": set(ser.params.labels) - {DocItemLabel.CAPTION}}
+            )
+            return ser
+
+    return _NoCaptionProvider()
+
+
+def build_chunker(cfg: ChunkPipelineConfig):
+    """
+    Build the Docling chunker described by cfg.
+    Returns (chunker, tokenizer_or_None). The tokenizer is only available for
+    the HybridChunker and is used for accurate token counts.
+    """
+    # Optional custom serializer (e.g. captions excluded); passed only when set
+    # so the chunkers keep their own defaults otherwise.
+    provider = _serializer_provider(cfg)
+    ser_kwargs = {"serializer_provider": provider} if provider is not None else {}
+    if cfg.chunker == ChunkerKind.HYBRID:
+        import importlib
+
+        from docling.chunking import HybridChunker
+        import docling_core.transforms.chunker.tokenizer.huggingface as hf_tok_mod
+        from transformers import AutoTokenizer
+
+        # docling-core imports transformers inside try/except at module load.
+        # If that happened while another thread was still importing
+        # transformers (RAG Tester: ColPali + chunker start in parallel), the
+        # module stays broken (_TRANSFORMERS_AVAILABLE=False) and every
+        # HuggingFaceTokenizer(...) fails with "not fully defined".
+        # transformers is fully imported now (line above) → reload to heal.
+        if not getattr(hf_tok_mod, "_TRANSFORMERS_AVAILABLE", True):
+            logger.warning("Re-loading docling_core HuggingFace tokenizer module (broken concurrent import)")
+            hf_tok_mod = importlib.reload(hf_tok_mod)
+        HuggingFaceTokenizer = hf_tok_mod.HuggingFaceTokenizer
+
+        hf_tok = AutoTokenizer.from_pretrained(cfg.hybrid_chunker_options.tokenizer_model)
+        tokenizer = HuggingFaceTokenizer(
+            tokenizer=hf_tok,
+            max_tokens=cfg.hybrid_chunker_options.max_tokens,
+        )
+        chunker = HybridChunker(
+            tokenizer=tokenizer,
+            repeat_table_header=cfg.hybrid_chunker_options.repeat_table_header,
+            merge_peers=cfg.hybrid_chunker_options.merge_peers,
+            omit_header_on_overflow=cfg.hybrid_chunker_options.omit_header_on_overflow,
+            always_emit_headings=cfg.hybrid_chunker_options.always_emit_headings,
+            **ser_kwargs,
+        )
+        return chunker, hf_tok
+
+    if cfg.chunker == ChunkerKind.HIERARCHICAL:
+        from docling_core.transforms.chunker import HierarchicalChunker
+        chunker = HierarchicalChunker(
+            always_emit_headings=cfg.hierarchical_chunker_options.always_emit_headings,
+            merge_list_items=cfg.hierarchical_chunker_options.merge_list_items,
+            **ser_kwargs,
+        )
+        return chunker, None
+
+    # PAGE
+    from docling_core.transforms.chunker import PageChunker
+    return PageChunker(**ser_kwargs), None
+
+
+def chunk_document(
+    dl_doc,
+    chunker,
+    tokenizer,
+    cfg: ChunkPipelineConfig,
+    run_id: str = "",
+    extra_payload: Optional[Dict[str, Any]] = None,
+):
+    """
+    Chunk a DoclingDocument and build one payload per chunk.
+
+    Args:
+        dl_doc:        the DoclingDocument
+        chunker:       chunker from build_chunker()
+        tokenizer:     tokenizer from build_chunker() (or None)
+        cfg:           chunk config (serialization + metadata options)
+        run_id:        Docling run ID stored as payload["run_id"] if enabled
+        extra_payload: extra fields merged into every payload (e.g. doc_name,
+                       file_path, course from the RAG Tester). Applied LAST so
+                       they override auto-detected values like doc_source.
+
+    Returns:
+        (texts, payloads, raw_count) — empty/whitespace chunks are already
+        filtered out; raw_count is the number of chunks before filtering.
+    """
+    raw_chunks = list(chunker.chunk(dl_doc))
+    texts: List[str] = []
+    payloads: List[Dict[str, Any]] = []
+
+    for idx, chunk in enumerate(raw_chunks):
+        # Serialize chunk text (contextualize prepends heading context)
+        text = chunker.contextualize(chunk) if cfg.serialization.include_headings_in_text else chunk.text
+
+        # Filter out empty / whitespace-only chunks — these would produce
+        # NaN embeddings and cause Qdrant upsert to fail.
+        if not text or not text.strip():
+            continue
+
+        meta = chunk.meta
+        payload: Dict[str, Any] = {
+            "chunk_text": chunk.text,       # raw chunk text (without heading prefix)
+            "embedded_text": text,          # the text that was actually embedded
+            "chunk_index": idx,
+        }
+        # Store the embedding models so retrievers can encode the query with
+        # the SAME model (the vector dimension alone is ambiguous, e.g. 768).
+        if cfg.embedding.mode in (EmbeddingMode.DENSE, EmbeddingMode.HYBRID):
+            payload["dense_model"] = cfg.embedding.dense_model
+        if cfg.embedding.mode in (EmbeddingMode.SPARSE, EmbeddingMode.HYBRID):
+            payload["sparse_model"] = cfg.embedding.sparse_model
+
+        if cfg.metadata.add_run_id:
+            payload["run_id"] = run_id
+        if cfg.metadata.add_doc_source:
+            origin = getattr(meta, "origin", None)
+            payload["doc_source"] = getattr(origin, "filename", run_id)
+        if cfg.metadata.add_headings:
+            payload["headings"] = getattr(meta, "headings", None) or []
+        if cfg.metadata.add_page_numbers:
+            pages = _get_page_numbers(getattr(meta, "doc_items", []))
+            payload["page_numbers"] = pages
+            # Convenience scalar for simple range/equality filters in Qdrant
+            payload["page_start"] = pages[0] if pages else None
+        if cfg.metadata.add_element_types:
+            payload["element_types"] = _get_element_types(getattr(meta, "doc_items", []))
+        if cfg.metadata.add_token_count:
+            payload["token_count"] = _count_tokens_simple(text, tokenizer)
+
+        # Custom static fields from the profile, then caller-supplied fields
+        payload.update(cfg.metadata.custom_fields)
+        if extra_payload:
+            payload.update(extra_payload)
+
+        texts.append(text)
+        payloads.append(payload)
+
+    return texts, payloads, len(raw_chunks)
+
+
+class EmbeddingModels:
+    """
+    Holds the fastembed models for one embedding config so they are loaded
+    only ONCE (important when embedding many documents in the RAG Tester).
+    """
+
+    def __init__(self, cfg: ChunkPipelineConfig):
+        from fastembed import TextEmbedding, SparseTextEmbedding
+
+        self.mode = cfg.embedding.mode
+        self.batch_size = cfg.embedding.batch_size
+        self.dense = None
+        self.sparse = None
+        self.dense_dim: Optional[int] = None
+
+        if self.mode in (EmbeddingMode.DENSE, EmbeddingMode.HYBRID):
+            self.dense = TextEmbedding(model_name=cfg.embedding.dense_model)
+            # Probe the vector size once
+            self.dense_dim = len(list(self.dense.embed(["probe"]))[0])
+        if self.mode in (EmbeddingMode.SPARSE, EmbeddingMode.HYBRID):
+            self.sparse = SparseTextEmbedding(model_name=cfg.embedding.sparse_model)
+
+    def embed(self, texts: List[str]):
+        """Return (dense_vectors|None, sparse_vectors|None) for the texts."""
+        dense = list(self.dense.embed(texts, batch_size=self.batch_size)) if self.dense else None
+        sparse = list(self.sparse.embed(texts, batch_size=self.batch_size)) if self.sparse else None
+        return dense, sparse
+
+
+def ensure_text_collection(client, collection_name: str, cfg: ChunkPipelineConfig, dense_dim: Optional[int]) -> bool:
+    """
+    Create the Qdrant collection for the given embedding mode if missing.
+    Returns True if it was created, False if it already existed.
+    """
+    from qdrant_client.models import Distance, VectorParams, SparseVectorParams, SparseIndexParams
+
+    if client.collection_exists(collection_name):
+        return False
+
+    mode = cfg.embedding.mode
+    if mode == EmbeddingMode.DENSE:
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=dense_dim, distance=Distance.COSINE),
+            on_disk_payload=cfg.qdrant.on_disk_payload,
+        )
+    elif mode == EmbeddingMode.SPARSE:
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config={},
+            sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
+            on_disk_payload=cfg.qdrant.on_disk_payload,
+        )
+    else:  # HYBRID — named vectors "dense" + "sparse"
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config={"dense": VectorParams(size=dense_dim, distance=Distance.COSINE)},
+            sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
+            on_disk_payload=cfg.qdrant.on_disk_payload,
+        )
+    return True
+
+
+def build_points(texts, payloads, dense_vectors, sparse_vectors, mode: EmbeddingMode):
+    """
+    Build Qdrant PointStructs. Points with NaN/Inf vectors are skipped.
+    Returns (points, nan_skipped).
+    """
+    import math
+    from qdrant_client.models import PointStruct, SparseVector
+
+    def _bad(vals) -> bool:
+        return any(math.isnan(v) or math.isinf(v) for v in vals)
+
+    points = []
+    nan_skipped = 0
+    for i, payload in enumerate(payloads):
+        point_id = str(uuid.uuid4())
+        if mode == EmbeddingMode.DENSE:
+            vec = dense_vectors[i].tolist()
+            if _bad(vec):
+                nan_skipped += 1
+                continue
+            points.append(PointStruct(id=point_id, vector=vec, payload=payload))
+        elif mode == EmbeddingMode.SPARSE:
+            sv = sparse_vectors[i]
+            sv_vals = sv.values.tolist()
+            if _bad(sv_vals):
+                nan_skipped += 1
+                continue
+            points.append(PointStruct(
+                id=point_id,
+                vector={"sparse": SparseVector(indices=sv.indices.tolist(), values=sv_vals)},
+                payload=payload,
+            ))
+        else:  # HYBRID
+            sv = sparse_vectors[i]
+            dv = dense_vectors[i].tolist()
+            sv_vals = sv.values.tolist()
+            if _bad(dv) or _bad(sv_vals):
+                nan_skipped += 1
+                continue
+            points.append(PointStruct(
+                id=point_id,
+                vector={
+                    "dense": dv,
+                    "sparse": SparseVector(indices=sv.indices.tolist(), values=sv_vals),
+                },
+                payload=payload,
+            ))
+    return points, nan_skipped
+
+
+def upsert_in_batches(client, collection_name: str, points, batch_size: int = 64):
+    """
+    Upsert points in batches. Yields the progress percentage after each batch.
+    Uses the shared Qdrant write lock so concurrent tracks never write at once.
+    """
+    from services.qdrant_client_manager import qdrant_write_lock
+
+    total = len(points)
+    for start in range(0, total, batch_size):
+        batch = points[start:start + batch_size]
+        with qdrant_write_lock:
+            client.upsert(collection_name=collection_name, points=batch)
+        yield min(100, int((start + len(batch)) / max(total, 1) * 100))
+
+
+# ---------------------------------------------------------------------------
+# Main runner (Step 2 — single document)
 # ---------------------------------------------------------------------------
 
 def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[str, Any]]:
@@ -169,40 +470,8 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     # Step 2: Build the chunker
     # ------------------------------------------------------------------
     yield emit(f"✂️  Building chunker: {cfg.chunker.value}...")
-
     try:
-        if cfg.chunker == ChunkerKind.HYBRID:
-            from docling.chunking import HybridChunker
-            from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
-            from transformers import AutoTokenizer
-
-            hf_tok = AutoTokenizer.from_pretrained(cfg.hybrid_chunker_options.tokenizer_model)
-            tokenizer = HuggingFaceTokenizer(
-                tokenizer=hf_tok,
-                max_tokens=cfg.hybrid_chunker_options.max_tokens,
-            )
-            chunker = HybridChunker(
-                tokenizer=tokenizer,
-                repeat_table_header=cfg.hybrid_chunker_options.repeat_table_header,
-                merge_peers=cfg.hybrid_chunker_options.merge_peers,
-                omit_header_on_overflow=cfg.hybrid_chunker_options.omit_header_on_overflow,
-                always_emit_headings=cfg.hybrid_chunker_options.always_emit_headings,
-            )
-            active_tokenizer = hf_tok
-
-        elif cfg.chunker == ChunkerKind.HIERARCHICAL:
-            from docling_core.transforms.chunker import HierarchicalChunker
-            chunker = HierarchicalChunker(
-                always_emit_headings=cfg.hierarchical_chunker_options.always_emit_headings,
-                merge_list_items=cfg.hierarchical_chunker_options.merge_list_items,
-            )
-            active_tokenizer = None
-
-        else:  # PAGE
-            from docling_core.transforms.chunker import PageChunker
-            chunker = PageChunker()
-            active_tokenizer = None
-
+        chunker, active_tokenizer = build_chunker(cfg)
         yield emit(f"✅ Chunker ready: {type(chunker).__name__}")
     except Exception as exc:
         yield emit(f"❌ Failed to build chunker: {exc}")
@@ -212,94 +481,29 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     # Step 3: Chunk the document + build payloads
     # ------------------------------------------------------------------
     yield emit("✂️  Chunking document...")
-
     try:
-        raw_chunks = list(chunker.chunk(dl_doc))
-        yield emit(f"✅ Produced {len(raw_chunks)} raw chunks")
+        texts, payloads, raw_count = chunk_document(
+            dl_doc, chunker, active_tokenizer, cfg, run_id=cfg.source_run_id
+        )
+        yield emit(f"✅ Produced {raw_count} raw chunks")
     except Exception as exc:
         yield emit(f"❌ Chunking failed: {exc}")
         return {"status": "error", "error": str(exc)}
 
-    # Build texts and payloads
-    texts: List[str] = []
-    payloads: List[Dict[str, Any]] = []
-
-    for idx, chunk in enumerate(raw_chunks):
-        # Serialize chunk text (contextualize prepends heading context)
-        if cfg.serialization.include_headings_in_text:
-            text = chunker.contextualize(chunk)
-        else:
-            text = chunk.text
-
-        texts.append(text)
-
-        # Build metadata payload
-        meta = chunk.meta
-        payload: Dict[str, Any] = {
-            "chunk_text": chunk.text,       # raw chunk text (without heading prefix)
-            "embedded_text": text,          # the text that was actually embedded
-            "chunk_index": idx,
-        }
-
-        if cfg.metadata.add_run_id:
-            payload["run_id"] = cfg.source_run_id
-        if cfg.metadata.add_doc_source:
-            origin = getattr(meta, "origin", None)
-            payload["doc_source"] = getattr(origin, "filename", cfg.source_run_id)
-        if cfg.metadata.add_headings:
-            payload["headings"] = getattr(meta, "headings", None) or []
-        if cfg.metadata.add_page_numbers:
-            doc_items = getattr(meta, "doc_items", [])
-            payload["page_numbers"] = _get_page_numbers(doc_items)
-        if cfg.metadata.add_element_types:
-            doc_items = getattr(meta, "doc_items", [])
-            payload["element_types"] = _get_element_types(doc_items)
-        if cfg.metadata.add_token_count:
-            payload["token_count"] = _count_tokens_simple(text, active_tokenizer)
-
-        # Custom static fields
-        payload.update(cfg.metadata.custom_fields)
-
-        payloads.append(payload)
-
-    # ------------------------------------------------------------------
-    # Filter out empty / whitespace-only chunks — these would produce
-    # NaN embeddings and cause Qdrant upsert to fail.
-    # ------------------------------------------------------------------
-    before_filter = len(texts)
-    filtered = [(t, p) for t, p in zip(texts, payloads) if t and t.strip()]
-    if not filtered:
+    if not texts:
         yield emit("❌ All chunks were empty after filtering. Nothing to embed.")
         return {"status": "error", "error": "No non-empty chunks produced."}
 
-    texts, payloads = zip(*filtered)  # type: ignore[assignment]
-    texts = list(texts)
-    payloads = list(payloads)
-
-    skipped = before_filter - len(texts)
+    skipped = raw_count - len(texts)
     if skipped:
         yield emit(f"⚠️  Skipped {skipped} empty chunk(s) (headings with no body text)")
 
-    avg_tokens = (
-        sum(p.get("token_count", 0) for p in payloads) / len(payloads)
-        if payloads else 0
-    )
+    avg_tokens = sum(p.get("token_count", 0) for p in payloads) / len(payloads)
     yield emit(f"📊 Avg token count per chunk: {avg_tokens:.0f} ({len(texts)} non-empty chunks)")
 
     # ------------------------------------------------------------------
-    # Step 4: Build Qdrant collection + embed + upsert
+    # Step 4: Load embedding models + build Qdrant collection
     # ------------------------------------------------------------------
-    from qdrant_client import QdrantClient
-    from qdrant_client.models import (
-        Distance,
-        VectorParams,
-        SparseVectorParams,
-        SparseIndexParams,
-        PointStruct,
-        SparseVector,
-    )
-    from fastembed import TextEmbedding, SparseTextEmbedding
-
     storage_path = _resolve_qdrant_path(cfg.qdrant.storage_path)
     collection_name = _build_collection_name(cfg)
     mode = cfg.embedding.mode
@@ -308,56 +512,22 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     from services.qdrant_client_manager import get_qdrant_client
     client = get_qdrant_client(str(storage_path))
 
+    try:
+        models = EmbeddingModels(cfg)
+    except Exception as exc:
+        yield emit(f"❌ Failed to load embedding model(s): {exc}")
+        return {"status": "error", "error": str(exc)}
+
     # Delete collection if overwrite requested
-    if cfg.qdrant.overwrite_collection:
-        existing = [c.name for c in client.get_collections().collections]
-        if collection_name in existing:
-            client.delete_collection(collection_name)
-            yield emit(f"🗑️  Deleted existing collection '{collection_name}'")
+    if cfg.qdrant.overwrite_collection and client.collection_exists(collection_name):
+        client.delete_collection(collection_name)
+        yield emit(f"🗑️  Deleted existing collection '{collection_name}'")
 
-    existing_collections = [c.name for c in client.get_collections().collections]
-
-    if collection_name not in existing_collections:
-        yield emit(f"🏗️  Creating collection '{collection_name}' (mode={mode.value})...")
-
-        if mode == EmbeddingMode.DENSE:
-            # Probe vector size by embedding one chunk
-            dense_model = TextEmbedding(model_name=cfg.embedding.dense_model)
-            sample = list(dense_model.embed(["probe"]))[0]
-            dim = len(sample)
-            client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
-                on_disk_payload=cfg.qdrant.on_disk_payload,
-            )
-            yield emit(f"✅ Dense collection created ({dim}-dim, cosine)")
-
-        elif mode == EmbeddingMode.SPARSE:
-            client.create_collection(
-                collection_name=collection_name,
-                vectors_config={},
-                sparse_vectors_config={
-                    "sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))
-                },
-                on_disk_payload=cfg.qdrant.on_disk_payload,
-            )
-            yield emit("✅ Sparse collection created (BM25)")
-
-        else:  # HYBRID
-            dense_model_probe = TextEmbedding(model_name=cfg.embedding.dense_model)
-            sample = list(dense_model_probe.embed(["probe"]))[0]
-            dim = len(sample)
-            client.create_collection(
-                collection_name=collection_name,
-                vectors_config={
-                    "dense": VectorParams(size=dim, distance=Distance.COSINE)
-                },
-                sparse_vectors_config={
-                    "sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))
-                },
-                on_disk_payload=cfg.qdrant.on_disk_payload,
-            )
-            yield emit(f"✅ Hybrid collection created ({dim}-dim dense + sparse BM25)")
+    yield emit(f"🏗️  Preparing collection '{collection_name}' (mode={mode.value})...")
+    created = ensure_text_collection(client, collection_name, cfg, models.dense_dim)
+    if created:
+        dims = f"{models.dense_dim}-dim dense" if models.dense_dim else ""
+        yield emit(f"✅ Collection created ({mode.value}{', ' + dims if dims else ''})")
     else:
         yield emit(f"➕ Appending to existing collection '{collection_name}'")
 
@@ -365,21 +535,13 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     # Step 5: Embed texts
     # ------------------------------------------------------------------
     yield emit(f"🔢 Embedding {len(texts)} chunks (mode={mode.value})...")
+    try:
+        dense_vectors, sparse_vectors = models.embed(texts)
+    except Exception as exc:
+        yield emit(f"❌ Embedding failed: {exc}")
+        return {"status": "error", "error": str(exc)}
 
-    dense_vectors: Optional[List] = None
-    sparse_vectors: Optional[List] = None
-
-    if mode in (EmbeddingMode.DENSE, EmbeddingMode.HYBRID):
-        try:
-            dense_model = TextEmbedding(
-                model_name=cfg.embedding.dense_model,
-                batch_size=cfg.embedding.batch_size,
-            )
-            dense_vectors = list(dense_model.embed(texts))
-        except Exception as exc:
-            yield emit(f"❌ Dense embedding failed: {exc}")
-            return {"status": "error", "error": str(exc)}
-
+    if dense_vectors is not None:
         # --- Diagnostic: inspect first vector to catch silent NaN/zero issues ---
         import numpy as np
         first_vec = np.array(dense_vectors[0])
@@ -395,7 +557,6 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
             f"NaN in first vec: {nan_count}, Inf in first vec: {inf_count}, "
             f"chunks with NaN/Inf: {total_nan_chunks}/{len(dense_vectors)}"
         )
-
         if total_nan_chunks == len(dense_vectors):
             yield emit(
                 f"❌ ALL dense vectors are NaN/Inf. "
@@ -405,82 +566,18 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
                 f"rm -rf ~/.cache/fastembed/{cfg.embedding.dense_model.replace('/', '_')}"
             )
             return {"status": "error", "error": "All dense vectors NaN — model load issue."}
-
         yield emit(f"✅ Dense embeddings done ({len(dense_vectors)} vectors)")
 
-    if mode in (EmbeddingMode.SPARSE, EmbeddingMode.HYBRID):
-        sparse_model = SparseTextEmbedding(
-            model_name=cfg.embedding.sparse_model,
-            batch_size=cfg.embedding.batch_size,
-        )
-        sparse_vectors = list(sparse_model.embed(texts))
+    if sparse_vectors is not None:
         yield emit(f"✅ Sparse embeddings done ({len(sparse_vectors)} vectors)")
 
     # ------------------------------------------------------------------
     # Step 6: Build PointStructs and upsert in batches
     # ------------------------------------------------------------------
     yield emit("⬆️  Upserting points to Qdrant...")
-
-    import math
-    BATCH_SIZE = 64
-    points: List[PointStruct] = []
-    nan_skipped = 0
-
-    for i, (text, payload) in enumerate(zip(texts, payloads)):
-        point_id = str(uuid.uuid4())
-
-        if mode == EmbeddingMode.DENSE:
-            vec = dense_vectors[i].tolist()
-            # Guard: skip points with NaN/Inf in dense vector
-            if any(math.isnan(v) or math.isinf(v) for v in vec):
-                nan_skipped += 1
-                continue
-            point = PointStruct(id=point_id, vector=vec, payload=payload)
-
-        elif mode == EmbeddingMode.SPARSE:
-            sv = sparse_vectors[i]
-            sv_vals = sv.values.tolist()
-            if any(math.isnan(v) or math.isinf(v) for v in sv_vals):
-                nan_skipped += 1
-                continue
-            point = PointStruct(
-                id=point_id,
-                vector={"sparse": SparseVector(
-                    indices=sv.indices.tolist(),
-                    values=sv_vals,
-                )},
-                payload=payload,
-            )
-
-        else:  # HYBRID
-            sv = sparse_vectors[i]
-            dv = dense_vectors[i].tolist()
-            sv_vals = sv.values.tolist()
-            # Guard: skip if either vector has NaN/Inf
-            if (any(math.isnan(v) or math.isinf(v) for v in dv) or
-                    any(math.isnan(v) or math.isinf(v) for v in sv_vals)):
-                nan_skipped += 1
-                continue
-            point = PointStruct(
-                id=point_id,
-                vector={
-                    "dense": dv,
-                    "sparse": SparseVector(
-                        indices=sv.indices.tolist(),
-                        values=sv_vals,
-                    ),
-                },
-                payload=payload,
-            )
-
-        points.append(point)
-
-        # Upsert in batches for progress reporting
-        if len(points) == BATCH_SIZE or i == len(texts) - 1:
-            if points:  # only upsert if there's something to send
-                client.upsert(collection_name=collection_name, points=points)
-            yield f"__PROGRESS__={min(100, int((i + 1) / len(texts) * 100))}"
-            points = []
+    points, nan_skipped = build_points(texts, payloads, dense_vectors, sparse_vectors, mode)
+    for pct in upsert_in_batches(client, collection_name, points):
+        yield f"__PROGRESS__={pct}"
 
     if nan_skipped:
         yield emit(
@@ -489,16 +586,16 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
             f"Try a different dense model or check for extremely short/unusual chunk texts."
         )
 
-    upserted_count = len(texts) - nan_skipped
+    upserted_count = len(points)
 
     # Abort with a clear error if nothing was upserted — avoids leaving
     # an empty, misleading collection in Qdrant.
     if upserted_count == 0:
-        # Clean up the empty collection we just created
-        try:
-            client.delete_collection(collection_name)
-        except Exception:
-            pass
+        if created:
+            try:
+                client.delete_collection(collection_name)
+            except Exception:
+                pass
         yield emit(
             "❌ All vectors were invalid (NaN/Inf) — no points upserted. "
             "Collection has been removed. "

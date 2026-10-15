@@ -26,7 +26,7 @@
  * propagated up to the useConfig hook, which debounces it to the backend.
  */
 
-import type { PipelineConfig } from "@/types/config";
+import type { LayoutModelKind, PipelineConfig } from "@/types/config";
 import {
   ConfigSection,
   MultiCheckField,
@@ -47,6 +47,48 @@ interface Props {
 export default function ConfigPanel({ config, onUpdate }: Props) {
   const o = config.pdf_options;
   const p = (path: string) => `pdf_options.${path}`;
+  const pd = o.picture_description_options;
+
+  // ── Toggle ↔ model-dropdown synchronisation ────────────────────────────
+  // Several enrichment stages have BOTH a boolean toggle (do_*) and a model
+  // dropdown (*_options.kind). The backend treats the toggle as the master
+  // switch and the dropdown as model choice, so we keep both consistent here:
+  // picking a model switches the stage on, switching it off resets the model.
+  const setPictureDescription = (on: boolean) => {
+    onUpdate(p("do_picture_description"), on);
+    if (on && pd.kind === "disabled") onUpdate(p("picture_description_options.kind"), "smolvlm");
+    if (!on) onUpdate(p("picture_description_options.kind"), "disabled");
+  };
+  const setPictureDescriptionKind = (kind: string) => {
+    onUpdate(p("picture_description_options.kind"), kind);
+    onUpdate(p("do_picture_description"), kind !== "disabled");
+    // Docling refuses API calls unless remote services are allowed
+    if (kind === "api") onUpdate(p("enable_remote_services"), true);
+  };
+  const setPictureClassification = (on: boolean) => {
+    onUpdate(p("do_picture_classification"), on);
+    onUpdate(p("picture_classification_options.kind"), on ? "docling" : "disabled");
+  };
+  const setChartExtraction = (on: boolean) => {
+    onUpdate(p("do_chart_extraction"), on);
+    onUpdate(p("chart_extraction_options.kind"), on ? "docling" : "disabled");
+  };
+  const setCodeFormulaToggle = (field: "do_code_enrichment" | "do_formula_enrichment", on: boolean) => {
+    onUpdate(p(field), on);
+    const other = field === "do_code_enrichment" ? o.do_formula_enrichment : o.do_code_enrichment;
+    if (on && o.code_formula_options.kind === "disabled") onUpdate(p("code_formula_options.kind"), "codeformulav2");
+    if (!on && !other) onUpdate(p("code_formula_options.kind"), "disabled");
+  };
+  const setCodeFormulaKind = (kind: string) => {
+    onUpdate(p("code_formula_options.kind"), kind);
+    if (kind === "disabled") {
+      onUpdate(p("do_code_enrichment"), false);
+      onUpdate(p("do_formula_enrichment"), false);
+    } else if (!o.do_code_enrichment && !o.do_formula_enrichment) {
+      onUpdate(p("do_code_enrichment"), true);
+      onUpdate(p("do_formula_enrichment"), true);
+    }
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -77,8 +119,8 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           label="Chart Data Extraction"
           paramKey="do_chart_extraction"
           checked={o.do_chart_extraction}
-          onChange={(v) => onUpdate(p("do_chart_extraction"), v)}
-          tooltip="Experimental: extract underlying data from bar charts, line graphs, and pie charts into structured tables. Significantly increases processing time. Requires chart_extraction_options to be configured."
+          onChange={setChartExtraction}
+          tooltip="Experimental: extract underlying data from bar, line and pie charts into structured tables (Docling chart extractor, granite-vision-v4, ~7.5 GB). Picture classification is enabled automatically because only pictures classified as charts are processed."
         />
 
         <ToggleRow
@@ -86,7 +128,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           label="Code Block Enrichment"
           paramKey="do_code_enrichment"
           checked={o.do_code_enrichment}
-          onChange={(v) => onUpdate(p("do_code_enrichment"), v)}
+          onChange={(v) => setCodeFormulaToggle("do_code_enrichment", v)}
           tooltip="Apply a language model to detected code blocks to identify the programming language and produce structured code elements with syntax awareness instead of plain text."
         />
 
@@ -95,7 +137,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           label="Formula (LaTeX) Enrichment"
           paramKey="do_formula_enrichment"
           checked={o.do_formula_enrichment}
-          onChange={(v) => onUpdate(p("do_formula_enrichment"), v)}
+          onChange={(v) => setCodeFormulaToggle("do_formula_enrichment", v)}
           tooltip="Convert detected mathematical expressions to LaTeX markup. Requires a formula recognition model. Increases processing time significantly on math-heavy documents like scientific papers."
         />
 
@@ -104,7 +146,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           label="Classify Pictures"
           paramKey="do_picture_classification"
           checked={o.do_picture_classification}
-          onChange={(v) => onUpdate(p("do_picture_classification"), v)}
+          onChange={setPictureClassification}
           tooltip="Label detected figures as photograph, chart, diagram, logo, etc. The classification is stored as metadata on each picture element. Useful for routing different image types to specialised downstream processors."
         />
 
@@ -113,8 +155,8 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           label="Generate Picture Captions"
           paramKey="do_picture_description"
           checked={o.do_picture_description}
-          onChange={(v) => onUpdate(p("do_picture_description"), v)}
-          tooltip="Run a vision-language model on each detected figure to generate a natural language description. Captions are stored as annotations. Configure the VLM in the 'Enrichment' section below."
+          onChange={setPictureDescription}
+          tooltip="Run a vision-language model on each detected figure to generate a natural language description (stored as picture meta and included in chunk text). Choose the VLM in the 'Enrichment Models' section below — default SmolVLM-256M."
         />
 
         <div className="divider" />
@@ -177,15 +219,15 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           value={o.ocr_options.kind}
           options={[
             { value: "auto", label: "Auto (Best Available)" },
-            { value: "easyocr", label: "EasyOCR (GPU-accelerated, 80+ languages)" },
-            { value: "rapidocr", label: "RapidOCR (fast, CPU-friendly)" },
-            { value: "tesseract", label: "Tesseract (classic, via Python bindings)" },
-            { value: "tesseract_cli", label: "Tesseract CLI (subprocess-based)" },
-            { value: "ocrmypdf", label: "OCRmyPDF (searchable PDF output)" },
+            { value: "easyocr", label: "EasyOCR (needs `pip install easyocr`)" },
+            { value: "rapidocr", label: "RapidOCR (fast, CPU-friendly, bundled)" },
+            { value: "tesseract", label: "Tesseract (needs tesserocr + tesseract)" },
+            { value: "tesseract_cli", label: "Tesseract CLI (needs `brew install tesseract`)" },
+            { value: "ocrmypdf", label: "OCRmyPDF (not a Docling engine → RapidOCR)" },
             { value: "ocrmac", label: "macOS Vision (Native Apple, excellent quality)" },
           ]}
           onChange={(v) => onUpdate(p("ocr_options.kind"), v)}
-          tooltip="The OCR backend engine. Auto selects best. EasyOCR handles 80+ languages with GPU support. RapidOCR is optimised for CPU. macOS Vision uses native Apple APIs."
+          tooltip="The OCR backend engine. If the selected engine is not installed, the backend falls back to RapidOCR and says so in the run log. Recognition languages are forwarded to EasyOCR, Tesseract (mapped to ISO 639-2, e.g. de→deu) and macOS Vision (mapped to BCP-47, e.g. de→de-DE); RapidOCR ignores them."
         />
 
         <TagListField
@@ -337,23 +379,9 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           tooltip="Select the underlying object detection model used to identify layout elements (e.g. text blocks, formulas, tables). Heron is the standard robust choice, but other models like Smock might perform better on complex documents or sparse formulas."
         />
 
-        <ToggleRow
-          id="keep_images"
-          label="Preserve Images in Output"
-          paramKey="layout_options.keep_images"
-          checked={o.layout_options.keep_images}
-          onChange={(v) => onUpdate(p("layout_options.keep_images"), v)}
-          tooltip="When enabled, detected image regions are preserved as picture elements in the parsed document. Disable to strip all images from the output, producing a text-only result with reduced file size."
-        />
-
-        <ToggleRow
-          id="use_legacy_layout"
-          label="Use Legacy Layout (Rule-based)"
-          paramKey="layout_options.use_legacy_layout"
-          checked={o.layout_options.use_legacy_layout}
-          onChange={(v) => onUpdate(p("layout_options.use_legacy_layout"), v)}
-          tooltip="Falls back to older rule-based layout heuristics instead of the neural layout model. Enable only for simple, well-structured single-column documents where the AI model produces incorrect results (e.g., single-column academic papers with simple formatting)."
-        />
+        {/* keep_images / use_legacy_layout were removed: Docling 2.x has no
+            such options (they were silently ignored). Image retention follows
+            the "Image Generation" toggles above. */}
 
         <NumberField
           id="layout_batch_size"
@@ -368,6 +396,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
 
         <p className="section-label">Heading Hierarchy</p>
         <ToggleRow
+          id="heading_enabled"
           label="Enable Hierarchy Inference"
           paramKey="heading_hierarchy_options.enabled"
           checked={o.heading_hierarchy_options.enabled}
@@ -386,6 +415,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           tooltip="Maximum heading nesting depth inferred. Depth 3 constructs H1→H2→H3 levels."
         />
         <ToggleRow
+          id="heading_use_bookmarks"
           label="Use PDF Bookmarks"
           paramKey="heading_hierarchy_options.use_bookmarks"
           checked={o.heading_hierarchy_options.use_bookmarks}
@@ -393,6 +423,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           tooltip="Use internal PDF bookmarks (TOC) to infer heading structure."
         />
         <ToggleRow
+          id="heading_use_numbering"
           label="Use Numbering"
           paramKey="heading_hierarchy_options.use_numbering"
           checked={o.heading_hierarchy_options.use_numbering}
@@ -400,13 +431,15 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           tooltip="Infer heading hierarchy based on explicit numbering patterns (e.g., 1.1, 1.2.1)."
         />
         <ToggleRow
+          id="heading_use_style"
           label="Use Visual Style"
           paramKey="heading_hierarchy_options.use_style"
           checked={o.heading_hierarchy_options.use_style}
           onChange={(v) => onUpdate(p("heading_hierarchy_options.use_style"), v)}
-          tooltip="Use physical visual styling (bold, italic) to infer hierarchy. NOTE: This requires 'Generate Parsed Pages' to be enabled under Layout Options."
+          tooltip="Use physical visual styling (bold, italic) to infer hierarchy. NOTE: This requires 'Include Parsed Page Debug Data' to be enabled under Image Generation."
         />
         <ToggleRow
+          id="heading_use_font_style"
           label="Use Font Size"
           paramKey="heading_hierarchy_options.use_font_style"
           checked={o.heading_hierarchy_options.use_font_style}
@@ -422,23 +455,87 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           id="picture_desc_kind"
           label="VLM Backend"
           paramKey="picture_description_options.kind"
-          value={o.picture_description_options.kind}
+          value={pd.kind}
           options={[
             { value: "disabled", label: "Disabled (no captions)" },
-            { value: "granite_vision", label: "Granite Vision (IBM, local)" },
-            { value: "api", label: "Remote API endpoint" },
+            { value: "smolvlm", label: "SmolVLM-256M (local, ~0.5 GB, fast — Docling default)" },
+            { value: "granite_vision", label: "Granite Vision 3.3-2B (IBM, local, ~5 GB)" },
+            { value: "qwen", label: "Qwen2.5-VL-3B (local, ~7 GB)" },
+            { value: "pixtral", label: "Pixtral-12B (local, ~25 GB, slow)" },
+            { value: "api", label: "OpenAI-compatible API (e.g. Ollama)" },
           ]}
-          onChange={(v) => onUpdate(p("picture_description_options.kind"), v)}
-          tooltip="Vision-language model backend for generating picture captions. 'granite_vision' runs locally using IBM Granite Vision. 'api' calls a remote VLM endpoint (requires enable_remote_services). 'disabled' skips captioning entirely."
+          onChange={setPictureDescriptionKind}
+          tooltip="Vision-language model for picture captions. Local options are Docling presets and are downloaded from Hugging Face on first use (sizes approximate). 'api' sends each picture to an OpenAI-compatible /v1/chat/completions endpoint — e.g. your local Ollama with llama3.2-vision or llava — and automatically allows remote services."
         />
         <TextareaField
           id="picture_desc_prompt"
           label="Caption Prompt"
           paramKey="picture_description_options.prompt"
-          value={o.picture_description_options.prompt}
+          value={pd.prompt}
           onChange={(v) => onUpdate(p("picture_description_options.prompt"), v)}
           tooltip="The prompt sent to the VLM for each detected picture. Customise for domain-specific extraction — e.g., 'Identify all chemical structures and their IUPAC names' for chemistry documents, or 'Describe all axes, legend, and data trends' for charts."
         />
+        <SliderField
+          id="picture_desc_area"
+          label="Min. Picture Area"
+          paramKey="picture_description_options.picture_area_threshold"
+          value={pd.picture_area_threshold ?? 0.05}
+          min={0}
+          max={0.5}
+          step={0.01}
+          onChange={(v) => onUpdate(p("picture_description_options.picture_area_threshold"), v)}
+          tooltip="Pictures smaller than this fraction of the page area are not described (skips icons and logos). Docling default 0.05 = 5 % of the page. Lower it to also caption small figures."
+        />
+        {pd.kind === "api" && (
+          <>
+            <TextField
+              id="picture_desc_api_url"
+              label="API Endpoint"
+              paramKey="picture_description_options.api_url"
+              value={pd.api_url ?? ""}
+              placeholder="http://localhost:11434/v1/chat/completions"
+              onChange={(v) => onUpdate(p("picture_description_options.api_url"), v ?? "")}
+              tooltip="OpenAI-compatible chat-completions URL. Ollama: http://localhost:11434/v1/chat/completions · LM Studio: http://localhost:1234/v1/chat/completions"
+            />
+            <TextField
+              id="picture_desc_api_model"
+              label="Model"
+              paramKey="picture_description_options.api_model"
+              value={pd.api_model ?? ""}
+              placeholder="llama3.2-vision"
+              onChange={(v) => onUpdate(p("picture_description_options.api_model"), v ?? "")}
+              tooltip="Model name sent as the `model` parameter, e.g. an Ollama tag like llama3.2-vision, llava or granite3.3-vision:2b. Must be a vision-capable model."
+            />
+            <TextField
+              id="picture_desc_api_key_env"
+              label="API Key Env Var"
+              paramKey="picture_description_options.api_key_env"
+              value={pd.api_key_env ?? null}
+              placeholder="null — no auth (Ollama)"
+              onChange={(v) => onUpdate(p("picture_description_options.api_key_env"), v)}
+              tooltip="Name of an environment variable in backend/.env holding a bearer token (e.g. OPENAI_API_KEY). Only the variable NAME is stored in the profile, never the secret."
+            />
+            <NumberField
+              id="picture_desc_api_timeout"
+              label="Timeout (s)"
+              paramKey="picture_description_options.api_timeout"
+              value={pd.api_timeout ?? 120}
+              min={1}
+              onChange={(v) => onUpdate(p("picture_description_options.api_timeout"), v ?? 120)}
+              tooltip="Seconds to wait for one picture description. Large local models (first call loads the model) may need 60–180 s."
+            />
+            <NumberField
+              id="picture_desc_api_concurrency"
+              label="Parallel Requests"
+              paramKey="picture_description_options.api_concurrency"
+              value={pd.api_concurrency ?? 1}
+              min={1}
+              max={32}
+              onChange={(v) => onUpdate(p("picture_description_options.api_concurrency"), v ?? 1)}
+              tooltip="Number of pictures sent to the API at the same time. Keep at 1 for a local Ollama (it serialises requests anyway)."
+            />
+          </>
+        )}
 
         <div className="divider" />
         <p className="section-label">Picture Classification</p>
@@ -451,8 +548,8 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
             { value: "disabled", label: "Disabled" },
             { value: "docling", label: "Docling built-in classifier" },
           ]}
-          onChange={(v) => onUpdate(p("picture_classification_options.kind"), v)}
-          tooltip="Model for classifying detected pictures into categories: photograph, chart, diagram, logo, table, etc. The label is stored as metadata on each picture element for downstream routing."
+          onChange={(v) => setPictureClassification(v === "docling")}
+          tooltip="Classifies detected pictures (chart, photograph, diagram, logo …) with DocumentFigureClassifier-v2.5. Same switch as 'Classify Pictures' above — both stay in sync."
         />
 
         <div className="divider" />
@@ -467,8 +564,8 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
             { value: "granite", label: "Granite (IBM, local)" },
             { value: "codeformulav2", label: "CodeFormulaV2 (New Default)" },
           ]}
-          onChange={(v) => onUpdate(p("code_formula_options.kind"), v)}
-          tooltip="Model for enriching code blocks and mathematical formulas. When enabled, code blocks are structured with language labels, and math expressions are converted to LaTeX. Requires additional model downloads on first use."
+          onChange={setCodeFormulaKind}
+          tooltip="Model used by 'Code Block Enrichment' and 'Formula (LaTeX) Enrichment'. Choosing a model enables both toggles if none is on; 'disabled' switches both off. Granite = granite-docling-258M, CodeFormulaV2 = Docling default."
         />
 
         <div className="divider" />
@@ -482,8 +579,8 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
             { value: "disabled", label: "Disabled (charts as images)" },
             { value: "docling", label: "Docling built-in chart extractor" },
           ]}
-          onChange={(v) => onUpdate(p("chart_extraction_options.kind"), v)}
-          tooltip="Automated data extraction from bar charts, line graphs, and pie charts into structured tables. When enabled, chart data becomes queryable text rather than opaque images. Experimental feature — adds significant processing time."
+          onChange={(v) => setChartExtraction(v === "docling")}
+          tooltip="Docling chart extractor (granite-vision-v4) converts bar/line/pie charts into data tables. Same switch as 'Chart Data Extraction' above — both stay in sync. Experimental, slow."
         />
       </ConfigSection>
 
@@ -495,6 +592,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           paramKey="accelerator_options.device"
           value={o.accelerator_options.device}
           options={[
+            { value: "auto", label: "Auto (per model — recommended on Apple Silicon)" },
             { value: "cpu", label: "CPU (works everywhere)" },
             { value: "cuda", label: "CUDA (NVIDIA GPU)" },
             { value: "mps", label: "MPS (Apple Silicon — M1/M2/M3/M4)" },
@@ -552,6 +650,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
       {/* ── Section 8: Iterate Items ─────────────────────────────────── */}
       <ConfigSection icon="🔄" title="Iterate Items Options">
         <ToggleRow
+          id="iterate_with_groups"
           label="With Groups"
           paramKey="iterate_items_options.with_groups"
           checked={config.iterate_items_options.with_groups}
@@ -559,6 +658,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           tooltip="If enabled, yields group items as well as leaf items."
         />
         <ToggleRow
+          id="iterate_traverse_pictures"
           label="Traverse Pictures"
           paramKey="iterate_items_options.traverse_pictures"
           checked={config.iterate_items_options.traverse_pictures}
@@ -569,9 +669,10 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
           id="iterate_page_no"
           label="Page Number Filter"
           paramKey="iterate_items_options.page_no"
-          value={config.iterate_items_options.page_no ?? undefined}
+          value={config.iterate_items_options.page_no ?? null}
           min={1}
-          onChange={(v) => onUpdate("iterate_items_options.page_no", v === undefined ? null : v)}
+          onChange={(v) => onUpdate("iterate_items_options.page_no", v)}
+          nullable
           tooltip="Only iterate items on a specific 1-indexed page. Leave blank to iterate all pages."
         />
         <MultiCheckField
@@ -609,6 +710,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
         />
 
         <ToggleRow
+          id="html_split_page_view"
           label="HTML: Split Page View"
           paramKey="output.html_split_page_view"
           checked={config.output.html_split_page_view}
@@ -617,6 +719,7 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
         />
 
         <ToggleRow
+          id="html_include_annotations"
           label="HTML: Include Annotations"
           paramKey="output.html_include_annotations"
           checked={config.output.html_include_annotations}

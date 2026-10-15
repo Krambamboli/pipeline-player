@@ -34,7 +34,12 @@ class AnswerRequest(BaseModel):
     model: str = Field(default="gpt-4o", description="OpenAI model to use (e.g. 'gpt-4o', 'gpt-4o-mini').")
     image_references: Optional[List[dict]] = Field(
         default=None, 
-        description="List of dicts with 'source' (pdf filename) and 'page' (1-indexed) to inject images into the prompt."
+        description="List of dicts with 'source' (pdf filename), 'page' (1-indexed) and optionally "
+                    "'file_path' (absolute PDF path, preferred) to inject page images into the prompt."
+    )
+    prelabeled: bool = Field(
+        default=False,
+        description="If true, chunks already carry their own labels (e.g. '[Source 1 — …]') and are used as-is.",
     )
 
 

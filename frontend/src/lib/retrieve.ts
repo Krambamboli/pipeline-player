@@ -94,15 +94,17 @@ export async function generateAnswer(
   query: string,
   chunks: string[],
   model: string,
-  imageRefs: { source: string; page: number }[] | undefined,
+  imageRefs: { source: string; page: number; file_path?: string }[] | undefined,
   onToken: (token: string) => void,
   onDone: () => void,
-  onError: (err: string) => void
+  onError: (err: string) => void,
+  // true = chunks already carry their own "[Source N — …]" labels (Fusion Retriever)
+  prelabeled = false
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/answer`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, chunks, model, image_references: imageRefs }),
+    body: JSON.stringify({ query, chunks, model, image_references: imageRefs, prelabeled }),
   });
 
   if (!res.ok || !res.body) {

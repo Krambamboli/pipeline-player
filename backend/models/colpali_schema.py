@@ -76,6 +76,32 @@ class ColPaliConfig(BaseModel):
     )
 
 
+class ColPaliProcessProfile(BaseModel):
+    """
+    Savable ColPali *process* settings (everything except the document and the
+    target collection). Stored as YAML in configs/colpali/<profile_name>.yaml so
+    proven settings can be re-used on the ColPali page and in the RAG Tester.
+    """
+
+    profile_name: str = Field(default="default-colpali", description="Profile name (= file name).")
+    description: str = Field(default="", description="Optional note about what this profile is tuned for.")
+    model_name: str = Field(
+        default="vidore/colqwen2-v1.0",
+        description="HuggingFace model ID for the ColPali/ColQwen2 model."
+    )
+    device: str = Field(default="mps", description="PyTorch device: 'mps', 'cuda' or 'cpu'.")
+    batch_size: int = Field(default=2, ge=1, le=64, description="Pages embedded per batch.")
+    dpi: int = Field(default=144, ge=36, le=600, description="DPI for PDF → image rendering.")
+    max_pages: Optional[int] = Field(
+        default=None,
+        description="Limit pages per document. None = all pages."
+    )
+    metadata: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Static key-value metadata attached to every page payload."
+    )
+
+
 class ColPaliRetrieveRequest(BaseModel):
     """Request body for MaxSim retrieval against a ColPali collection."""
     collection_name: str = Field(..., description="Name of the ColPali Qdrant collection.")

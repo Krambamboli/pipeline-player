@@ -23,9 +23,10 @@
 
 export type OcrEngine = "easyocr" | "rapidocr" | "tesseract" | "tesseract_cli" | "ocrmypdf" | "ocrmac" | "auto";
 export type TableStructureMode = "fast" | "accurate";
-export type AcceleratorDevice = "cpu" | "cuda" | "mps";
+export type AcceleratorDevice = "auto" | "cpu" | "cuda" | "mps" | "xpu";
 export type OutputFormat = "markdown" | "json" | "doctags" | "text" | "html" | "iterated_items";
-export type PictureDescriptionKind = "granite_vision" | "api" | "disabled";
+/** Local values = Docling VLM presets; "api" = OpenAI-compatible endpoint (e.g. Ollama). */
+export type PictureDescriptionKind = "smolvlm" | "granite_vision" | "qwen" | "pixtral" | "api" | "disabled";
 export type PictureClassificationKind = "docling" | "disabled";
 export type CodeFormulaKind = "granite" | "codeformulav2" | "disabled";
 export type ChartExtractionKind = "docling" | "disabled";
@@ -66,8 +67,10 @@ export enum LayoutModelKind {
 
 export interface LayoutOptions {
   model: LayoutModelKind;
-  keep_images: boolean;
-  use_legacy_layout: boolean;
+  /** @deprecated ignored by the backend (no Docling 2.x counterpart) */
+  keep_images?: boolean;
+  /** @deprecated ignored by the backend (no Docling 2.x counterpart) */
+  use_legacy_layout?: boolean;
 }
 
 export interface HeadingHierarchyOptions {
@@ -84,6 +87,15 @@ export interface HeadingHierarchyOptions {
 export interface PictureDescriptionOptions {
   kind: PictureDescriptionKind;
   prompt: string;
+  /** Skip pictures smaller than this fraction of the page area. */
+  picture_area_threshold: number;
+  // Only used when kind === "api"
+  api_url: string;
+  api_model: string;
+  /** Name of an env var holding the bearer token (secret never stored). */
+  api_key_env: string | null;
+  api_timeout: number;
+  api_concurrency: number;
 }
 
 export interface PictureClassificationOptions {
@@ -144,6 +156,10 @@ export interface PdfPipelineOptions {
 
 export interface OutputSettings {
   formats: OutputFormat[];
+  /** HTML export: one section per page with the page image as background. */
+  html_split_page_view: boolean;
+  /** HTML export: overlay bounding-box annotations on page images. */
+  html_include_annotations: boolean;
 }
 
 export interface PipelineConfig {

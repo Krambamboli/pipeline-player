@@ -34,10 +34,11 @@ yarn-error.log*
 # ── Auto-generated pipeline outputs (never commit) ─────────────────────────
 outputs/
 chunk_runs/
+rag_runs/
 qdrant_storage/
 
 # ── Local test data (user-specific, can be large) ──────────────────────────
-test_data/*
+test_data*
 !test_data/.gitkeep
 test_data.zip
 

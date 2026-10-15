@@ -97,6 +97,7 @@ def answer(req: AnswerRequest):
                 chunks=req.chunks,
                 model=req.model,
                 image_references=req.image_references,
+                prelabeled=req.prelabeled,
             ):
                 # SSE format: each token as a data line
                 yield f"data: {token}\n\n"

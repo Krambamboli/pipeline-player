@@ -53,12 +53,17 @@ class ProgressLogHandler(logging.Handler):
 
 def main():
     if len(sys.argv) < 4:
-        print("Usage: docling_worker.py <profile_name> <filename> <run_dir>")
+        print("Usage: docling_worker.py <profile_name> <filename> <run_dir> [--force-json]")
         sys.exit(1)
 
     profile_name = sys.argv[1]
+    # filename may be relative to test_data/ OR an absolute path
+    # (Path("test_data") / "/abs/file.pdf" resolves to the absolute path).
     filename = sys.argv[2]
     run_dir = Path(sys.argv[3])
+    # --force-json: always write parsed_doc.json (required for chunking by
+    # the RAG Tester), regardless of the formats selected in the profile.
+    force_json = "--force-json" in sys.argv[4:]
     run_id = run_dir.name.replace("run_", "")
     
     # Configure docling logger
@@ -74,11 +79,13 @@ def main():
         run_id=run_id,
         profile_name=profile_name,
         status=RunStatus.RUNNING,
-        output_dir=str(run_dir.relative_to(REPO_ROOT)),
+        output_dir=str(run_dir.relative_to(REPO_ROOT)) if run_dir.is_relative_to(REPO_ROOT) else str(run_dir),
     )
 
     try:
         config = load_profile(profile_name)
+        if force_json and OutputFormat.JSON not in config.output.formats:
+            config.output.formats.append(OutputFormat.JSON)
         test_doc_path = REPO_ROOT / "test_data" / filename
         
         log(f"🚀 Starting Pipeline Run ID: {run_id}")
@@ -92,7 +99,12 @@ def main():
         from docling.datamodel.base_models import InputFormat
 
         log("⚙ Building pipeline options from config...")
-        pipeline_opts = _build_docling_options(config.pdf_options)
+        # `notes` collects how settings were resolved (OCR fallback, chosen
+        # picture-description VLM, auto-enabled stages …) for transparency.
+        option_notes: list[str] = []
+        pipeline_opts = _build_docling_options(config.pdf_options, option_notes)
+        for note in option_notes:
+            log(f"  {note}")
 
         log("⚙ Initialising DocumentConverter...")
         converter = DocumentConverter(

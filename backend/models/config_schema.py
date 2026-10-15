@@ -77,8 +77,22 @@ class OutputFormat(str, Enum):
 
 
 class PictureDescriptionKind(str, Enum):
-    """Vision-language model backend for picture descriptions."""
+    """
+    Vision-language model backend for picture descriptions.
+
+    The local values map 1:1 to Docling's registered presets of
+    `PictureDescriptionVlmEngineOptions` (Docling >= 2.5x):
+      smolvlm        → HuggingFaceTB/SmolVLM-256M-Instruct (~0.5 GB, Docling default)
+      granite_vision → ibm-granite/granite-vision-3.3-2b     (~5 GB)
+      qwen           → Qwen/Qwen2.5-VL-3B-Instruct            (~7 GB)
+      pixtral        → mistral-community/pixtral-12b          (~25 GB)
+    'api' uses `PictureDescriptionApiOptions` (any OpenAI-compatible
+    /v1/chat/completions endpoint, e.g. a local Ollama server).
+    """
+    SMOLVLM = "smolvlm"
     GRANITE_VISION = "granite_vision"
+    QWEN = "qwen"
+    PIXTRAL = "pixtral"
     API = "api"
     DISABLED = "disabled"
 
@@ -223,21 +237,19 @@ class LayoutOptions(BaseModel):
         description="The layout object detection model preset to use.",
     )
 
+    # DEPRECATED — kept only so older saved profiles still validate.
+    # Docling 2.x has no such options: image retention is derived internally
+    # from generate_page_images / generate_picture_images, and there is no
+    # rule-based legacy layout anymore. Both values are ignored by the runner
+    # and no longer shown in the UI.
     keep_images: bool = Field(
         default=True,
-        description=(
-            "When True, detected image regions are preserved in the output document. "
-            "Disable to strip all images from the parsed output, reducing output size."
-        ),
+        description="DEPRECATED, ignored. Use generate_picture_images / generate_page_images instead.",
     )
 
     use_legacy_layout: bool = Field(
         default=False,
-        description=(
-            "Falls back to the older rule-based layout heuristics instead of the "
-            "AI model. Only enable for simple, well-structured documents where the "
-            "neural model produces incorrect results."
-        ),
+        description="DEPRECATED, ignored. Docling 2.x has no rule-based legacy layout model.",
     )
 
 
@@ -265,9 +277,11 @@ class PictureDescriptionOptions(BaseModel):
     kind: PictureDescriptionKind = Field(
         default=PictureDescriptionKind.DISABLED,
         description=(
-            "The VLM backend used for picture captioning. 'granite_vision' uses "
-            "IBM Granite Vision locally. 'api' calls a remote VLM endpoint. "
-            "'disabled' skips picture description entirely."
+            "The VLM backend used for picture captioning. 'smolvlm', "
+            "'granite_vision', 'qwen' and 'pixtral' run locally via Docling "
+            "presets (downloaded from Hugging Face on first use). 'api' calls "
+            "an OpenAI-compatible endpoint (e.g. Ollama). 'disabled' skips "
+            "picture description entirely."
         ),
     )
 
@@ -278,6 +292,52 @@ class PictureDescriptionOptions(BaseModel):
             "extract domain-specific information (e.g., 'Identify all chemical "
             "structures and their labels.')."
         ),
+    )
+
+    picture_area_threshold: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Minimum picture area as a fraction of the page area. Smaller "
+            "pictures (icons, logos) are skipped. Docling default: 0.05."
+        ),
+    )
+
+    # --- Only used when kind == 'api' ---------------------------------------
+    api_url: str = Field(
+        default="http://localhost:11434/v1/chat/completions",
+        description=(
+            "OpenAI-compatible chat-completions endpoint. Default points to a "
+            "local Ollama server."
+        ),
+    )
+
+    api_model: str = Field(
+        default="llama3.2-vision",
+        description="Model name sent as the `model` request parameter (e.g. an Ollama tag).",
+    )
+
+    api_key_env: Optional[str] = Field(
+        default=None,
+        description=(
+            "Name of an environment variable holding a bearer token for the "
+            "API (sent as 'Authorization: Bearer …'). The secret itself is "
+            "never stored in the profile."
+        ),
+    )
+
+    api_timeout: float = Field(
+        default=120.0,
+        gt=0,
+        description="Seconds to wait for one API response.",
+    )
+
+    api_concurrency: int = Field(
+        default=1,
+        ge=1,
+        le=32,
+        description="Number of parallel API requests.",
     )
 
 

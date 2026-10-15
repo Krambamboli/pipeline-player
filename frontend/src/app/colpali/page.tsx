@@ -35,6 +35,17 @@
 import { useCallback, useRef, useState, useEffect } from "react";
 import { PdfFile, ColPaliConfig, listPdfs, runColPali } from "@/lib/colpali";
 import { downloadColPaliSettings } from "@/lib/downloadSettings";
+import SavedProfileBar from "@/components/SavedProfileBar";
+
+/** Shape of a saved ColPali process profile (configs/colpali/*.yaml). */
+interface ColPaliProfile {
+  model_name: string;
+  device: string;
+  batch_size: number;
+  dpi: number;
+  max_pages: number | null;
+  metadata: Record<string, string>;
+}
 
 export default function ColPaliPage() {
   // ── PDF file list ─────────────────────────────────────────────────
@@ -142,6 +153,29 @@ export default function ColPaliPage() {
         <div className="panel__header">
           <span className="panel__title">⚙️ Configuration</span>
         </div>
+        {/* Saved ColPali process profiles — re-usable in the RAG Tester */}
+        <SavedProfileBar<ColPaliProfile>
+          kind="colpali"
+          disabled={isRunning}
+          getCurrent={() => ({
+            model_name: modelName,
+            device,
+            batch_size: batchSize,
+            dpi,
+            max_pages: maxPages ? Number(maxPages) : null,
+            metadata: buildMetadata(),
+          })}
+          onLoad={(p) => {
+            setModelName(p.model_name);
+            setDevice(p.device);
+            setBatchSize(p.batch_size);
+            setDpi(p.dpi);
+            setMaxPages(p.max_pages ? String(p.max_pages) : "");
+            const entries = Object.entries(p.metadata ?? {});
+            setMetaKeys(entries.length ? entries.map(([k]) => k) : [""]);
+            setMetaValues(entries.length ? entries.map(([, v]) => v) : [""]);
+          }}
+        />
         <div className="panel__body" style={{ padding: "12px 16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
           {/* PDF selector */}
           <section>

@@ -35,6 +35,7 @@ import { useCallback, useEffect, useState } from "react";
 import { listDoclingRuns, DoclingRun } from "@/lib/qdrant";
 import { useChunkStream, DEFAULT_CHUNK_CONFIG, ChunkConfig } from "@/hooks/useChunkStream";
 import ChunkConfigPanel from "@/components/ChunkConfigPanel";
+import SavedProfileBar from "@/components/SavedProfileBar";
 
 export default function ChunkPage() {
   const [doclingRuns, setDoclingRuns] = useState<DoclingRun[]>([]);
@@ -114,6 +115,21 @@ export default function ChunkPage() {
         <div className="panel__header">
           <span className="panel__title">✂️ Chunking Configuration</span>
         </div>
+        {/* Saved chunk profiles — re-usable in the RAG Tester */}
+        <SavedProfileBar<ChunkConfig>
+          kind="chunk"
+          disabled={isRunning}
+          getCurrent={() => config}
+          onLoad={(data) =>
+            setConfig((prev) => ({
+              ...DEFAULT_CHUNK_CONFIG,
+              ...data,
+              // run-specific values stay as they are
+              source_run_id: prev.source_run_id,
+              qdrant: { ...DEFAULT_CHUNK_CONFIG.qdrant, ...data.qdrant, collection_name: prev.qdrant.collection_name },
+            }))
+          }
+        />
         <div className="panel__body">
           <ChunkConfigPanel
             config={config}
