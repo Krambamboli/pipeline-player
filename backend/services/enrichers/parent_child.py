@@ -68,12 +68,13 @@ async def run_parent_child(
     Yields SSE-formatted progress strings.
     """
 
-    from qdrant_client import QdrantClient
+    import numpy as np
     from qdrant_client.models import (
         Distance, PointStruct, VectorParams,
-        PointIdsList, SetPayloadOperation,
+        PointIdsList, SparseVector,
     )
-    from fastembed import TextEmbedding
+    from services.fusion_retriever import _dense_model, _sparse_model
+    from services.qdrant_client_manager import get_qdrant_client, qdrant_write_lock
 
     start = time.time()
 
@@ -81,11 +82,10 @@ async def run_parent_child(
     # 1. Open Qdrant
     # ------------------------------------------------------------------
     yield emit("🗄️  Opening Qdrant storage...")
-    from services.qdrant_client_manager import get_qdrant_client
     client = get_qdrant_client(str(qdrant_storage_path))
 
     # ------------------------------------------------------------------
-    # 2. Load all points from the source collection via scroll
+    # 2. Load all points (with vectors) from the source collection once
     # ------------------------------------------------------------------
     yield emit(f"📥 Loading all chunks from '{source_collection}'...")
     all_points = []
@@ -96,7 +96,7 @@ async def run_parent_child(
             offset=offset,
             limit=100,
             with_payload=True,
-            with_vectors=False,  # we don't need vectors for grouping
+            with_vectors=True,
         )
         all_points.extend(batch)
         if offset is None:
@@ -137,7 +137,7 @@ async def run_parent_child(
     # ------------------------------------------------------------------
     if options.embed_summaries:
         yield emit(f"🔢 Loading embedding model '{dense_model_name}'...")
-        embed_model = TextEmbedding(model_name=dense_model_name)
+        embed_model = _dense_model(dense_model_name)
         # Probe dimension
         probe = list(embed_model.embed(["probe"]))[0]
         dim = len(probe)
@@ -159,58 +159,52 @@ async def run_parent_child(
             k: VectorParams(size=v.size, distance=v.distance)
             for k, v in src_vectors.items()
         }
-        dense_vec_name = next(iter(vec_cfg.keys()))
+        dense_vec_name = "dense" if "dense" in vec_cfg else next(iter(vec_cfg.keys()))
+        if dim is None:
+            dim = vec_cfg[dense_vec_name].size
     else:
         size = dim or getattr(src_vectors, "size", 384)
+        dim = size
         vec_cfg = VectorParams(size=size, distance=Distance.COSINE)
         dense_vec_name = None
 
     src_sparse = getattr(src_info.config.params, "sparse_vectors", None)
+    has_sparse = bool(src_sparse and "sparse" in src_sparse)
     if src_sparse:
         from qdrant_client.models import SparseVectorParams
         sparse_cfg = {k: SparseVectorParams() for k in src_sparse.keys()}
+        sparse_embed_model = _sparse_model("Qdrant/bm25") if has_sparse else None
     else:
         sparse_cfg = None
+        sparse_embed_model = None
 
-    if client.collection_exists(output_collection):
-        client.delete_collection(output_collection)
+    with qdrant_write_lock:
+        if client.collection_exists(output_collection):
+            client.delete_collection(output_collection)
 
-    client.create_collection(
-        collection_name=output_collection,
-        vectors_config=vec_cfg,
-        sparse_vectors_config=sparse_cfg,
-    )
+        client.create_collection(
+            collection_name=output_collection,
+            vectors_config=vec_cfg,
+            sparse_vectors_config=sparse_cfg,
+        )
     yield emit("✅ Output collection ready")
 
     # ------------------------------------------------------------------
     # 7. Copy all child chunks into the output collection
     # ------------------------------------------------------------------
     yield emit("📋 Copying child chunks to output collection...")
-    # Re-scroll with vectors this time
-    all_points_with_vec = []
-    offset = None
-    while True:
-        batch, offset = client.scroll(
-            collection_name=source_collection,
-            offset=offset,
-            limit=100,
-            with_payload=True,
-            with_vectors=True,
-        )
-        all_points_with_vec.extend(batch)
-        if offset is None:
-            break
-
-    child_points = []
-    for pt in all_points_with_vec:
-        child_points.append(PointStruct(
+    child_points = [
+        PointStruct(
             id=str(pt.id),
             vector=pt.vector,
             payload={**(pt.payload or {}), "chunk_type": "child"},
-        ))
+        )
+        for pt in all_points
+    ]
 
     for i in range(0, len(child_points), 64):
-        client.upsert(collection_name=output_collection, points=child_points[i:i+64])
+        with qdrant_write_lock:
+            client.upsert(collection_name=output_collection, points=child_points[i:i+64])
     yield emit(f"✅ Copied {len(child_points)} child chunks")
 
     # ------------------------------------------------------------------
@@ -232,35 +226,58 @@ async def run_parent_child(
         if not section_text:
             continue
 
-        # Build LLM prompt
-        prompt = options.summary_prompt_template.format(
-            max_tokens=options.summary_max_tokens,
-            heading=heading_key,
-            content=section_text[:4000],  # cap to avoid context overflow
-        )
+        # Build LLM prompt (safely handle user-modified format strings)
+        try:
+            prompt = options.summary_prompt_template.format(
+                max_tokens=options.summary_max_tokens,
+                heading=heading_key,
+                content=section_text[:4000],  # cap to avoid context overflow
+            )
+        except (KeyError, ValueError, IndexError):
+            prompt = (
+                f"Summarise the following section ('{heading_key}') in at most "
+                f"{options.summary_max_tokens} tokens:\n\n{section_text[:4000]}\n\nSummary:"
+            )
 
         yield emit(f"🤖 [{g_idx+1}/{total_groups}] Summarising: '{heading_key[:60]}...'")
         try:
             summary = await llm_client.complete(prompt)
-            summary = summary.strip()
+            summary = summary.strip() if summary else ""
         except Exception as exc:
             yield emit(f"⚠️  LLM call failed for '{heading_key}': {exc}")
             continue
 
-        # Embed the summary
+        if not summary:
+            continue
+
+        # Embed the summary or average child dense vectors when embed_summaries=False
         parent_id = str(uuid.uuid4())
         if options.embed_summaries and embed_model is not None:
-            import numpy as np
-            vec = np.array(list(embed_model.embed([summary]))[0])
+            vec = np.array(list(embed_model.embed([summary]))[0], dtype=np.float32)
             if np.isnan(vec).any():
                 yield emit(f"⚠️  NaN embedding for parent '{heading_key}' — skipping")
                 continue
             vector = vec.tolist()
         else:
-            # Fallback: average child vectors
-            vector = None  # will be handled below
+            # Average the dense vectors of the child chunks in this group
+            child_vecs = []
+            for pt in group_pts:
+                v = pt.vector
+                if isinstance(v, dict):
+                    v = v.get(dense_vec_name or "dense")
+                if isinstance(v, list) and v:
+                    child_vecs.append(np.array(v, dtype=np.float32))
+            if child_vecs:
+                mean_vec = np.mean(np.stack(child_vecs), axis=0)
+                norm = float(np.linalg.norm(mean_vec))
+                if norm > 0:
+                    mean_vec = mean_vec / norm
+                vector = mean_vec.tolist()
+            else:
+                vector = [0.0] * (dim or 384)
 
-        # Build parent payload
+        # Build parent payload (carry over dense_model/sparse_model from children)
+        first_child_payload = group_pts[0].payload or {}
         child_ids = [str(pt.id) for pt in group_pts]
         parent_payload = {
             "chunk_type": "parent",
@@ -270,14 +287,19 @@ async def run_parent_child(
             "child_ids": child_ids,
             "chunk_index": -(g_idx + 1),  # negative index for parents
             "source_collection": source_collection,
+            "dense_model": first_child_payload.get("dense_model", dense_model_name),
         }
+        if first_child_payload.get("sparse_model"):
+            parent_payload["sparse_model"] = first_child_payload["sparse_model"]
 
-        # Format vector depending on if collection uses named vectors
-        vec_data = vector if vector is not None else ([0.0] * dim if dim else [])
+        # Format vector depending on if collection uses named vectors (+ sparse if hybrid)
         if dense_vec_name:
-            vec_obj = {dense_vec_name: vec_data}
+            vec_obj: Any = {dense_vec_name: vector}
+            if sparse_embed_model is not None:
+                sv = list(sparse_embed_model.embed([summary]))[0]
+                vec_obj["sparse"] = SparseVector(indices=sv.indices.tolist(), values=sv.values.tolist())
         else:
-            vec_obj = vec_data
+            vec_obj = vector
 
         parent_pt = PointStruct(id=parent_id, vector=vec_obj, payload=parent_payload)
         parent_points.append(parent_pt)
@@ -288,7 +310,8 @@ async def run_parent_child(
     # Write all parent points
     if parent_points:
         for i in range(0, len(parent_points), 64):
-            client.upsert(collection_name=output_collection, points=parent_points[i:i+64])
+            with qdrant_write_lock:
+                client.upsert(collection_name=output_collection, points=parent_points[i:i+64])
         yield emit(f"✅ Wrote {len(parent_points)} parent summary chunks")
 
     # ------------------------------------------------------------------
@@ -298,11 +321,12 @@ async def run_parent_child(
         yield emit("🔗 Linking children to parents...")
         for child_id, parent_id in child_parent_map.items():
             try:
-                client.set_payload(
-                    collection_name=output_collection,
-                    payload={"parent_id": parent_id},
-                    points=PointIdsList(points=[child_id]),
-                )
+                with qdrant_write_lock:
+                    client.set_payload(
+                        collection_name=output_collection,
+                        payload={"parent_id": parent_id},
+                        points=PointIdsList(points=[child_id]),
+                    )
             except Exception as exc:
                 logger.warning("Could not set parent_id on %s: %s", child_id, exc)
         yield emit("✅ Parent-child links established")

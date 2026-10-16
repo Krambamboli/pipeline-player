@@ -23,7 +23,8 @@
  * Communicates with the /api/colpali backend endpoints.
  */
 
-const API_BASE = "http://localhost:8000/api/colpali";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE = `${BASE_URL}/api/colpali`;
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -50,7 +51,7 @@ export interface ColPaliRetrievedPage {
   score: number;
   page_number: number;
   doc_source: string;
-  metadata: Record<string, string>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ColPaliRetrieveResponse {
@@ -74,7 +75,8 @@ export async function listPdfs(): Promise<PdfFile[]> {
  * endpoint is a POST, and EventSource only supports GET.
  *
  * HOW: We read the response body as a stream, parsing SSE `data:` lines
- * and invoking callbacks for log lines and progress updates.
+ * and invoking callbacks for log lines and progress updates. Wrapped in
+ * try/catch so network or stream failures always invoke onError.
  */
 export async function runColPali(
   config: ColPaliConfig,
@@ -83,45 +85,49 @@ export async function runColPali(
   onDone: () => void,
   onError: (err: string) => void
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/run`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(config),
-  });
+  try {
+    const res = await fetch(`${API_BASE}/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    });
 
-  if (!res.ok || !res.body) {
-    onError(`Pipeline request failed: ${res.statusText}`);
-    return;
-  }
+    if (!res.ok || !res.body) {
+      onError(`Pipeline request failed: ${res.statusText}`);
+      return;
+    }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        const payload = line.slice(6);
-        if (payload.startsWith("[ERROR]")) {
-          onError(payload.slice(8));
-          return;
-        }
-        if (payload.startsWith("__PROGRESS__=")) {
-          onProgress(Number(payload.split("=")[1]));
-        } else {
-          onLog(payload);
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const payload = line.slice(6);
+          if (payload.startsWith("[ERROR]")) {
+            onError(payload.slice(8));
+            return;
+          }
+          if (payload.startsWith("__PROGRESS__=")) {
+            onProgress(Number(payload.split("=")[1]));
+          } else {
+            onLog(payload);
+          }
         }
       }
     }
+    onDone();
+  } catch (e: unknown) {
+    onError(e instanceof Error ? e.message : String(e));
   }
-  onDone();
 }
 
 /** Run MaxSim retrieval against a ColPali collection. */

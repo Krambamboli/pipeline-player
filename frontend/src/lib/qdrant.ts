@@ -23,7 +23,7 @@
  * All calls go through the FastAPI backend (not directly to Qdrant).
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export interface QdrantCollection {
   name: string;
@@ -32,6 +32,7 @@ export interface QdrantCollection {
   dense_vectors: Record<string, { size: number; distance: string }>;
   sparse_vectors: string[];
   status: string;
+  is_multivector?: boolean;
   error?: string;
 }
 
@@ -60,7 +61,7 @@ export interface QdrantPoint {
 export interface PointsPage {
   collection: string;
   points: QdrantPoint[];
-  offset: number;
+  offset: string | null;
   limit: number;
   has_more: boolean;
   next_offset: string | null;
@@ -92,19 +93,19 @@ export async function listCollections(storagePath = ""): Promise<QdrantCollectio
   return res.json();
 }
 
-/** Get paginated points from a collection. */
+/** Get paginated points from a collection using Qdrant cursor pagination. */
 export async function getPoints(
   collectionName: string,
-  offset = 0,
+  offset: string | null = null,
   limit = 20,
   withVectors = false,
   storagePath = ""
 ): Promise<PointsPage> {
   const params = new URLSearchParams({
-    offset: String(offset),
     limit: String(limit),
     with_vectors: String(withVectors),
   });
+  if (offset) params.set("offset", offset);
   if (storagePath) params.set("storage_path", storagePath);
   const res = await fetch(`${API_BASE}/api/qdrant/collections/${collectionName}/points?${params}`);
   if (!res.ok) throw new Error(`Failed to get points: ${res.statusText}`);

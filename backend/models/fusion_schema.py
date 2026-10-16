@@ -23,20 +23,20 @@ Request models for the Fusion Retriever (hybrid text + ColPali MaxSim,
 fused by a user-written reranker).
 """
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class FusionSearchRequest(BaseModel):
     """One query against a text collection and a ColPali collection."""
     query: str = Field(..., min_length=1, description="Natural language query.")
-    text_collection: str = Field(default="", description="Text (dense+sparse) collection; empty = skip.")
-    colpali_collection: str = Field(default="", description="ColPali collection; empty = skip.")
+    text_collection: Optional[str] = Field(default="", description="Text (dense+sparse) collection; empty = skip.")
+    colpali_collection: Optional[str] = Field(default="", description="ColPali collection; empty = skip.")
     text_limit: int = Field(default=5, ge=1, le=50, description="Top-N chunks from the text collection.")
     colpali_limit: int = Field(default=5, ge=1, le=50, description="Top-N pages from the ColPali collection.")
-    dense_model_override: str = Field(default="", description="Force a dense query model (else auto-detected).")
-    sparse_model_override: str = Field(default="", description="Force a sparse query model (else auto-detected).")
+    dense_model_override: Optional[str] = Field(default="", description="Force a dense query model (else auto-detected).")
+    sparse_model_override: Optional[str] = Field(default="", description="Force a sparse query model (else auto-detected).")
     # How the dense and sparse result lists of the text collection are fused
     # (https://qdrant.tech/documentation/concepts/hybrid-queries/):
     #   rrf    — Reciprocal Rank Fusion (rank based, optional weights)
@@ -47,6 +47,12 @@ class FusionSearchRequest(BaseModel):
     rrf_k: int = Field(default=60, ge=1, le=1000, description="RRF constant k (Qdrant default without k: 2).")
     dense_weight: float = Field(default=1.0, ge=0.0, le=10.0, description="Weight of the dense list in RRF.")
     sparse_weight: float = Field(default=1.0, ge=0.0, le=10.0, description="Weight of the sparse list in RRF.")
+
+    @field_validator("text_collection", "colpali_collection", "dense_model_override", "sparse_model_override", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> str:
+        """Coerce None values (e.g. from JSON null) to empty strings."""
+        return "" if v is None else str(v)
 
 
 class RerankRequest(BaseModel):

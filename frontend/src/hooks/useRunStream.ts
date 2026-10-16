@@ -26,7 +26,7 @@
  * Server-Sent Events log lines back to the UI.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RunEvent, RunStatus } from "@/types/config";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -63,11 +63,23 @@ export function useRunStream(): UseRunStreamReturn {
   });
 
   const abortRef = useRef<AbortController | null>(null);
+  // Track the active run_id in a ref so cancelRun always has immediate access
+  // even before React commits the state update.
+  const runIdRef = useRef<string | null>(null);
+
+  // Abort any in-flight SSE stream when the component unmounts
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const startRun = useCallback((profileName: string, filename: string) => {
     // Cancel any previous run stream
     abortRef.current?.abort();
-    abortRef.current = new AbortController();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    runIdRef.current = null;
 
     setState((prev) => ({
       ...prev,
@@ -88,7 +100,7 @@ export function useRunStream(): UseRunStreamReturn {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ profile_name: profileName, filename }),
-          signal: abortRef.current!.signal,
+          signal: controller.signal,
         });
 
         if (!res.ok || !res.body) {
@@ -126,10 +138,12 @@ export function useRunStream(): UseRunStreamReturn {
               if (evt.type === "log") {
                 setState((prev) => ({ ...prev, logs: [...prev.logs, evt.message] }));
               } else if (evt.type === "run_id") {
+                runIdRef.current = evt.run_id;
                 setState((prev) => ({ ...prev, lastRunId: evt.run_id }));
               } else if (evt.type === "progress") {
                 setState((prev) => ({ ...prev, progress: evt.data.percent }));
               } else if (evt.type === "done") {
+                runIdRef.current = evt.run_id;
                 setState((prev) => ({
                   ...prev,
                   isRunning: false,
@@ -146,6 +160,9 @@ export function useRunStream(): UseRunStreamReturn {
             }
           }
         }
+
+        // Ensure isRunning is cleared if the stream closed without a "done" event
+        setState((prev) => (prev.isRunning ? { ...prev, isRunning: false } : prev));
       } catch (e: unknown) {
         if ((e as Error).name === "AbortError") return;
         setState((prev) => ({
@@ -165,12 +182,13 @@ export function useRunStream(): UseRunStreamReturn {
       abortRef.current.abort();
     }
     setState((prev) => ({ ...prev, isRunning: false, errorMessage: "Run cancelled by user." }));
-    
-    // Attempt to terminate backend process
-    if (state.lastRunId) {
+
+    // Attempt to terminate backend worker process using the latest run ID
+    const targetRunId = runIdRef.current ?? state.lastRunId;
+    if (targetRunId) {
       try {
-        await fetch(`${BASE_URL}/api/pipeline/run/${state.lastRunId}/cancel`, {
-          method: "POST"
+        await fetch(`${BASE_URL}/api/pipeline/run/${targetRunId}/cancel`, {
+          method: "POST",
         });
       } catch (e) {
         console.error("Failed to cancel on backend", e);

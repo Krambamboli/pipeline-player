@@ -52,6 +52,8 @@ async def get_profile(name: str) -> PipelineConfig:
     """Load and return a specific configuration profile by name."""
     try:
         return load_profile(name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -63,9 +65,12 @@ async def update_profile(name: str, config: PipelineConfig) -> PipelineConfig:
     Called immediately whenever the user changes any parameter in the UI.
     The profile_name in the body overrides the URL name.
     """
-    config.profile_name = name  # ensure consistency
-    save_profile(config)
-    return config
+    try:
+        config.profile_name = name  # ensure consistency
+        save_profile(config)
+        return config
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/save-as", response_model=PipelineConfig)
@@ -74,12 +79,11 @@ async def save_as_profile(config: PipelineConfig) -> PipelineConfig:
     Save the current config as a new profile with the name from config.profile_name.
     Used for the 'Save As' functionality in the Profile Manager.
     """
-    existing = list_profiles()
-    if config.profile_name in existing and config.profile_name != "default":
-        # Allow overwrite — the UI confirms before calling this
-        pass
-    save_profile(config)
-    return config
+    try:
+        save_profile(config)
+        return config
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/{name}")
@@ -90,5 +94,7 @@ async def remove_profile(name: str) -> JSONResponse:
     try:
         delete_profile(name)
         return JSONResponse({"message": f"Profile '{name}' deleted."})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

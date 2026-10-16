@@ -28,7 +28,7 @@ import { listRuns } from "@/lib/api";
 import type { RunResult } from "@/types/config";
 
 interface Props {
-  refreshTrigger: number;
+  refreshTrigger: number | string;
   onSelect: (run: RunResult) => void;
   selectedRunId: string | null;
 }

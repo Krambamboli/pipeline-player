@@ -75,14 +75,13 @@ export function useConfig(initialProfileName = "default"): UseConfigReturn {
   // Keep latest config in a ref so the debounced callback always has fresh state
   const latestConfig = useRef<PipelineConfig | null>(null);
 
-  // ── Initial load ────────────────────────────────────────────────────────
-  useEffect(() => {
-    switchProfile(initialProfileName);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialProfileName]);
-
   // ── Switch profile ───────────────────────────────────────────────────────
   const switchProfile = useCallback(async (name: string) => {
+    // Cancel any pending auto-save from the previous profile before switching
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -96,31 +95,40 @@ export function useConfig(initialProfileName = "default"): UseConfigReturn {
     }
   }, []);
 
+  // ── Initial load & unmount cleanup ──────────────────────────────────────
+  useEffect(() => {
+    void Promise.resolve().then(() => switchProfile(initialProfileName));
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [initialProfileName, switchProfile]);
+
   // ── Field update with debounced persistence ──────────────────────────────
   const updateField = useCallback((path: string, value: unknown) => {
-    setConfig((prev) => {
-      if (!prev) return prev;
-      // Deep clone + set nested field via dot-path
-      const next = JSON.parse(JSON.stringify(prev)) as PipelineConfig;
-      setPath(next as unknown as Record<string, unknown>, path, value);
-      latestConfig.current = next;
+    if (!latestConfig.current) return;
 
-      // Debounce the backend write
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      debounceTimer.current = setTimeout(async () => {
-        if (!latestConfig.current) return;
-        setIsSaving(true);
-        try {
-          await saveProfile(latestConfig.current.profile_name, latestConfig.current);
-        } catch (e) {
-          setError(`Auto-save failed: ${(e as Error).message}`);
-        } finally {
-          setIsSaving(false);
-        }
-      }, DEBOUNCE_MS);
+    // Deep clone + set nested field via dot-path outside the state updater
+    // so the React 19 state updater remains completely pure.
+    const next = JSON.parse(JSON.stringify(latestConfig.current)) as PipelineConfig;
+    setPath(next as unknown as Record<string, unknown>, path, value);
+    latestConfig.current = next;
+    setConfig(next);
 
-      return next;
-    });
+    // Debounce the backend write
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(async () => {
+      if (!latestConfig.current) return;
+      setIsSaving(true);
+      try {
+        await saveProfile(latestConfig.current.profile_name, latestConfig.current);
+      } catch (e) {
+        setError(`Auto-save failed: ${(e as Error).message}`);
+      } finally {
+        setIsSaving(false);
+      }
+    }, DEBOUNCE_MS);
   }, []);
 
   // ── Save As ──────────────────────────────────────────────────────────────

@@ -28,6 +28,10 @@ Run with:
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables (e.g. OPENAI_API_KEY, GEMINI_API_KEY) from backend/.env if present
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # --- Persistent model caches -------------------------------------------------
 # fastembed (dense + sparse/BM25 embedding models used by Steps 3/5, the RAG

@@ -34,6 +34,8 @@ import { getRunFileUrl } from "@/lib/api";
 interface Props {
   runDir: string | null;
   outputFiles: string[];
+  selectedFile?: string | null;
+  onSelectFile?: (file: string | null) => void;
 }
 
 /** Returns a display label + icon for a given filename. */
@@ -61,8 +63,8 @@ function pickDefaultFile(files: string[]): string | null {
   return files[0] ?? null;
 }
 
-export default function OutputViewer({ runDir, outputFiles }: Props) {
-  const [activeFile, setActiveFile] = useState<string | null>(null);
+export default function OutputViewer({ runDir, outputFiles, selectedFile, onSelectFile }: Props) {
+  const [manualFile, setManualFile] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,37 +73,51 @@ export default function OutputViewer({ runDir, outputFiles }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Derive run_id from the dir path: "outputs/run_<id>" → "<id>"
-  const runId = runDir?.split("/").pop()?.replace("run_", "") ?? null;
+  const runId = runDir?.split(/[\\/]/).pop()?.replace(/^run_/, "") ?? null;
+
+  // Derive the active file from explicit selection or default priority without synchronous setState in useEffect
+  const defaultFile =
+    pickDefaultFile(outputFiles.filter((f) => !f.endsWith(".log") && !f.endsWith(".yaml"))) ??
+    pickDefaultFile(outputFiles);
+  const candidateFile = selectedFile ?? manualFile;
+  const activeFile =
+    candidateFile && outputFiles.includes(candidateFile) ? candidateFile : defaultFile;
 
   const isHtml = activeFile?.endsWith(".html") ?? false;
 
-  // Auto-select richest format (HTML first) when file list changes
-  useEffect(() => {
-    const best = pickDefaultFile(
-      outputFiles.filter((f) => !f.endsWith(".log") && !f.endsWith(".yaml"))
-    ) ?? pickDefaultFile(outputFiles);
-    if (best) setActiveFile(best);
-  }, [outputFiles]);
-
-  // Fetch file content when the active tab changes
+  // Fetch file content when the active tab changes, aborting stale requests
   useEffect(() => {
     if (!runId || !activeFile) {
-      setContent(null);
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    setContent(null);
+    const controller = new AbortController();
+    let active = true;
 
-    fetch(getRunFileUrl(runId, activeFile))
-      .then((r) => {
+    const loadContent = async () => {
+      setLoading(true);
+      setError(null);
+      setContent(null);
+      try {
+        const r = await fetch(getRunFileUrl(runId, activeFile), {
+          signal: controller.signal,
+        });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.text();
-      })
-      .then((text) => setContent(text))
-      .catch((e) => setError((e as Error).message))
-      .finally(() => setLoading(false));
+        const text = await r.text();
+        if (active) setContent(text);
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+        if (active) setError((e as Error).message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    void loadContent();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [runId, activeFile]);
 
   // ── Empty state ─────────────────────────────────────────────────────────────
@@ -132,7 +148,10 @@ export default function OutputViewer({ runDir, outputFiles }: Props) {
             <button
               key={f}
               className={`output-tab ${activeFile === f ? "active" : ""}`}
-              onClick={() => setActiveFile(f)}
+              onClick={() => {
+                setManualFile(f);
+                onSelectFile?.(f);
+              }}
               title={f}
             >
               <span className="output-tab__icon">{icon}</span>

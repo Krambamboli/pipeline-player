@@ -59,8 +59,8 @@ export default function ChunkPage() {
     listDoclingRuns()
       .then((runs) => {
         setDoclingRuns(runs);
-        if (runs.length > 0 && !config.source_run_id) {
-          setConfig((c) => ({ ...c, source_run_id: runs[0].run_id }));
+        if (runs.length > 0) {
+          setConfig((c) => (c.source_run_id ? c : { ...c, source_run_id: runs[0].run_id }));
         }
       })
       .catch(console.error);
@@ -73,6 +73,9 @@ export default function ChunkPage() {
       const keys = path.split(".");
       let obj: Record<string, unknown> = next as unknown as Record<string, unknown>;
       for (let i = 0; i < keys.length - 1; i++) {
+        if (obj[keys[i]] == null || typeof obj[keys[i]] !== "object") {
+          obj[keys[i]] = {};
+        }
         obj = obj[keys[i]] as Record<string, unknown>;
       }
       obj[keys[keys.length - 1]] = value;

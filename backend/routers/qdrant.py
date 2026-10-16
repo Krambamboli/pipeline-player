@@ -36,7 +36,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from services.qdrant_client_manager import get_qdrant_client
+from services.qdrant_client_manager import get_qdrant_client, qdrant_write_lock
 
 router = APIRouter(prefix="/api/qdrant", tags=["qdrant"])
 logger = logging.getLogger(__name__)
@@ -119,13 +119,14 @@ def list_collections(storage_path: str = "") -> List[Dict[str, Any]]:
 @router.get("/collections/{name}/points")
 def get_points(
     name: str,
-    offset: int = Query(default=0, ge=0),
+    # Qdrant scroll cursors are UUID strings (or None for the first page)
+    offset: Optional[str] = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     storage_path: str = "",
     with_vectors: bool = Query(default=False),
 ) -> Dict[str, Any]:
     """
-    Return paginated points from a collection.
+    Return paginated points from a collection using Qdrant cursor pagination.
     Each point includes chunk_text, metadata payload, token_count,
     and optionally a truncated vector preview.
     """
@@ -135,10 +136,11 @@ def get_points(
         raise HTTPException(status_code=500, detail=f"Qdrant error: {exc}")
 
     try:
-        # Use scroll for pagination
+        # Normalize empty/zero string offsets to None for the first page
+        scroll_offset: Optional[str] = offset if (offset and offset != "0") else None
         points, next_offset = client.scroll(
             collection_name=name,
-            offset=offset or None,
+            offset=scroll_offset,
             limit=limit,
             with_payload=True,
             with_vectors=with_vectors,
@@ -168,11 +170,19 @@ def get_points(
                             "top_terms": [{"index": i, "value": round(float(v2), 4)} for i, v2 in pairs],
                         }
                     elif isinstance(v, list):
-                        vector_preview[vec_name] = {
-                            "type": "dense",
-                            "dims": len(v),
-                            "preview": [round(x, 4) for x in v[:8]],
-                        }
+                        # Multi-vector (ColPali) vs 1D dense vector
+                        if v and isinstance(v[0], list):
+                            vector_preview[vec_name] = {
+                                "type": "dense",
+                                "dims": len(v[0]),
+                                "preview": [round(x, 4) for x in v[0][:8]],
+                            }
+                        else:
+                            vector_preview[vec_name] = {
+                                "type": "dense",
+                                "dims": len(v),
+                                "preview": [round(x, 4) for x in v[:8]],
+                            }
             elif isinstance(vec, list):
                 vector_preview["default"] = {
                     "type": "dense",
@@ -202,7 +212,7 @@ def get_points(
     return {
         "collection": name,
         "points": serialized,
-        "offset": offset,
+        "offset": scroll_offset,
         "limit": limit,
         "has_more": next_offset is not None,
         "next_offset": str(next_offset) if next_offset else None,
@@ -239,10 +249,11 @@ def collection_stats(name: str, storage_path: str = "") -> Dict[str, Any]:
 
 @router.delete("/collections/{name}")
 def delete_collection(name: str, storage_path: str = "") -> Dict[str, str]:
-    """Delete a Qdrant collection by name."""
+    """Delete a Qdrant collection by name (serialized with qdrant_write_lock)."""
     try:
         client = _get_client(storage_path)
-        client.delete_collection(name)
+        with qdrant_write_lock:
+            client.delete_collection(name)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     return {"deleted": name}

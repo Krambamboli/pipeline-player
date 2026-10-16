@@ -508,6 +508,7 @@ def _visual_track(
     """Render pages → ColPali multi-vector embeddings → upsert, document by document."""
     import fitz  # PyMuPDF
     from PIL import Image
+    from services.colpali_retriever import _QUERY_MODELS_LOCK
     from services.colpali_runner import ensure_colpali_collection, load_colpali_model, upsert_page_points
     from services.qdrant_client_manager import get_qdrant_client
 
@@ -518,7 +519,8 @@ def _visual_track(
     try:
         log(f"🚀 Visual track: loading '{prof.model_name}' on {prof.device} "
             f"(ColPali profile '{prof.profile_name}', {prof.dpi} DPI, batch {prof.batch_size})...")
-        model, torch_device = load_colpali_model(prof.model_name, prof.device)
+        with _QUERY_MODELS_LOCK:
+            model, torch_device = load_colpali_model(prof.model_name, prof.device)
         if torch_device != prof.device:
             log(f"⚠️  {prof.device} not available — using {torch_device}")
         log(f"✅ Model ready on {torch_device}")
@@ -548,7 +550,8 @@ def _visual_track(
                             mode = "RGBA" if pix.alpha else "RGB"
                             img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
                             images.append(img.convert("RGB") if mode == "RGBA" else img)
-                        embs = model.encode_document(images)
+                        with _QUERY_MODELS_LOCK:
+                            embs = model.encode_document(images)
                         embeddings.extend(e.tolist() if hasattr(e, "tolist") else e for e in embs)
                         put({"type": "doc", "track": "visual", "doc": doc.rel_path, "status": "encoding",
                              "progress": int(end / n * 100), "detail": f"{end}/{n} pages"})

@@ -158,13 +158,23 @@ def run_reranker(code: str, text_hits: List[Dict[str, Any]], colpali_hits: List[
     "selected" contains the FULL hit dicts (looked up by source+id) plus
     fused_score / reason, limited to k items.
     """
+    import os
+
     t0 = time.time()
     payload = json.dumps({"code": code, "text_hits": text_hits, "colpali_hits": colpali_hits, "k": k})
+    # Pass a minimal environment so secrets (OPENAI_API_KEY, GEMINI_API_KEY) are not exposed to user scripts
+    safe_env = {
+        "PATH": os.environ.get("PATH", ""),
+        "LANG": os.environ.get("LANG", "en_US.UTF-8"),
+        "LC_ALL": os.environ.get("LC_ALL", "en_US.UTF-8"),
+        "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+    }
     try:
         proc = subprocess.run(
             # -I: isolated mode (ignores PYTHON* env vars and the user site dir)
             [sys.executable, "-I", "-c", _HARNESS],
             input=payload, capture_output=True, text=True, timeout=TIMEOUT_SECONDS,
+            env=safe_env,
         )
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"Timeout: reranker did not finish within {TIMEOUT_SECONDS:.0f}s "

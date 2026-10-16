@@ -29,7 +29,7 @@
  *   - Vector preview (first 8 dims for dense, top terms for sparse)
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   listCollections,
   getPoints,
@@ -173,7 +173,10 @@ export default function InspectorPage() {
   const [selectedCol, setSelectedCol] = useState<string | null>(null);
   const [page, setPage] = useState<PointsPage | null>(null);
   const [withVectors, setWithVectors] = useState(false);
-  const [offset, setOffset] = useState(0);
+  // Qdrant scroll uses UUID point-ID cursors rather than integer offsets
+  const [cursorStack, setCursorStack] = useState<(string | null)[]>([null]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const currentCursor = cursorStack[pageIndex] ?? null;
   const [filterText, setFilterText] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterChunkType, setFilterChunkType] = useState("");
@@ -183,6 +186,12 @@ export default function InspectorPage() {
   const [limit, setLimit] = useState(20);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  const selectCollection = useCallback((name: string | null) => {
+    setSelectedCol(name);
+    setCursorStack([null]);
+    setPageIndex(0);
+  }, []);
 
   const loadCollections = useCallback(async () => {
     try {
@@ -201,43 +210,39 @@ export default function InspectorPage() {
   }, []);
 
   useEffect(() => {
-    loadCollections();
-    const id = setInterval(loadCollections, 10000); // refresh every 10s
+    void Promise.resolve().then(() => loadCollections());
+    const id = setInterval(() => void loadCollections(), 10000); // refresh every 10s
     return () => clearInterval(id);
-  }, []);
+  }, [loadCollections]);
 
   const loadPoints = useCallback(async () => {
     if (!selectedCol) return;
     setIsLoading(true);
     try {
-      const p = await getPoints(selectedCol, offset, limit, withVectors);
+      const p = await getPoints(selectedCol, currentCursor, limit, withVectors);
       setPage(p);
     } catch (e) {
       console.error(e);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCol, offset, limit, withVectors]);
+  }, [selectedCol, currentCursor, limit, withVectors]);
 
   useEffect(() => {
-    setOffset(0);
-  }, [selectedCol]);
-
-  useEffect(() => {
-    loadPoints();
+    void Promise.resolve().then(() => loadPoints());
   }, [loadPoints]);
 
   const handleDelete = useCallback(async (name: string) => {
     try {
       await deleteCollection(name);
       setCollections((c) => c.filter((col) => col.name !== name));
-      if (selectedCol === name) setSelectedCol(null);
+      if (selectedCol === name) selectCollection(null);
       setPage(null);
       setConfirmDelete(null);
     } catch (e) {
       console.error(e);
     }
-  }, [selectedCol]);
+  }, [selectedCol, selectCollection]);
 
   const selectedColInfo = collections.find((c) => c.name === selectedCol);
 
@@ -322,7 +327,7 @@ export default function InspectorPage() {
             <div
               key={col.name}
               className={`collection-item ${selectedCol === col.name ? "collection-item--active" : ""}`}
-              onClick={() => setSelectedCol(col.name)}
+              onClick={() => selectCollection(col.name)}
             >
               <div className="collection-item__name">{col.name}</div>
               <div className="collection-item__meta">
@@ -516,7 +521,11 @@ export default function InspectorPage() {
                 <select
                   className="select"
                   value={limit}
-                  onChange={(e) => setLimit(Number(e.target.value))}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setCursorStack([null]);
+                    setPageIndex(0);
+                  }}
                 >
                   <option value={20}>20</option>
                   <option value={50}>50</option>
@@ -588,22 +597,38 @@ export default function InspectorPage() {
             <button
               className="run-btn"
               style={{ fontSize: "0.75rem", padding: "4px 12px", minWidth: 0 }}
-              disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - limit))}
+              disabled={pageIndex === 0}
+              onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
             >
               ← Prev
             </button>
             <span>
-              Showing {offset + 1}–{offset + page.points.length} of{" "}
-              {typeof selectedColInfo?.points_count === "number"
-                ? selectedColInfo.points_count.toLocaleString()
-                : "…"}
+              {page.points.length === 0 ? (
+                <>
+                  Showing 0 of{" "}
+                  {typeof selectedColInfo?.points_count === "number"
+                    ? selectedColInfo.points_count.toLocaleString()
+                    : "0"}
+                </>
+              ) : (
+                <>
+                  Showing {pageIndex * limit + 1}–{pageIndex * limit + page.points.length} of{" "}
+                  {typeof selectedColInfo?.points_count === "number"
+                    ? selectedColInfo.points_count.toLocaleString()
+                    : "…"}
+                </>
+              )}
             </span>
             <button
               className="run-btn"
               style={{ fontSize: "0.75rem", padding: "4px 12px", minWidth: 0 }}
-              disabled={!page.has_more}
-              onClick={() => setOffset(offset + limit)}
+              disabled={!page.has_more || !page.next_offset}
+              onClick={() => {
+                if (!page.next_offset) return;
+                const nextCursor = page.next_offset;
+                setCursorStack((stack) => [...stack.slice(0, pageIndex + 1), nextCursor]);
+                setPageIndex((i) => i + 1);
+              }}
             >
               Next →
             </button>

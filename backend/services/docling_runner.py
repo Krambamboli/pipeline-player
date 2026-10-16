@@ -97,14 +97,22 @@ def _build_picture_description_options(pd, notes: List[str]):
         # OpenAI-compatible endpoint (Ollama, LM Studio, vLLM, OpenAI …).
         headers = {}
         if pd.api_key_env:
-            token = os.environ.get(pd.api_key_env)
-            if token:
-                headers["Authorization"] = f"Bearer {token}"
-            else:
+            env_name = pd.api_key_env.strip()
+            # Security: only allow environment variables that clearly represent API keys/tokens
+            if not env_name.endswith(("_API_KEY", "_TOKEN", "_KEY", "_SECRET")):
                 notes.append(
-                    f"⚠ Picture description API: env var '{pd.api_key_env}' is not set — "
-                    "sending requests without Authorization header."
+                    f"⚠ Picture description API: env var '{env_name}' rejected "
+                    "(must end with _API_KEY, _TOKEN, _KEY, or _SECRET)."
                 )
+            else:
+                token = os.environ.get(env_name)
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+                else:
+                    notes.append(
+                        f"⚠ Picture description API: env var '{env_name}' is not set — "
+                        "sending requests without Authorization header."
+                    )
         notes.append(
             f"🖼 Picture description: API '{pd.api_model}' @ {pd.api_url} "
             f"(timeout {pd.api_timeout:.0f}s, concurrency {pd.api_concurrency})"
@@ -482,10 +490,23 @@ def run_pipeline(config: PipelineConfig, filename: str) -> Generator[str, None, 
         process.wait()
     finally:
         _active_processes.pop(run_id, None)
-
-    # Always write run.log (useful even if cancelled)
-    log_path = run_dir / "run.log"
-    log_path.write_text("\n".join(log_lines), encoding="utf-8")
+        # If the generator was closed early (e.g. client disconnected or cancelled),
+        # ensure the child worker process is terminated and reaped so it doesn't leak RAM/MPS.
+        if process.poll() is None:
+            try:
+                process.terminate()
+                process.wait(timeout=3)
+            except Exception:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+        # Always write run.log even if the stream was closed early
+        try:
+            log_path = run_dir / "run.log"
+            log_path.write_text("\n".join(log_lines), encoding="utf-8")
+        except Exception:
+            pass
 
     # Read the run_result.json produced by the worker
     res_path = run_dir / "run_result.json"

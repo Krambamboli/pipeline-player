@@ -99,23 +99,19 @@ async def run_enrichment(cfg: EnrichmentConfig) -> AsyncGenerator[str, None]:
         yield emit(f"❌ Cannot open Qdrant: {exc}")
         return
 
-    # Detect dense model from source collection vector config
+    # Detect dense model from source collection payload, manifest, or vector config
+    from services.fusion_retriever import _guess_dense_model_by_dim, detect_text_models
+
     vec_cfg = info.config.params.vectors
     if isinstance(vec_cfg, dict):
-        first = next(iter(vec_cfg.values()))
-        source_dim = getattr(first, "size", 384)
+        dense_entry = vec_cfg.get("dense") or next(iter(vec_cfg.values()), None)
+        source_dim = getattr(dense_entry, "size", 384)
     else:
         source_dim = getattr(vec_cfg, "size", 384)
 
-    # Map dim → a known fastembed model that matches
-    # (best-effort — user can override via cfg later)
-    _DIM_MODEL_MAP = {
-        384:  "BAAI/bge-small-en-v1.5",
-        768:  "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-        1024: "intfloat/multilingual-e5-large",
-    }
-    dense_model_name = _DIM_MODEL_MAP.get(source_dim, "BAAI/bge-small-en-v1.5")
-    yield emit(f"📐 Source dim: {source_dim}d → using embed model: {dense_model_name}")
+    detected_dense, _, model_src = detect_text_models(qc, cfg.source_collection)
+    dense_model_name = detected_dense or _guess_dense_model_by_dim(source_dim) or "BAAI/bge-small-en-v1.5"
+    yield emit(f"📐 Source dim: {source_dim}d → using embed model: {dense_model_name} ({model_src})")
 
     # Build LLM client
     llm = OllamaClient(

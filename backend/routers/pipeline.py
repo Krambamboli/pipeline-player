@@ -118,7 +118,7 @@ async def trigger_run(request: RunRequest) -> StreamingResponse:
                 except StopIteration as e:
                     result = e.value
                     break
-        finally:
+
             if result:
                 _run_history[result.run_id] = result
                 payload = json.dumps({
@@ -131,6 +131,9 @@ async def trigger_run(request: RunRequest) -> StreamingResponse:
                     "error_message": result.error_message,
                 })
                 yield f"data: {payload}\n\n"
+        finally:
+            # Close the underlying generator so its finally block terminates any running worker
+            gen.close()
 
     return StreamingResponse(
         event_generator(),
@@ -163,16 +166,24 @@ async def get_run(run_id: str) -> RunResult:
 @router.get("/run/{run_id}/file/{filename}")
 async def get_run_file(run_id: str, filename: str) -> StreamingResponse:
     """Stream the content of a specific output file from a run directory."""
-    run_dir = OUTPUTS_DIR / f"run_{run_id}"
-    file_path = run_dir / filename
-
-    # Security: only allow files within the run directory
+    # Disallow path separators in run_id
+    if "/" in run_id or "\\" in run_id or ".." in run_id:
+        raise HTTPException(status_code=403, detail="Invalid run_id.")
+    run_dir = (OUTPUTS_DIR / f"run_{run_id}").resolve()
     try:
-        file_path.resolve().relative_to(OUTPUTS_DIR.resolve())
+        run_dir.relative_to(OUTPUTS_DIR.resolve())
     except ValueError:
         raise HTTPException(status_code=403, detail="Path traversal not allowed.")
 
-    if not file_path.exists():
+    file_path = (run_dir / filename).resolve()
+
+    # Security: only allow files strictly within the specific run_dir
+    try:
+        file_path.relative_to(run_dir)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Path traversal not allowed.")
+
+    if not file_path.is_file():
         raise HTTPException(status_code=404, detail=f"File '{filename}' not found in run {run_id}.")
 
     def file_generator():

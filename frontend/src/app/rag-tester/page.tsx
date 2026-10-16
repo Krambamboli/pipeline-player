@@ -189,7 +189,7 @@ export default function RagTesterPage() {
     setProfilesVersion((v) => v + 1);
   }, []);
 
-  /* ── Initial data ───────────────────────────────────────────── */
+  /* ── Initial data & unmount cleanup ─────────────────────────── */
   useEffect(() => {
     listCourseFolders()
       .then((f) => {
@@ -199,52 +199,92 @@ export default function RagTesterPage() {
         if (first) setFolderInput(first.rel_path || first.path);
       })
       .catch((e) => setScanError(e.message));
-    refreshProfiles();
+    void Promise.resolve().then(() => refreshProfiles());
 
     // Profiles saved in another tab (Step 2 / ColPali) appear when returning here
     const onVisible = () => {
-      if (document.visibilityState === "visible") refreshProfiles();
+      if (document.visibilityState === "visible") void refreshProfiles();
     };
-    window.addEventListener("focus", refreshProfiles);
+    const onFocus = () => void refreshProfiles();
+    window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      window.removeEventListener("focus", refreshProfiles);
+      window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
+      abortRef.current?.abort();
     };
   }, [refreshProfiles]);
 
   /* ── Scan folder whenever input / recursion changes (debounced) ── */
   useEffect(() => {
-    if (!folderInput.trim()) {
-      setScan(null);
-      return;
-    }
+    let active = true;
+    const trimmed = folderInput.trim();
     const handle = window.setTimeout(async () => {
+      if (!trimmed) {
+        if (active) setScan(null);
+        return;
+      }
       setIsScanning(true);
       try {
-        const s = await scanFolder(folderInput, recursive);
+        const s = await scanFolder(trimmed, recursive);
+        if (!active) return;
         setScan(s);
         setScanError(null);
         setHybridName(s.suggested_hybrid_collection);
         setColpaliName(s.suggested_colpali_collection);
       } catch (e) {
+        if (!active) return;
         setScan(null);
         setScanError((e as Error).message);
       } finally {
-        setIsScanning(false);
+        if (active) setIsScanning(false);
       }
-    }, 400);
-    return () => window.clearTimeout(handle);
+    }, trimmed ? 400 : 0);
+    return () => {
+      active = false;
+      window.clearTimeout(handle);
+    };
   }, [folderInput, recursive]);
 
   /* ── Load profile summaries for the info chips ──────────────── */
   useEffect(() => {
-    if (!chunkProfile) return setChunkInfo(null);
-    loadSavedProfile<ChunkProfileInfo>("chunk", chunkProfile).then(setChunkInfo).catch(() => setChunkInfo(null));
+    let active = true;
+    if (!chunkProfile) {
+      void Promise.resolve().then(() => {
+        if (active) setChunkInfo(null);
+      });
+    } else {
+      loadSavedProfile<ChunkProfileInfo>("chunk", chunkProfile)
+        .then((info) => {
+          if (active) setChunkInfo(info);
+        })
+        .catch(() => {
+          if (active) setChunkInfo(null);
+        });
+    }
+    return () => {
+      active = false;
+    };
   }, [chunkProfile, profilesVersion]);
+
   useEffect(() => {
-    if (!colpaliProfile) return setColpaliInfo(null);
-    loadSavedProfile<ColPaliProfileInfo>("colpali", colpaliProfile).then(setColpaliInfo).catch(() => setColpaliInfo(null));
+    let active = true;
+    if (!colpaliProfile) {
+      void Promise.resolve().then(() => {
+        if (active) setColpaliInfo(null);
+      });
+    } else {
+      loadSavedProfile<ColPaliProfileInfo>("colpali", colpaliProfile)
+        .then((info) => {
+          if (active) setColpaliInfo(info);
+        })
+        .catch(() => {
+          if (active) setColpaliInfo(null);
+        });
+    }
+    return () => {
+      active = false;
+    };
   }, [colpaliProfile, profilesVersion]);
 
   // Auto-scroll console

@@ -239,28 +239,24 @@ export default function EnrichPage() {
   const [logLines, setLogLines] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
   const logRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Load collections on mount
+  // Load collections on mount and clean up any running stream on unmount
   useEffect(() => {
     listCollections()
       .then((cols) => {
         setCollections(cols);
         if (cols.length > 0) {
           setSelectedCol(cols[0].name);
+          setCfg((prev) => ({ ...prev, source_collection: cols[0].name }));
         }
       })
       .catch(console.error);
+
+    return () => {
+      abortRef.current?.abort();
+    };
   }, []);
-
-  // Keep cfg in sync when selectedCol changes
-  useEffect(() => {
-    setCfg((prev) => ({ ...prev, source_collection: selectedCol }));
-  }, [selectedCol]);
-
-  // Keep cfg in sync when strategy changes
-  useEffect(() => {
-    setCfg((prev) => ({ ...prev, strategy }));
-  }, [strategy]);
 
   // Check Ollama status
   const checkOllama = useCallback(async () => {
@@ -279,8 +275,30 @@ export default function EnrichPage() {
     }
   }, [cfg.llm.host, cfg.llm.model]);
 
+  // Run initial Ollama check asynchronously on mount
   useEffect(() => {
-    checkOllama();
+    let active = true;
+    checkOllamaStatus("http://localhost:11434")
+      .then((status) => {
+        if (!active) return;
+        setOllamaStatus(status);
+        setOllamaModels(status.models);
+        if (status.models.length > 0) {
+          setCfg((prev) =>
+            status.models.includes(prev.llm.model)
+              ? prev
+              : { ...prev, llm: { ...prev.llm, model: status.models[0] } }
+          );
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setOllamaStatus({ available: false, host: "http://localhost:11434", models: [] });
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Auto-scroll log
@@ -293,6 +311,10 @@ export default function EnrichPage() {
   // Run enrichment
   const handleRun = useCallback(async () => {
     if (!selectedCol) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setIsRunning(true);
     setLogLines([]);
     setProgress(0);
@@ -313,7 +335,8 @@ export default function EnrichPage() {
       (err) => {
         setLogLines((prev) => [...prev, `❌ ${err.message}`]);
         setIsRunning(false);
-      }
+      },
+      controller.signal
     );
   }, [cfg, selectedCol, strategy]);
 

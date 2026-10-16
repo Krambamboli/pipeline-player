@@ -29,7 +29,6 @@
  */
 
 import type { PipelineConfig } from "@/types/config";
-import type { ChunkConfig } from "@/hooks/useChunkStream";
 
 // ── Generic download helper ───────────────────────────────────────────────
 

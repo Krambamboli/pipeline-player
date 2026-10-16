@@ -22,6 +22,7 @@ Retrieve Router
 API endpoints for query rewriting, retrieval (Step 5),
 and GPT-4o answer generation from ranked chunks.
 """
+import json
 import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -42,17 +43,24 @@ def get_collections():
         client = get_qdrant_client(str(q_path))
         cols = client.get_collections().collections
         
-        # Determine if hybrid for UI toggles
+        # Determine if hybrid for UI toggles, skipping ColPali multi-vector collections
         results = []
         for c in cols:
             info = client.get_collection(c.name)
-            has_sparse = False
-            if info.config.params.sparse_vectors and "sparse" in info.config.params.sparse_vectors:
-                has_sparse = True
+            vectors = info.config.params.vectors
+            # Skip ColPali multi-vector collections (handled by /api/colpali/collections)
+            if isinstance(vectors, dict) and any(
+                getattr(v, "multivector_config", None) is not None for v in vectors.values()
+            ):
+                continue
+
+            has_sparse = bool(
+                info.config.params.sparse_vectors and "sparse" in info.config.params.sparse_vectors
+            )
             has_dense = False
-            if isinstance(info.config.params.vectors, dict) and "dense" in info.config.params.vectors:
+            if isinstance(vectors, dict) and "dense" in vectors:
                 has_dense = True
-            elif not isinstance(info.config.params.vectors, dict):
+            elif vectors is not None and not isinstance(vectors, dict):
                 has_dense = True
             
             is_hybrid = has_dense and has_sparse
@@ -64,8 +72,8 @@ def get_collections():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/rewrite", response_model=RewriteResponse)
-def rewrite(req: RewriteRequest):
-    rewritten = rewrite_query(req.query)
+async def rewrite(req: RewriteRequest):
+    rewritten = await rewrite_query(req.query)
     return RewriteResponse(rewritten_query=rewritten)
 
 @router.post("/run", response_model=RetrieveResponse)
@@ -82,12 +90,12 @@ def run(req: RetrieveRequest):
 # rather than reading each chunk individually. We stream tokens via SSE so the
 # answer appears in real-time in the UI.
 #
-# HOW: The frontend sends the query + chunk texts, we forward them to GPT-4o
-# and stream back tokens as SSE `data:` frames. A final `data: [DONE]` signals
-# completion to the EventSource on the client side.
+# HOW: The frontend sends the query + chunk texts, we forward them to the LLM
+# and stream back JSON-encoded tokens as SSE `data:` frames so embedded newlines
+# never split an SSE frame. A final `data: [DONE]` signals completion.
 @router.post("/answer")
 def answer(req: AnswerRequest):
-    """Stream a GPT-4o generated answer from the provided chunks via SSE."""
+    """Stream an LLM-generated answer from the provided chunks via SSE."""
     from services.answer_generator import generate_answer_stream
 
     def sse_stream():
@@ -99,8 +107,8 @@ def answer(req: AnswerRequest):
                 image_references=req.image_references,
                 prelabeled=req.prelabeled,
             ):
-                # SSE format: each token as a data line
-                yield f"data: {token}\n\n"
+                # JSON-encode token so multi-line tokens (\n) stay inside a single SSE data frame
+                yield f"data: {json.dumps({'token': token})}\n\n"
             yield "data: [DONE]\n\n"
         except RuntimeError as e:
             # Missing API key or similar config error

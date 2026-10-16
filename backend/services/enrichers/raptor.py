@@ -87,9 +87,9 @@ async def run_raptor(
     Yields SSE-formatted progress strings.
     """
 
-    from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, PointStruct, VectorParams
-    from fastembed import TextEmbedding
+    from qdrant_client.models import Distance, PointStruct, SparseVector, VectorParams
+    from services.fusion_retriever import _dense_model, _sparse_model
+    from services.qdrant_client_manager import get_qdrant_client, qdrant_write_lock
     from sklearn.mixture import GaussianMixture
     import umap
 
@@ -99,7 +99,6 @@ async def run_raptor(
     # 1. Open Qdrant + load source
     # ------------------------------------------------------------------
     yield emit("🗄️  Opening Qdrant storage...")
-    from services.qdrant_client_manager import get_qdrant_client
     client = get_qdrant_client(str(qdrant_storage_path))
 
     yield emit(f"📥 Loading chunks + vectors from '{source_collection}'...")
@@ -126,14 +125,14 @@ async def run_raptor(
     # ------------------------------------------------------------------
     # 2. Check LLM + load embed model
     # ------------------------------------------------------------------
-    yield emit(f"🤖 Checking Ollama...")
+    yield emit("🤖 Checking Ollama...")
     if not await llm_client.is_available():
         yield emit("❌ Ollama not running. Start with: ollama serve")
         return
     yield emit("✅ Ollama available")
 
     yield emit(f"🔢 Loading embedding model '{dense_model_name}'...")
-    embed_model = TextEmbedding(model_name=dense_model_name)
+    embed_model = _dense_model(dense_model_name)
     probe = list(embed_model.embed(["probe"]))[0]
     dim = len(probe)
     yield emit(f"✅ Embedding model ready ({dim}d)")
@@ -147,48 +146,44 @@ async def run_raptor(
     
     if isinstance(src_vectors, dict):
         vec_cfg = {k: VectorParams(size=v.size, distance=v.distance) for k, v in src_vectors.items()}
-        dense_vec_name = next(iter(vec_cfg.keys()))
+        dense_vec_name = "dense" if "dense" in vec_cfg else next(iter(vec_cfg.keys()))
     else:
         size = dim or getattr(src_vectors, "size", 384)
         vec_cfg = VectorParams(size=size, distance=Distance.COSINE)
         dense_vec_name = None
 
     src_sparse = getattr(src_info.config.params, "sparse_vectors", None)
+    has_sparse = bool(src_sparse and "sparse" in src_sparse)
     if src_sparse:
         from qdrant_client.models import SparseVectorParams
         sparse_cfg = {k: SparseVectorParams() for k in src_sparse.keys()}
+        sparse_embed_model = _sparse_model("Qdrant/bm25") if has_sparse else None
     else:
         sparse_cfg = None
+        sparse_embed_model = None
 
-    if client.collection_exists(output_collection):
-        client.delete_collection(output_collection)
-    client.create_collection(
-        collection_name=output_collection,
-        vectors_config=vec_cfg,
-        sparse_vectors_config=sparse_cfg,
-    )
-
-    # Copy all source points as level-0 nodes
-    copied = []
-    offset = None
-    while True:
-        batch, next_off = client.scroll(
-            collection_name=source_collection,
-            offset=offset, limit=100,
-            with_payload=True, with_vectors=True,
+    with qdrant_write_lock:
+        if client.collection_exists(output_collection):
+            client.delete_collection(output_collection)
+        client.create_collection(
+            collection_name=output_collection,
+            vectors_config=vec_cfg,
+            sparse_vectors_config=sparse_cfg,
         )
-        for pt in batch:
-            copied.append(PointStruct(
-                id=str(pt.id),
-                vector=pt.vector,
-                payload={**(pt.payload or {}), "raptor_level": 0},
-            ))
-        if next_off is None:
-            break
-        offset = next_off
+
+    # Reuse already-loaded all_points as level-0 leaf nodes (no second scroll)
+    copied = [
+        PointStruct(
+            id=str(pt.id),
+            vector=pt.vector,
+            payload={**(pt.payload or {}), "chunk_type": "raptor_leaf", "raptor_level": 0},
+        )
+        for pt in all_points
+    ]
 
     for i in range(0, len(copied), 64):
-        client.upsert(collection_name=output_collection, points=copied[i:i+64])
+        with qdrant_write_lock:
+            client.upsert(collection_name=output_collection, points=copied[i:i+64])
     yield emit(f"✅ Copied {len(copied)} leaf nodes (level 0)")
 
     # ------------------------------------------------------------------
@@ -205,7 +200,7 @@ async def run_raptor(
         for pt in current_nodes:
             v = pt.vector
             if isinstance(v, dict):
-                v = v.get("dense", list(v.values())[0])
+                v = v.get(dense_vec_name or "dense", list(v.values())[0])
             vecs.append(np.array(v, dtype=np.float32))
         vecs_np = np.stack(vecs)
 
@@ -262,9 +257,13 @@ async def run_raptor(
             )
 
             try:
-                summary = (await llm_client.complete(prompt)).strip()
+                raw_sum = await llm_client.complete(prompt)
+                summary = raw_sum.strip() if raw_sum else ""
             except Exception as exc:
                 yield emit(f"⚠️  LLM failed for cluster {c_idx}: {exc}")
+                continue
+
+            if not summary:
                 continue
 
             # Embed summary
@@ -275,19 +274,32 @@ async def run_raptor(
 
             parent_id = str(uuid.uuid4())
             child_ids = [str(pt.id) for pt in cluster_pts]
+            first_child_payload = cluster_pts[0].payload or {}
             payload = {
                 "chunk_type": "raptor_summary",
                 "raptor_level": level,
+                "raptor_cluster": int(c_idx),
                 "chunk_text": summary,
                 "embedded_text": summary,
                 "child_ids": child_ids,
                 "chunk_index": -(level * 1000 + c_idx),
                 "source_collection": source_collection,
+                "dense_model": first_child_payload.get("dense_model", dense_model_name),
             }
+            if first_child_payload.get("sparse_model"):
+                payload["sparse_model"] = first_child_payload["sparse_model"]
 
-            vec_obj = {dense_vec_name: sv.tolist()} if dense_vec_name else sv.tolist()
+            if dense_vec_name:
+                vec_obj: Any = {dense_vec_name: sv.tolist()}
+                if sparse_embed_model is not None:
+                    sp = list(sparse_embed_model.embed([summary]))[0]
+                    vec_obj["sparse"] = SparseVector(indices=sp.indices.tolist(), values=sp.values.tolist())
+            else:
+                vec_obj = sv.tolist()
+
             pt_struct = PointStruct(id=parent_id, vector=vec_obj, payload=payload)
-            client.upsert(collection_name=output_collection, points=[pt_struct])
+            with qdrant_write_lock:
+                client.upsert(collection_name=output_collection, points=[pt_struct])
             next_level_nodes.append(pt_struct)
             total_summaries_written += 1
 

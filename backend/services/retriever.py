@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # 
 # HOW: We send the raw query to a local LLM (Ollama) with a strict system prompt that 
 # extracts only the core search intent while preserving the original language.
-def rewrite_query(raw_query: str, llm_host: str = "http://localhost:11434", llm_model: str = "llama3.2:latest") -> str:
+async def rewrite_query(raw_query: str, llm_host: str = "http://localhost:11434", llm_model: str = "llama3.2:latest") -> str:
     """Uses Ollama to extract the core search intent from a messy prompt."""
     client = OllamaClient(host=llm_host, model=llm_model)
     prompt = f"""You are a search query extraction system.
@@ -53,11 +53,12 @@ User prompt: {raw_query}
 
 Clean search query:"""
     try:
-        response = client.generate(prompt)
-        return response.strip()
+        response = await client.complete(prompt)
+        return response.strip() if response else raw_query
     except Exception as e:
         logger.error(f"Failed to rewrite query: {e}")
-        return raw_query # Fallback to original
+        return raw_query  # Fallback to original
+
 
 # WHY: This is the core logic for Step 5. It handles embedding the rewritten query 
 # and fetching the most relevant chunks from Qdrant, using advanced fusion if the 
@@ -65,10 +66,18 @@ Clean search query:"""
 #
 # HOW: 
 # 1. Checks if the collection has dense and/or sparse vectors.
-# 2. Uses `fastembed` to generate query vectors (Dense + Sparse).
+# 2. Detects the exact embedding models from the point payload/manifest/cache and uses
+#    cached `fastembed` models to generate query vectors (Dense + Sparse).
 # 3. Runs independent searches (Prefetch) for dense and sparse to show pre-fusion results.
 # 4. Runs a combined `FusionQuery` (RRF or DBSF) to get the final re-ranked chunks.
 def run_retrieval(req: RetrieveRequest, qdrant_storage_path: str = str(REPO_ROOT / "qdrant_storage")) -> RetrieveResponse:
+    from services.fusion_retriever import (
+        _dense_model,
+        _guess_dense_model_by_dim,
+        _sparse_model,
+        detect_text_models,
+    )
+
     qdrant_path = _resolve_qdrant_path(qdrant_storage_path)
     client = get_qdrant_client(str(qdrant_path))
     
@@ -84,7 +93,7 @@ def run_retrieval(req: RetrieveRequest, qdrant_storage_path: str = str(REPO_ROOT
         has_dense = "dense" in vec_cfg
         if has_dense:
             source_dim = vec_cfg["dense"].size
-    else:
+    elif vec_cfg is not None:
         # Unnamed default vector
         has_dense = True
         source_dim = vec_cfg.size
@@ -93,20 +102,16 @@ def run_retrieval(req: RetrieveRequest, qdrant_storage_path: str = str(REPO_ROOT
     if sparse_cfg and "sparse" in sparse_cfg:
         has_sparse = True
         
-    # 2. Determine embedding models
-    _DIM_MODEL_MAP = {
-        384:  "BAAI/bge-small-en-v1.5",
-        768:  "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-        1024: "intfloat/multilingual-e5-large",
-    }
-    dense_model_name = _DIM_MODEL_MAP.get(source_dim, "BAAI/bge-small-en-v1.5")
+    # 2. Detect embedding models from payload / manifest / cache-aware dimension guess
+    detected_dense, detected_sparse, _ = detect_text_models(client, req.collection_name)
+    dense_model_name = detected_dense or _guess_dense_model_by_dim(source_dim) or "BAAI/bge-small-en-v1.5"
+    sparse_model_name = detected_sparse or "Qdrant/bm25"
     
     query_vectors = {}
     prefetches = []
     
     if has_dense:
-        from fastembed import TextEmbedding
-        dense_model = TextEmbedding(model_name=dense_model_name)
+        dense_model = _dense_model(dense_model_name)
         dense_vec = list(dense_model.embed([req.query]))[0].tolist()
         # For unnamed vectors, we don't supply a name, but usually it's named 'dense' in this project if dict
         vec_name = "dense" if isinstance(vec_cfg, dict) and "dense" in vec_cfg else ""
@@ -115,13 +120,12 @@ def run_retrieval(req: RetrieveRequest, qdrant_storage_path: str = str(REPO_ROOT
             models.Prefetch(
                 query=dense_vec,
                 using=vec_name if vec_name else None,
-                limit=req.limit * 2 # fetch more before fusion
+                limit=req.limit * 2  # fetch more before fusion
             )
         )
         
     if has_sparse:
-        from fastembed import SparseTextEmbedding
-        sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
+        sparse_model = _sparse_model(sparse_model_name)
         sv = list(sparse_model.embed([req.query]))[0]
         sparse_vec = models.SparseVector(indices=sv.indices.tolist(), values=sv.values.tolist())
         query_vectors["sparse"] = {"indices": sparse_vec.indices, "values": sparse_vec.values}

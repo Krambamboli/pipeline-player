@@ -332,32 +332,34 @@ def ensure_text_collection(client, collection_name: str, cfg: ChunkPipelineConfi
     Returns True if it was created, False if it already existed.
     """
     from qdrant_client.models import Distance, VectorParams, SparseVectorParams, SparseIndexParams
+    from services.qdrant_client_manager import qdrant_write_lock
 
-    if client.collection_exists(collection_name):
-        return False
+    with qdrant_write_lock:
+        if client.collection_exists(collection_name):
+            return False
 
-    mode = cfg.embedding.mode
-    if mode == EmbeddingMode.DENSE:
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(size=dense_dim, distance=Distance.COSINE),
-            on_disk_payload=cfg.qdrant.on_disk_payload,
-        )
-    elif mode == EmbeddingMode.SPARSE:
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config={},
-            sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
-            on_disk_payload=cfg.qdrant.on_disk_payload,
-        )
-    else:  # HYBRID — named vectors "dense" + "sparse"
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config={"dense": VectorParams(size=dense_dim, distance=Distance.COSINE)},
-            sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
-            on_disk_payload=cfg.qdrant.on_disk_payload,
-        )
-    return True
+        mode = cfg.embedding.mode
+        if mode == EmbeddingMode.DENSE:
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=dense_dim, distance=Distance.COSINE),
+                on_disk_payload=cfg.qdrant.on_disk_payload,
+            )
+        elif mode == EmbeddingMode.SPARSE:
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config={},
+                sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
+                on_disk_payload=cfg.qdrant.on_disk_payload,
+            )
+        else:  # HYBRID — named vectors "dense" + "sparse"
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config={"dense": VectorParams(size=dense_dim, distance=Distance.COSINE)},
+                sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
+                on_disk_payload=cfg.qdrant.on_disk_payload,
+            )
+        return True
 
 
 def build_points(texts, payloads, dense_vectors, sparse_vectors, mode: EmbeddingMode):
@@ -509,7 +511,7 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     mode = cfg.embedding.mode
 
     yield emit(f"🗄️  Connecting to Qdrant at: {storage_path}")
-    from services.qdrant_client_manager import get_qdrant_client
+    from services.qdrant_client_manager import get_qdrant_client, qdrant_write_lock
     client = get_qdrant_client(str(storage_path))
 
     try:
@@ -519,9 +521,10 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
         return {"status": "error", "error": str(exc)}
 
     # Delete collection if overwrite requested
-    if cfg.qdrant.overwrite_collection and client.collection_exists(collection_name):
-        client.delete_collection(collection_name)
-        yield emit(f"🗑️  Deleted existing collection '{collection_name}'")
+    with qdrant_write_lock:
+        if cfg.qdrant.overwrite_collection and client.collection_exists(collection_name):
+            client.delete_collection(collection_name)
+            yield emit(f"🗑️  Deleted existing collection '{collection_name}'")
 
     yield emit(f"🏗️  Preparing collection '{collection_name}' (mode={mode.value})...")
     created = ensure_text_collection(client, collection_name, cfg, models.dense_dim)
@@ -593,7 +596,8 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     if upserted_count == 0:
         if created:
             try:
-                client.delete_collection(collection_name)
+                with qdrant_write_lock:
+                    client.delete_collection(collection_name)
             except Exception:
                 pass
         yield emit(

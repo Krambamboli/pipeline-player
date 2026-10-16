@@ -23,7 +23,7 @@
  * Mirrors the structure of lib/qdrant.ts.
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -147,22 +147,13 @@ export async function checkOllamaStatus(
   return res.json();
 }
 
-/** Start an enrichment run and return an EventSource-like stream. */
-export function startEnrichmentStream(cfg: EnrichmentConfig): EventSource {
-  // We can't POST with EventSource, so we use fetch with ReadableStream
-  // and expose the same interface via a custom wrapper.
-  // This function returns a standard EventSource — the caller reads .onmessage.
-  // Since EventSource only supports GET, we spin up a fetch-based stream
-  // and expose progress via callbacks instead.
-  throw new Error("Use startEnrichmentFetch instead");
-}
-
 /** POST cfg to /api/enrich/run and read the SSE response as a fetch stream. */
 export async function startEnrichmentFetch(
   cfg: EnrichmentConfig,
   onLine: (line: string) => void,
   onDone: () => void,
-  onError: (err: Error) => void
+  onError: (err: Error) => void,
+  signal?: AbortSignal
 ): Promise<void> {
   let res: Response;
   try {
@@ -170,8 +161,10 @@ export async function startEnrichmentFetch(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(cfg),
+      signal,
     });
   } catch (e) {
+    if ((e as Error).name === "AbortError") return;
     onError(e instanceof Error ? e : new Error(String(e)));
     return;
   }
@@ -194,10 +187,19 @@ export async function startEnrichmentFetch(
       buffer = parts.pop() ?? "";
       for (const part of parts) {
         const line = part.replace(/^data: /, "").trim();
-        if (line) onLine(line);
+        if (!line) continue;
+        // If backend reports an unhandled error in the SSE stream, route to onError
+        // instead of letting onDone mark progress as 100%.
+        if (line.startsWith("[ERROR]")) {
+          onLine(line);
+          onError(new Error(line.replace(/^\[ERROR\]\s*/, "")));
+          return;
+        }
+        onLine(line);
       }
     }
   } catch (e) {
+    if ((e as Error).name === "AbortError") return;
     onError(e instanceof Error ? e : new Error(String(e)));
     return;
   }

@@ -72,9 +72,29 @@ RAG_RUNS_DIR = REPO_ROOT / "rag_runs"
 # Fallback when a collection carries no model information (legacy collections)
 _DIM_MODEL_MAP = {
     384: "BAAI/bge-small-en-v1.5",
-    768: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+    768: "jinaai/jina-embeddings-v2-base-de",
     1024: "intfloat/multilingual-e5-large",
 }
+
+
+def _guess_dense_model_by_dim(dim: Optional[int]) -> Optional[str]:
+    """
+    Guess the dense embedding model for a legacy collection without payload metadata.
+    For 768d, prefers 'jinaai/jina-embeddings-v2-base-de' if present in the local
+    fastembed cache (or as default), else falls back to paraphrase-multilingual-mpnet-base-v2
+    if only that model is cached.
+    """
+    if not dim:
+        return None
+    if dim == 768:
+        import os
+        cache_dir = Path(os.environ.get("FASTEMBED_CACHE_PATH", str(Path.home() / ".cache" / "fastembed")))
+        jina_dir = cache_dir / "models--jinaai--jina-embeddings-v2-base-de"
+        mpnet_dir = cache_dir / "models--sentence-transformers--paraphrase-multilingual-mpnet-base-v2"
+        if mpnet_dir.exists() and not jina_dir.exists():
+            return "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+        return "jinaai/jina-embeddings-v2-base-de"
+    return _DIM_MODEL_MAP.get(dim, "BAAI/bge-small-en-v1.5")
 
 # fastembed model caches (loading takes seconds; keep them for the session)
 _DENSE: Dict[str, Any] = {}
@@ -175,7 +195,7 @@ def detect_text_models(client, collection: str, meta: Optional[Dict[str, Any]] =
     found = _model_from_manifest(collection)
     if found:
         return found[0], found[1] if meta["has_sparse"] else None, "manifest"
-    dense = _DIM_MODEL_MAP.get(meta["dense_dim"]) if meta["dense_dim"] else None
+    dense = _guess_dense_model_by_dim(meta["dense_dim"])
     return dense, "Qdrant/bm25" if meta["has_sparse"] else None, "dimension-guess"
 
 

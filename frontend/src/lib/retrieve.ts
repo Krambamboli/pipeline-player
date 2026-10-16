@@ -16,7 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-const API_BASE = "http://localhost:8000/api/retrieve";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE = `${BASE_URL}/api/retrieve`;
 
 export interface RetrieveCollection {
   name: string;
@@ -27,7 +28,7 @@ export interface RetrievedChunk {
   id: string;
   score: number;
   text: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface PrefetchResult {
@@ -37,7 +38,7 @@ export interface PrefetchResult {
 
 export interface RetrieveResponse {
   rewritten_query: string;
-  query_vectors: Record<string, any>;
+  query_vectors: Record<string, unknown>;
   pre_fusion: PrefetchResult[];
   fused_results: RetrievedChunk[];
 }
@@ -83,12 +84,13 @@ export async function runRetrieve(
 }
 
 /**
- * WHY: After retrieval, we want GPT-4o to synthesise a grounded answer
+ * WHY: After retrieval, we want the selected LLM to synthesise a grounded answer
  * from the ranked chunks. We stream tokens in real-time for a typing effect.
  *
  * HOW: We POST the query + chunk texts to the /answer SSE endpoint and
  * read the response body as a stream, invoking the callback for each token.
- * Using fetch + ReadableStream because EventSource only supports GET requests.
+ * Wrapped in try/catch so network failures always trigger onError instead of
+ * leaving isGenerating stuck at true.
  */
 export async function generateAnswer(
   query: string,
@@ -101,45 +103,61 @@ export async function generateAnswer(
   // true = chunks already carry their own "[Source N — …]" labels (Fusion Retriever)
   prelabeled = false
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/answer`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, chunks, model, image_references: imageRefs, prelabeled }),
-  });
+  try {
+    const res = await fetch(`${API_BASE}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, chunks, model, image_references: imageRefs, prelabeled }),
+    });
 
-  if (!res.ok || !res.body) {
-    onError("Failed to start answer generation");
-    return;
-  }
+    if (!res.ok || !res.body) {
+      onError(`Failed to start answer generation (HTTP ${res.status})`);
+      return;
+    }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    // Parse SSE lines from the buffer
-    const lines = buffer.split("\n");
-    // Keep the last potentially incomplete line in the buffer
-    buffer = lines.pop() || "";
+      buffer += decoder.decode(value, { stream: true });
+      // Parse SSE lines from the buffer
+      const lines = buffer.split("\n");
+      // Keep the last potentially incomplete line in the buffer
+      buffer = lines.pop() || "";
 
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        const payload = line.slice(6);
-        if (payload === "[DONE]") {
-          onDone();
-          return;
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const payload = line.slice(6);
+          if (payload === "[DONE]") {
+            onDone();
+            return;
+          }
+          if (payload.startsWith("[ERROR]")) {
+            onError(payload.slice(8));
+            return;
+          }
+          // Decode JSON-encoded token if sent as JSON string, fallback to raw text
+          if (payload.startsWith("{") && payload.endsWith("}")) {
+            try {
+              const parsed = JSON.parse(payload) as { token?: string };
+              if (typeof parsed.token === "string") {
+                onToken(parsed.token);
+                continue;
+              }
+            } catch {
+              // Fall through to raw payload
+            }
+          }
+          onToken(payload);
         }
-        if (payload.startsWith("[ERROR]")) {
-          onError(payload.slice(8));
-          return;
-        }
-        onToken(payload);
       }
     }
+    onDone();
+  } catch (e: unknown) {
+    onError(e instanceof Error ? e.message : String(e));
   }
-  onDone();
 }

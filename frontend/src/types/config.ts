@@ -170,13 +170,26 @@ export interface PipelineConfig {
   iterate_items_options: IterateItemsOptions;
 }
 
-/** SSE event payloads from the pipeline stream */
+/** Terminal status of a completed pipeline run */
+export type RunStatus = "success" | "error";
+
+/** SSE event payloads from the pipeline stream (must match backend/routers/pipeline.py) */
 export type RunEvent =
   | { type: "log"; message: string }
+  | { type: "run_id"; run_id: string }
+  | {
+      type: "progress";
+      data: {
+        percent: number;
+        current?: number;
+        total?: number;
+        eta_seconds?: number | null;
+      };
+    }
   | {
       type: "done";
       run_id: string;
-      status: "success" | "error";
+      status: RunStatus;
       duration_seconds: number | null;
       output_files: string[];
       output_dir: string;

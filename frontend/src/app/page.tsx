@@ -43,8 +43,8 @@ import RunHistory from "@/components/RunHistory";
 
 export default function Home() {
   const [serverOk, setServerOk] = useState<boolean | null>(null);
-  const [historyTick, setHistoryTick] = useState(0);
   const [selectedRun, setSelectedRun] = useState<RunResult | null>(null);
+  const [requestedFile, setRequestedFile] = useState<string | null>(null);
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<string>("");
 
@@ -67,12 +67,15 @@ export default function Home() {
     progress,
   } = useRunStream();
 
+  // Derive refresh trigger from completed run identity/status to avoid synchronous setState in useEffect
+  const historyTick = lastStatus && lastRunId ? `${lastRunId}:${lastStatus}` : 0;
+
   // Health check and docs fetch on mount
   useEffect(() => {
     checkHealth()
       .then(() => setServerOk(true))
       .catch(() => setServerOk(false));
-      
+
     listDocuments()
       .then((docs) => {
         setDocuments(docs);
@@ -81,23 +84,19 @@ export default function Home() {
       .catch(console.error);
   }, []);
 
-  // Refresh run history after each run completes
-  useEffect(() => {
-    if (lastStatus) setHistoryTick((t) => t + 1);
-  }, [lastStatus]);
-
   const handleRunHistorySelect = useCallback((run: RunResult) => {
     setSelectedRun(run);
+    setRequestedFile(null);
   }, []);
 
   // Output source: prefer last stream result, fallback to history selection
-  const displayDir = lastOutputDir ?? selectedRun?.output_dir ?? null;
-  const displayFiles = lastOutputFiles.length > 0 ? lastOutputFiles : (selectedRun?.output_files ?? []);
+  const displayDir = selectedRun?.output_dir ?? lastOutputDir ?? null;
+  const displayFiles = selectedRun ? selectedRun.output_files : lastOutputFiles;
 
-  const handleSelectFile = useCallback((dir: string, file: string) => {
-    // The OutputViewer reads from the runId embedded in the dir name
-    // Here we just ensure it has the latest dir/files
-    setSelectedRun(null); // clear history selection so stream result takes priority
+  // Selecting a file chip in RunConsole switches OutputViewer to the latest run and activates that file tab
+  const handleSelectFile = useCallback((_dir: string, file: string) => {
+    setSelectedRun(null);
+    setRequestedFile(file);
   }, []);
 
   const statusDotClass = serverOk === null
@@ -167,7 +166,12 @@ export default function Home() {
             )}
           </div>
           <div style={{ flex: 1, overflow: "hidden" }}>
-            <OutputViewer runDir={displayDir} outputFiles={displayFiles} />
+            <OutputViewer
+              runDir={displayDir}
+              outputFiles={displayFiles}
+              selectedFile={requestedFile}
+              onSelectFile={setRequestedFile}
+            />
           </div>
         </div>
 

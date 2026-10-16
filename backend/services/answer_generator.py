@@ -172,10 +172,14 @@ def generate_answer_stream(
                             "mime_type": mime_type
                         })
 
+        # Pass system_instruction and low temperature to ground Gemini answers
+        # (official Gemini Interactions API: system_instruction + generation_config)
         stream = gemini_client.interactions.create(
             model=model,
             input=gemini_input,
-            stream=True
+            system_instruction=system_prompt,
+            generation_config={"temperature": 0.3},
+            stream=True,
         )
         
         for event in stream:

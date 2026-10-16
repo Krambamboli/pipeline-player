@@ -76,24 +76,17 @@ def get_qdrant_client(storage_path: str = ""):
     resolved = str(_resolve_qdrant_path(storage_path or str(REPO_ROOT / "qdrant_storage")))
 
     with _lock:
-        # If a client already exists for the same path, reuse it.
-        if _client is not None and _client_path == resolved:
+        # Always reuse the active singleton client once opened (per docstring contract)
+        if _client is not None:
+            if _client_path != resolved:
+                logger.warning(
+                    "Qdrant singleton already open at %s; ignoring requested path %s.",
+                    _client_path,
+                    resolved,
+                )
             return _client
 
-        # If path changed (shouldn't happen in normal usage), close the old one.
-        if _client is not None and _client_path != resolved:
-            logger.warning(
-                "Qdrant storage path changed (%s → %s). Re-creating client.",
-                _client_path,
-                resolved,
-            )
-            try:
-                _client.close()
-            except Exception:
-                pass
-            _client = None
-
-        # Create the shared client.
+        # Create the shared client on first call (or after explicit reset_qdrant_client).
         logger.info("Opening shared Qdrant client at: %s", resolved)
         _client = QdrantClient(path=resolved)
         _client_path = resolved

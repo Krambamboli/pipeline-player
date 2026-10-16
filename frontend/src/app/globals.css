@@ -6,6 +6,7 @@
 :root {
   /* Palette */
   --c-bg:           #0b0d12;
+  --c-bg-1:         var(--c-bg);
   --c-bg-2:         #10131a;
   --c-bg-3:         #161a24;
   --c-surface:      #1c2130;
@@ -14,6 +15,7 @@
   --c-border-focus: rgba(99,179,237,0.5);
 
   --c-text:         #e8eaf0;
+  --c-text-1:       var(--c-text);
   --c-text-2:       #9ba3b8;
   --c-text-3:       #5a6480;
 
@@ -23,8 +25,10 @@
   --c-success:      #34d399;
   --c-success-bg:   rgba(52,211,153,0.1);
   --c-warn:         #fbbf24;
+  --c-warning:      var(--c-warn);
   --c-warn-bg:      rgba(251,191,36,0.1);
   --c-error:        #f87171;
+  --c-danger:       var(--c-error);
   --c-error-bg:     rgba(248,113,113,0.1);
 
   /* Spacing */

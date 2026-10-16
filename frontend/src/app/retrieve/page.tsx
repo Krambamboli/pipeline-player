@@ -38,7 +38,7 @@ export default function RetrievePage() {
   const [prompt, setPrompt] = useState("");
   const [limit, setLimit] = useState(5);
   const [fusionStrategy, setFusionStrategy] = useState<"rrf" | "dbsf">("rrf");
-  const [useCrossEncoder, setUseCrossEncoder] = useState(false);
+  const [useCrossEncoder] = useState(false);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,8 +108,8 @@ export default function RetrievePage() {
       // 2. Retrieve
       const res = await runRetrieve(selectedCol, rewritten, limit, fusionStrategy);
       setResult(res);
-    } catch (err: any) {
-      setError(err.message || "Failed to run retrieval");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to run retrieval");
     } finally {
       setIsProcessing(false);
     }

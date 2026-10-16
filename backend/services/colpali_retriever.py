@@ -49,8 +49,9 @@ logger = logging.getLogger(__name__)
 
 # In-memory cache: model name → loaded MultiVectorEncoder. Loading ColQwen2
 # takes ~20 s; keeping it (~5 GB) makes every further query take ~1 s.
+# RLock also serialises MPS forward passes across threads on Apple Silicon.
 _QUERY_MODELS: Dict[str, object] = {}
-_QUERY_MODELS_LOCK = threading.Lock()
+_QUERY_MODELS_LOCK = threading.RLock()
 
 
 def get_query_model(model_name: str):
@@ -66,13 +67,14 @@ def get_query_model(model_name: str):
 
 
 def encode_query(model_name: str, query: str) -> list:
-    """Encode a text query into ColPali query token vectors (list of lists)."""
-    model = get_query_model(model_name)
-    # Many ColPali checkpoints (like v1.3-merged) don't have a modules.json that sets prompt_name="query".
-    # They were trained with the "Question: " prefix. Forcing it dramatically improves maxsim scores.
-    prefix = "Question: " if not query.startswith("Question:") else ""
-    emb = model.encode_query([f"{prefix}{query}"])[0]
-    return emb.tolist() if hasattr(emb, "tolist") else emb
+    """Encode a text query into ColPali query token vectors (list of lists), serialized on MPS."""
+    with _QUERY_MODELS_LOCK:
+        model = get_query_model(model_name)
+        # Many ColPali checkpoints (like v1.3-merged) don't have a modules.json that sets prompt_name="query".
+        # They were trained with the "Question: " prefix. Forcing it dramatically improves maxsim scores.
+        prefix = "Question: " if not query.startswith("Question:") else ""
+        emb = model.encode_query([f"{prefix}{query}"])[0]
+        return emb.tolist() if hasattr(emb, "tolist") else emb
 
 # Root paths
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

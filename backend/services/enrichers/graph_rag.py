@@ -107,9 +107,10 @@ async def run_graph_rag(
     """
     Streaming generator that performs GraphRAG enrichment.
     """
-    from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, PointStruct, VectorParams
-    from fastembed import TextEmbedding
+    import re
+    from qdrant_client.models import Distance, PointStruct, SparseVector, VectorParams
+    from services.fusion_retriever import _dense_model, _sparse_model
+    from services.qdrant_client_manager import get_qdrant_client, qdrant_write_lock
     import networkx as nx
 
     start = time.time()
@@ -118,7 +119,6 @@ async def run_graph_rag(
     # 1. Setup
     # ------------------------------------------------------------------
     yield emit("🗄️  Opening Qdrant storage...")
-    from services.qdrant_client_manager import get_qdrant_client
     client = get_qdrant_client(str(qdrant_storage_path))
 
     yield emit(f"📥 Loading chunks from '{source_collection}'...")
@@ -140,14 +140,14 @@ async def run_graph_rag(
         return
     yield emit(f"✅ Loaded {len(all_points)} chunks")
 
-    yield emit(f"🤖 Checking Ollama...")
+    yield emit("🤖 Checking Ollama...")
     if not await llm_client.is_available():
         yield emit("❌ Ollama not running. Start with: ollama serve")
         return
     yield emit("✅ Ollama available")
 
     yield emit(f"🔢 Loading embedding model '{dense_model_name}'...")
-    embed_model = TextEmbedding(model_name=dense_model_name)
+    embed_model = _dense_model(dense_model_name)
     probe = list(embed_model.embed(["probe"]))[0]
     dim = len(probe)
     yield emit(f"✅ Embedding model ready ({dim}d)")
@@ -161,37 +161,43 @@ async def run_graph_rag(
     
     if isinstance(src_vectors, dict):
         vec_cfg = {k: VectorParams(size=v.size, distance=v.distance) for k, v in src_vectors.items()}
-        dense_vec_name = next(iter(vec_cfg.keys()))
+        dense_vec_name = "dense" if "dense" in vec_cfg else next(iter(vec_cfg.keys()))
     else:
         size = dim or getattr(src_vectors, "size", 384)
         vec_cfg = VectorParams(size=size, distance=Distance.COSINE)
         dense_vec_name = None
 
     src_sparse = getattr(src_info.config.params, "sparse_vectors", None)
+    has_sparse = bool(src_sparse and "sparse" in src_sparse)
     if src_sparse:
         from qdrant_client.models import SparseVectorParams
         sparse_cfg = {k: SparseVectorParams() for k in src_sparse.keys()}
+        sparse_embed_model = _sparse_model("Qdrant/bm25") if has_sparse else None
     else:
         sparse_cfg = None
+        sparse_embed_model = None
 
-    if client.collection_exists(output_collection):
-        client.delete_collection(output_collection)
-    client.create_collection(
-        collection_name=output_collection,
-        vectors_config=vec_cfg,
-        sparse_vectors_config=sparse_cfg,
-    )
+    with qdrant_write_lock:
+        if client.collection_exists(output_collection):
+            client.delete_collection(output_collection)
+        client.create_collection(
+            collection_name=output_collection,
+            vectors_config=vec_cfg,
+            sparse_vectors_config=sparse_cfg,
+        )
 
     for i in range(0, len(all_points), 64):
         batch_pts = all_points[i:i+64]
-        pts = []
-        for pt in batch_pts:
-            pts.append(PointStruct(
+        pts = [
+            PointStruct(
                 id=str(pt.id),
                 vector=pt.vector,
                 payload={**(pt.payload or {}), "chunk_type": "child"},
-            ))
-        client.upsert(collection_name=output_collection, points=pts)
+            )
+            for pt in batch_pts
+        ]
+        with qdrant_write_lock:
+            client.upsert(collection_name=output_collection, points=pts)
     yield emit(f"✅ Copied {len(all_points)} source chunks")
 
     # ------------------------------------------------------------------
@@ -283,16 +289,28 @@ async def run_graph_rag(
             "related_chunk_ids": entity_chunk_map.get(entity_name, []),
             "community_id": community_map.get(entity_name, -1),
             "source_collection": source_collection,
+            "dense_model": dense_model_name,
         }
-        vec_obj = {dense_vec_name: vec.tolist()} if dense_vec_name else vec.tolist()
-        client.upsert(
-            collection_name=output_collection,
-            points=[PointStruct(id=str(uuid.uuid4()), vector=vec_obj, payload=payload)],
-        )
+        if sparse_embed_model is not None:
+            payload["sparse_model"] = "Qdrant/bm25"
+
+        if dense_vec_name:
+            vec_obj: Any = {dense_vec_name: vec.tolist()}
+            if sparse_embed_model is not None:
+                sp = list(sparse_embed_model.embed([desc]))[0]
+                vec_obj["sparse"] = SparseVector(indices=sp.indices.tolist(), values=sp.values.tolist())
+        else:
+            vec_obj = vec.tolist()
+
+        with qdrant_write_lock:
+            client.upsert(
+                collection_name=output_collection,
+                points=[PointStruct(id=str(uuid.uuid4()), vector=vec_obj, payload=payload)],
+            )
         entity_nodes_written += 1
 
     yield emit(f"✅ Wrote {entity_nodes_written} entity nodes")
-    yield f"__PROGRESS__=80"
+    yield "__PROGRESS__=80"
 
     # ------------------------------------------------------------------
     # 6. Community summaries
@@ -318,6 +336,9 @@ async def run_graph_rag(
                 yield emit(f"⚠️  Community {comm_id} summary failed: {exc}")
                 continue
 
+            if not summary:
+                continue
+
             vec = np.array(list(embed_model.embed([summary]))[0])
             if np.isnan(vec).any():
                 continue
@@ -329,12 +350,24 @@ async def run_graph_rag(
                 "community_id": comm_id,
                 "community_members": members,
                 "source_collection": source_collection,
+                "dense_model": dense_model_name,
             }
-            vec_obj = {dense_vec_name: vec.tolist()} if dense_vec_name else vec.tolist()
-            client.upsert(
-                collection_name=output_collection,
-                points=[PointStruct(id=str(uuid.uuid4()), vector=vec_obj, payload=payload)],
-            )
+            if sparse_embed_model is not None:
+                payload["sparse_model"] = "Qdrant/bm25"
+
+            if dense_vec_name:
+                vec_obj = {dense_vec_name: vec.tolist()}
+                if sparse_embed_model is not None:
+                    sp = list(sparse_embed_model.embed([summary]))[0]
+                    vec_obj["sparse"] = SparseVector(indices=sp.indices.tolist(), values=sp.values.tolist())
+            else:
+                vec_obj = vec.tolist()
+
+            with qdrant_write_lock:
+                client.upsert(
+                    collection_name=output_collection,
+                    points=[PointStruct(id=str(uuid.uuid4()), vector=vec_obj, payload=payload)],
+                )
             community_summaries_written += 1
 
         yield emit(f"✅ Wrote {community_summaries_written} community summary nodes")
@@ -370,7 +403,11 @@ async def run_graph_rag(
                         desc=data.get("description", ""),
                     )
                 for src, tgt, data in G.edges(data=True):
-                    rel = data.get("relation", "RELATED_TO").upper().replace(" ", "_")
+                    # Sanitize relationship label to strict uppercase identifier to prevent Cypher injection
+                    raw_rel = str(data.get("relation", "RELATED_TO")).upper()
+                    rel = re.sub(r"[^A-Z0-9_]", "_", raw_rel).strip("_") or "RELATED_TO"
+                    if rel[0].isdigit():
+                        rel = f"REL_{rel}"
                     session.run(
                         f"MATCH (a:Entity {{name: $src}}), (b:Entity {{name: $tgt}}) "
                         f"MERGE (a)-[:{rel}]->(b)",

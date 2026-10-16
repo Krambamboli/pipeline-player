@@ -30,7 +30,7 @@
  * is selected yet. "Save as new…" always asks for a (new) name.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ProfileKind,
   deleteSavedProfile,
@@ -54,11 +54,18 @@ export default function SavedProfileBar<T extends object>({ kind, getCurrent, on
   const [isSaveAs, setIsSaveAs] = useState(false);
   const [newName, setNewName] = useState("");
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const flashTimerRef = useRef<number | null>(null);
 
-  // Show a short status message that disappears after 3s
+  // Show a short status message that disappears after 3s, clearing any prior timer
   const flash = useCallback((text: string, isError = false) => {
     setMessage({ text, isError });
-    window.setTimeout(() => setMessage(null), 3000);
+    if (flashTimerRef.current !== null) {
+      window.clearTimeout(flashTimerRef.current);
+    }
+    flashTimerRef.current = window.setTimeout(() => {
+      setMessage(null);
+      flashTimerRef.current = null;
+    }, 3000);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -70,8 +77,21 @@ export default function SavedProfileBar<T extends object>({ kind, getCurrent, on
   }, [kind, flash]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let active = true;
+    listSavedProfiles(kind)
+      .then((list) => {
+        if (active) setProfiles(list);
+      })
+      .catch((e) => {
+        if (active) flash(`Could not list profiles: ${(e as Error).message}`, true);
+      });
+    return () => {
+      active = false;
+      if (flashTimerRef.current !== null) {
+        window.clearTimeout(flashTimerRef.current);
+      }
+    };
+  }, [kind, flash]);
 
   // Load a profile as soon as it is selected
   const handleSelect = async (name: string) => {

@@ -24,9 +24,9 @@
 
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // Default chunk config shape sent to the backend
 export interface ChunkConfig {
@@ -136,6 +136,13 @@ export function useChunkStream() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight SSE stream if the user navigates away from the chunk page
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const clearLogs = useCallback(() => {
     setLogs([]);

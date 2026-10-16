@@ -19,7 +19,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /** Labelled toggle switch with tooltip. */
@@ -189,8 +189,15 @@ export function NumberField({
         placeholder={nullable ? "null (no limit)" : ""}
         onChange={(e) => {
           const raw = e.target.value;
-          if (nullable && raw === "") onChange(null);
-          else onChange(parseFloat(raw));
+          if (raw === "") {
+            if (nullable) onChange(null);
+            // When non-nullable and input is temporarily cleared, avoid propagating NaN
+            return;
+          }
+          const parsed = parseFloat(raw);
+          if (!Number.isNaN(parsed)) {
+            onChange(parsed);
+          }
         }}
       />
     </div>
@@ -306,6 +313,7 @@ export function TagListField({
           <span key={v} className="tag">
             {v}
             <button
+              type="button"
               className="tag__remove"
               onClick={(e) => {
                 e.stopPropagation();
@@ -415,7 +423,12 @@ export function ConfigSection({
 
   return (
     <div className="config-section">
-      <button className="config-section__trigger" onClick={() => setOpen((p) => !p)}>
+      <button
+        type="button"
+        aria-expanded={open}
+        className="config-section__trigger"
+        onClick={() => setOpen((p) => !p)}
+      >
         <span className="config-section__trigger-icon">{icon}</span>
         {title}
         {badge && <span className="config-section__badge">{badge}</span>}
@@ -438,10 +451,6 @@ export function Tooltip({ text }: { text: string }) {
   const iconRef = useRef<HTMLSpanElement>(null);
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
-  const [mounted, setMounted] = useState(false);
-
-  // Only use portals after hydration (avoids SSR mismatch)
-  useEffect(() => { setMounted(true); }, []);
 
   const show = useCallback(() => {
     if (!iconRef.current) return;
@@ -476,35 +485,39 @@ export function Tooltip({ text }: { text: string }) {
     setVisible(true);
   }, []);
 
-
   const hide = useCallback(() => setVisible(false), []);
 
-  const bubble = visible && mounted ? createPortal(
-    <div
-      style={{
-        position: "fixed",
-        top: pos.top,
-        left: pos.left,
-        transform: "translateY(-50%)",
-        width: 260,
-        padding: "10px 12px",
-        background: "var(--c-surface-2)",
-        border: "1px solid var(--c-border)",
-        borderRadius: "var(--r-md)",
-        fontSize: "0.75rem",
-        color: "var(--c-text-2)",
-        lineHeight: 1.55,
-        zIndex: 9999,
-        boxShadow: "var(--shadow-lg)",
-        pointerEvents: "none",
-        whiteSpace: "normal",
-        wordBreak: "break-word",
-      }}
-    >
-      {text}
-    </div>,
-    document.body
-  ) : null;
+  // Only create portal on client when tooltip is visible
+  const bubble =
+    visible && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            role="tooltip"
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              transform: "translateY(-50%)",
+              width: 260,
+              padding: "10px 12px",
+              background: "var(--c-surface-2)",
+              border: "1px solid var(--c-border)",
+              borderRadius: "var(--r-md)",
+              fontSize: "0.75rem",
+              color: "var(--c-text-2)",
+              lineHeight: 1.55,
+              zIndex: 9999,
+              boxShadow: "var(--shadow-lg)",
+              pointerEvents: "none",
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+            }}
+          >
+            {text}
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <>
@@ -515,6 +528,9 @@ export function Tooltip({ text }: { text: string }) {
         onMouseLeave={hide}
         onFocus={show}
         onBlur={hide}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") hide();
+        }}
         tabIndex={0}
         aria-label="More information"
         role="button"

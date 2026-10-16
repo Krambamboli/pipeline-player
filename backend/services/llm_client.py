@@ -75,6 +75,14 @@ class OllamaClient:
             client = ollama.AsyncClient(host=self.host)
             await client.list()
             return True
+        except ImportError:
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=5.0) as http:
+                    resp = await http.get(f"{self.host.rstrip('/')}/api/tags")
+                    return resp.status_code == 200
+            except Exception:
+                return False
         except Exception:
             return False
 
@@ -85,6 +93,17 @@ class OllamaClient:
             client = ollama.AsyncClient(host=self.host)
             response = await client.list()
             return [m.model for m in response.models]
+        except ImportError:
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=5.0) as http:
+                    resp = await http.get(f"{self.host.rstrip('/')}/api/tags")
+                    resp.raise_for_status()
+                    data = resp.json()
+                    return [m.get("name") or m.get("model", "") for m in data.get("models", [])]
+            except Exception as exc:
+                logger.warning("Could not list Ollama models via httpx: %s", exc)
+                return []
         except Exception as exc:
             logger.warning("Could not list Ollama models: %s", exc)
             return []
@@ -99,8 +118,6 @@ class OllamaClient:
         Returns the full response text as a string.
         Retries on transient errors up to max_retries times.
         """
-        import ollama
-
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -109,12 +126,25 @@ class OllamaClient:
         last_exc: Optional[Exception] = None
         for attempt in range(self.max_retries + 1):
             try:
-                client = ollama.AsyncClient(host=self.host)
-                response = await asyncio.wait_for(
-                    client.chat(model=self.model, messages=messages),
-                    timeout=self.timeout,
-                )
-                return response.message.content or ""
+                try:
+                    import ollama
+                    client = ollama.AsyncClient(host=self.host)
+                    response = await asyncio.wait_for(
+                        client.chat(model=self.model, messages=messages),
+                        timeout=self.timeout,
+                    )
+                    return response.message.content or ""
+                except ImportError:
+                    # Fallback to direct Ollama REST API via httpx when `ollama` package is not installed
+                    import httpx
+                    async with httpx.AsyncClient(timeout=float(self.timeout)) as http:
+                        resp = await http.post(
+                            f"{self.host.rstrip('/')}/api/chat",
+                            json={"model": self.model, "messages": messages, "stream": False},
+                        )
+                        resp.raise_for_status()
+                        data = resp.json()
+                        return (data.get("message") or {}).get("content", "") or ""
             except asyncio.TimeoutError:
                 last_exc = TimeoutError(
                     f"Ollama request timed out after {self.timeout}s"
@@ -133,19 +163,37 @@ class OllamaClient:
 
     async def stream(self, prompt: str, system: str = "") -> AsyncGenerator[str, None]:
         """Yield tokens one-by-one as they are generated."""
-        import ollama
+        import json
 
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        client = ollama.AsyncClient(host=self.host)
-        async for chunk in await client.chat(
-            model=self.model,
-            messages=messages,
-            stream=True,
-        ):
-            token = chunk.message.content or ""
-            if token:
-                yield token
+        try:
+            import ollama
+            client = ollama.AsyncClient(host=self.host)
+            async for chunk in await client.chat(
+                model=self.model,
+                messages=messages,
+                stream=True,
+            ):
+                token = chunk.message.content or ""
+                if token:
+                    yield token
+        except ImportError:
+            import httpx
+            async with httpx.AsyncClient(timeout=float(self.timeout)) as http:
+                async with http.stream(
+                    "POST",
+                    f"{self.host.rstrip('/')}/api/chat",
+                    json={"model": self.model, "messages": messages, "stream": True},
+                ) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if not line.strip():
+                            continue
+                        data = json.loads(line)
+                        token = (data.get("message") or {}).get("content", "")
+                        if token:
+                            yield token

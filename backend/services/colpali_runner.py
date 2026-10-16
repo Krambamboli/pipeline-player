@@ -137,10 +137,13 @@ def encode_pages(model, images, batch_size: int):
     Yields (pages_done, batch_embeddings) after every batch so callers can
     report progress. Embeddings are converted to plain Python lists.
     """
+    from services.colpali_retriever import _QUERY_MODELS_LOCK
+
     total = len(images)
     for start in range(0, total, batch_size):
         end = min(start + batch_size, total)
-        batch_embs = model.encode_document(images[start:end])
+        with _QUERY_MODELS_LOCK:
+            batch_embs = model.encode_document(images[start:end])
         yield end, [e.tolist() if hasattr(e, "tolist") else e for e in batch_embs]
 
 
@@ -208,6 +211,11 @@ async def run_colpali_pipeline(
         "__PROGRESS__=<0-100>" strings for progress bar updates
         "[HH:MM:SS] ..." log lines for live display
     """
+    import gc
+    import fitz  # PyMuPDF
+    from PIL import Image
+    from services.colpali_retriever import _QUERY_MODELS_LOCK
+
     emit = _emit
     start = time.time()
     metadata = metadata or {}
@@ -225,7 +233,7 @@ async def run_colpali_pipeline(
     )
     col_name = collection_name.strip() or _build_collection_name(str(pdf))
 
-    yield emit(f"🚀 Starting ColPali pipeline")
+    yield emit("🚀 Starting ColPali pipeline")
     yield emit(f"   PDF     : {pdf.name}")
     yield emit(f"   Model   : {model_name}")
     yield emit(f"   Device  : {device}")
@@ -234,85 +242,113 @@ async def run_colpali_pipeline(
     yield emit(f"   Output  : {col_name}")
     yield "__PROGRESS__=5"
 
-    # ── Step 2: Convert PDF → page images ─────────────────────────────
-    yield emit("📄 Converting PDF pages to images...")
+    model = None
     try:
-        images, doc_pages = render_pdf_pages(pdf, dpi, max_pages)
-        total_pages = len(images)
-        if total_pages < doc_pages:
-            yield emit(f"   (limited to {total_pages} out of {doc_pages} pages)")
-    except Exception as e:
-        yield emit(f"❌ PDF conversion failed: {e}")
-        raise e
+        # ── Step 2: Inspect PDF page count ────────────────────────────
+        try:
+            doc_pages = count_pdf_pages(pdf)
+            total_pages = min(doc_pages, max_pages) if max_pages else doc_pages
+            if total_pages <= 0:
+                yield emit("❌ PDF has no pages.")
+                return
+            if total_pages < doc_pages:
+                yield emit(f"📄 PDF has {doc_pages} pages (limiting to {total_pages} pages)")
+            else:
+                yield emit(f"📄 PDF has {total_pages} pages")
+        except Exception as e:
+            yield emit(f"❌ PDF inspection failed: {e}")
+            raise e
+        yield "__PROGRESS__=15"
 
-    yield emit(f"✅ Converted {total_pages} pages at {dpi} DPI")
-    yield "__PROGRESS__=15"
+        # ── Step 3: Load ColPali model ────────────────────────────────
+        yield emit(f"🔢 Loading model '{model_name}' on {device}...")
+        try:
+            model, torch_device = load_colpali_model(model_name, device)
+            if torch_device != device:
+                yield emit(f"⚠️  {device} not available, falling back to {torch_device}")
+            yield emit(f"✅ Model ready on {torch_device}")
+        except Exception as e:
+            yield emit(f"❌ Failed to load model: {e}")
+            raise e
+        yield "__PROGRESS__=25"
 
-    # ── Step 3: Load ColPali model ────────────────────────────────────
-    yield emit(f"🔢 Loading model '{model_name}' on {device}...")
-    try:
-        model, torch_device = load_colpali_model(model_name, device)
-        if torch_device != device:
-            yield emit(f"⚠️  {device} not available, falling back to {torch_device}")
-        yield emit(f"✅ Model ready on {torch_device}")
-    except Exception as e:
-        yield emit(f"❌ Failed to load model: {e}")
-        raise e
-    yield "__PROGRESS__=25"
+        # ── Step 4: Render & encode pages per batch (saves unified RAM) ─
+        yield emit(f"🖼️  Rendering & encoding {total_pages} pages at {dpi} DPI (batch_size={batch_size})...")
+        all_embeddings: List = []
+        try:
+            with fitz.open(str(pdf)) as doc:
+                for batch_start in range(0, total_pages, batch_size):
+                    batch_end = min(batch_start + batch_size, total_pages)
+                    batch_images = []
+                    for p_idx in range(batch_start, batch_end):
+                        pix = doc.load_page(p_idx).get_pixmap(dpi=dpi)
+                        mode = "RGBA" if pix.alpha else "RGB"
+                        img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                        batch_images.append(img.convert("RGB") if mode == "RGBA" else img)
 
-    # ── Step 4: Encode pages ──────────────────────────────────────────
-    yield emit(f"🖼️  Encoding {total_pages} pages (batch_size={batch_size})...")
-    all_embeddings: List = []
-    try:
-        prev = 0
-        for done, batch_embs in encode_pages(model, images, batch_size):
-            all_embeddings.extend(batch_embs)
-            yield f"__PROGRESS__={25 + int(55 * (done / total_pages))}"
-            yield emit(f"   Encoded pages {prev + 1}–{done}/{total_pages}")
-            prev = done
-    except Exception as e:
-        yield emit(f"❌ Encoding failed: {e}")
-        raise e
+                    with _QUERY_MODELS_LOCK:
+                        batch_embs = model.encode_document(batch_images)
+                    all_embeddings.extend(
+                        e.tolist() if hasattr(e, "tolist") else e for e in batch_embs
+                    )
+                    del batch_images
+                    yield f"__PROGRESS__={25 + int(55 * (batch_end / total_pages))}"
+                    yield emit(f"   Encoded pages {batch_start + 1}–{batch_end}/{total_pages}")
+        except Exception as e:
+            yield emit(f"❌ Encoding failed: {e}")
+            raise e
 
-    yield emit(f"✅ All {total_pages} pages encoded")
-    yield "__PROGRESS__=80"
+        yield emit(f"✅ All {total_pages} pages encoded")
+        yield "__PROGRESS__=80"
 
-    # ── Step 5: Create Qdrant collection & upsert ─────────────────────
-    yield emit(f"🗄️  Creating Qdrant collection '{col_name}'...")
-    try:
-        from services.qdrant_client_manager import get_qdrant_client
+        # ── Step 5: Create Qdrant collection & upsert ─────────────────
+        yield emit(f"🗄️  Creating Qdrant collection '{col_name}'...")
+        try:
+            from services.qdrant_client_manager import get_qdrant_client
 
-        client = get_qdrant_client(str(qdrant_path))
+            client = get_qdrant_client(str(qdrant_path))
 
-        # Each embedding is a list of token vectors (list of lists)
-        first_emb = all_embeddings[0]
-        token_dim = len(first_emb[0])
-        yield emit(f"   Vector config: {len(first_emb)} tokens × {token_dim}d per page")
+            # Each embedding is a list of token vectors (list of lists)
+            first_emb = all_embeddings[0]
+            token_dim = len(first_emb[0])
+            yield emit(f"   Vector config: {len(first_emb)} tokens × {token_dim}d per page")
 
-        if ensure_colpali_collection(client, col_name, token_dim):
-            yield emit(f"✅ Collection created")
-        else:
-            yield emit(f"➕ Appending to existing collection '{col_name}'")
+            if ensure_colpali_collection(client, col_name, token_dim):
+                yield emit("✅ Collection created")
+            else:
+                yield emit(f"➕ Appending to existing collection '{col_name}'")
 
-        payloads = [
-            {
-                "page_number": i + 1,
-                "doc_source": pdf.name,
-                "chunk_type": "colpali_page",
-                "dpi": dpi,
-                "model": model_name,
-                **metadata,
-            }
-            for i in range(len(all_embeddings))
-        ]
-        n = upsert_page_points(client, col_name, all_embeddings, payloads)
-        yield emit(f"✅ Upserted {n} page vectors")
+            payloads = [
+                {
+                    "page_number": i + 1,
+                    "doc_source": pdf.name,
+                    "chunk_type": "colpali_page",
+                    "dpi": dpi,
+                    "model": model_name,
+                    **metadata,
+                }
+                for i in range(len(all_embeddings))
+            ]
+            n = upsert_page_points(client, col_name, all_embeddings, payloads)
+            yield emit(f"✅ Upserted {n} page vectors")
 
-    except Exception as e:
-        yield emit(f"❌ Qdrant upsert failed: {e}")
-        raise e
+        except Exception as e:
+            yield emit(f"❌ Qdrant upsert failed: {e}")
+            raise e
 
-    yield "__PROGRESS__=100"
-    total_time = time.time() - start
-    yield emit(f"⏱️  Pipeline complete in {total_time:.1f}s")
-    yield emit(f"📊 Collection: {col_name} ({total_pages} pages)")
+        yield "__PROGRESS__=100"
+        total_time = time.time() - start
+        yield emit(f"⏱️  Pipeline complete in {total_time:.1f}s")
+        yield emit(f"📊 Collection: {col_name} ({total_pages} pages)")
+    finally:
+        # Release the multi-GB ColPali model and flush Apple Silicon MPS / CUDA cache
+        del model
+        gc.collect()
+        try:
+            import torch
+            if torch.backends.mps.is_available():
+                torch.mps.empty_cache()
+            elif torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass

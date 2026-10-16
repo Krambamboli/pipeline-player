@@ -28,6 +28,7 @@ a copy of the exact config is saved alongside every run output.
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 from typing import Dict, List
@@ -40,10 +41,20 @@ from models.config_schema import PipelineConfig
 CONFIGS_DIR = Path(__file__).resolve().parent.parent.parent / "configs"
 CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Allowed profile names: letters, digits, dash, underscore, dot, space (no path traversal)
+_NAME_RE = re.compile(r"^[\w\-. ]{1,80}$")
+
 
 def _profile_path(name: str) -> Path:
-    """Return the path to a config profile YAML file."""
-    return CONFIGS_DIR / f"{name}.yaml"
+    """Return the validated path to a config profile YAML file."""
+    cleaned = (name or "").strip()
+    if not _NAME_RE.match(cleaned) or cleaned.startswith(".") or ".." in cleaned:
+        raise ValueError(
+            f"Invalid profile name '{name}'. Use letters, digits, '-', '_', '.' or spaces."
+        )
+    path = (CONFIGS_DIR / f"{cleaned}.yaml").resolve()
+    path.relative_to(CONFIGS_DIR.resolve())
+    return path
 
 
 def list_profiles() -> List[str]:
