@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -28,6 +28,9 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
+# Receives dual-track search parameters (query, collections, limits, model overrides, RRF/DBSF fusion weights) from the frontend (/fusion) via routers/fusion.py.
+# Validates and normalizes the request payload for parallel hybrid text + ColPali MaxSim retrieval.
+# Returns a validated FusionSearchRequest instance to routers/fusion.py and services/fusion_retriever.py.
 class FusionSearchRequest(BaseModel):
     """One query against a text collection and a ColPali collection."""
     query: str = Field(..., min_length=1, description="Natural language query.")
@@ -48,6 +51,9 @@ class FusionSearchRequest(BaseModel):
     dense_weight: float = Field(default=1.0, ge=0.0, le=10.0, description="Weight of the dense list in RRF.")
     sparse_weight: float = Field(default=1.0, ge=0.0, le=10.0, description="Weight of the sparse list in RRF.")
 
+    # Receives raw field values (`v`) from Pydantic before field validation on FusionSearchRequest.
+    # Coerces JSON `null` (`None`) values into empty strings `""` so downstream string methods never fail.
+    # Returns a normalized `str` back to Pydantic's validation pipeline.
     @field_validator("text_collection", "colpali_collection", "dense_model_override", "sparse_model_override", mode="before")
     @classmethod
     def _none_to_empty(cls, v: Any) -> str:
@@ -55,6 +61,9 @@ class FusionSearchRequest(BaseModel):
         return "" if v is None else str(v)
 
 
+# Receives custom Python reranker code, cached text/ColPali hit lists, and top-k cutoff from the frontend (/fusion) via routers/fusion.py.
+# Validates the input payload for live re-ranking of cached search hits without re-querying Qdrant.
+# Returns a validated RerankRequest instance to routers/fusion.py and services/reranker_sandbox.py.
 class RerankRequest(BaseModel):
     """Run the user reranker on cached search hits."""
     code: str = Field(..., description="Python source defining rerank(text_hits, colpali_hits, k).")
@@ -63,6 +72,9 @@ class RerankRequest(BaseModel):
     k: int = Field(default=3, ge=1, le=20, description="Number of items passed to the LLM.")
 
 
+# Receives Python source code (`code`) from the frontend (/fusion) via routers/fusion.py when saving a named reranker script.
+# Validates the request body before persisting the script to `configs/reranker/<name>.py`.
+# Returns a validated RerankScript instance to routers/fusion.py.
 class RerankScript(BaseModel):
     """Body for saving a reranker script."""
     code: str

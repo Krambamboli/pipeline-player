@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -42,6 +42,11 @@ from typing import Generator
 logger = logging.getLogger(__name__)
 
 
+# Called by the FastAPI routers (routers/chunks.py, routers/colpali.py, routers/fusion.py) with a user query,
+# retrieved context chunks, a model identifier (OpenAI, ollama/..., or gemini...), optional PDF page image_references,
+# and a prelabeled flag. Builds a grounded RAG prompt (rendering PDF pages at 150 DPI when image_references are given)
+# and streams completion tokens at low temperature so the UI can display real-time cited answers.
+# Yields individual text token strings to the calling router for SSE streaming.
 def generate_answer_stream(
     query: str,
     chunks: list[str],

@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -43,6 +43,9 @@ logger = logging.getLogger(__name__)
 
 
 # Thin wrapper so callers inside this module can pass storage_path optionally
+# Receives an optional `storage_path` string from endpoints in `routers/qdrant.py`.
+# Delegates to `services/qdrant_client_manager.py::get_qdrant_client` so all routes share the singleton file-locked QdrantClient.
+# Returns the active `QdrantClient` instance to the calling route handler.
 def _get_client(storage_path: str = ""):
     """Return the shared singleton Qdrant client."""
     return get_qdrant_client(storage_path)
@@ -52,6 +55,9 @@ def _get_client(storage_path: str = ""):
 # GET /api/qdrant/collections
 # ---------------------------------------------------------------------------
 
+# Receives an optional `storage_path` query parameter from GET /api/qdrant/collections (called by Inspector, Enrich, and ColPali pages).
+# Inspects every collection in local Qdrant to extract point counts, dense/sparse vector configs, and ColPali multi-vector flags.
+# Returns a list of collection summary dicts to the frontend.
 @router.get("/collections")
 def list_collections(storage_path: str = "") -> List[Dict[str, Any]]:
     """List all Qdrant collections with their point counts and vector config."""
@@ -116,6 +122,9 @@ def list_collections(storage_path: str = "") -> List[Dict[str, Any]]:
 # GET /api/qdrant/collections/{name}/points
 # ---------------------------------------------------------------------------
 
+# Receives collection `name`, UUID cursor `offset`, page `limit`, `storage_path`, and `with_vectors` from GET /api/qdrant/collections/{name}/points (called by Step 3 Inspector).
+# Scrolls the specified Qdrant collection using UUID cursor pagination and builds compact dense/sparse/multi-vector previews.
+# Returns a paginated dict (`collection`, `points`, `offset`, `limit`, `has_more`, `next_offset`) to the frontend Inspector page.
 @router.get("/collections/{name}/points")
 def get_points(
     name: str,
@@ -223,6 +232,9 @@ def get_points(
 # GET /api/qdrant/collections/{name}/stats
 # ---------------------------------------------------------------------------
 
+# Receives collection `name` and optional `storage_path` from GET /api/qdrant/collections/{name}/stats.
+# Fetches low-level Qdrant collection status, optimizer status, and full vector configuration.
+# Returns a dictionary of collection statistics to the caller.
 @router.get("/collections/{name}/stats")
 def collection_stats(name: str, storage_path: str = "") -> Dict[str, Any]:
     """Return detailed stats for a collection."""
@@ -247,6 +259,9 @@ def collection_stats(name: str, storage_path: str = "") -> Dict[str, Any]:
 # DELETE /api/qdrant/collections/{name}
 # ---------------------------------------------------------------------------
 
+# Receives collection `name` and optional `storage_path` from DELETE /api/qdrant/collections/{name} (called by the Step 3 Inspector page).
+# Acquires `qdrant_write_lock` and permanently deletes the target collection from the local Qdrant storage.
+# Returns `{"deleted": name}` to the frontend.
 @router.delete("/collections/{name}")
 def delete_collection(name: str, storage_path: str = "") -> Dict[str, str]:
     """Delete a Qdrant collection by name (serialized with qdrant_write_lock)."""

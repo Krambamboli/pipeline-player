@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -31,6 +31,10 @@
 import { useEffect, useRef, useState } from "react";
 import { getRunFileUrl } from "@/lib/api";
 
+/**
+ * Props received by `OutputViewer` from the Step 1 Docling Parser page (`app/page.tsx`).
+ * Provides the run output directory (`runDir`), list of generated `outputFiles`, optional `selectedFile` override, and `onSelectFile` callback.
+ */
 interface Props {
   runDir: string | null;
   outputFiles: string[];
@@ -38,7 +42,11 @@ interface Props {
   onSelectFile?: (file: string | null) => void;
 }
 
-/** Returns a display label + icon for a given filename. */
+/**
+ * Returns a display label + icon for a given filename.
+ * Receives an output `filename` string from `OutputViewer`'s tab bar loop.
+ * Matches the file extension or name and returns `{ icon, label }` for rendering the tab button.
+ */
 function fileLabel(filename: string): { icon: string; label: string } {
   if (filename === "parsed_items.json") return { icon: "🔄", label: "Iterated Items" };
   if (filename.endsWith(".html"))   return { icon: "🖼", label: "HTML" };
@@ -55,6 +63,11 @@ function fileLabel(filename: string): { icon: string; label: string } {
 /** Priority order for auto-selection: richest format first. */
 const TAB_PRIORITY = [".html", ".md", ".json", ".txt", ".doctags", ".log", ".yaml"];
 
+/**
+ * Selects the highest-priority default file from a list of generated output filenames.
+ * Receives `files` (`string[]`) from `OutputViewer` and checks extensions in `TAB_PRIORITY` order.
+ * Returns the first matching filename string, or `null` if `files` is empty.
+ */
 function pickDefaultFile(files: string[]): string | null {
   for (const ext of TAB_PRIORITY) {
     const match = files.find((f) => f.endsWith(ext));
@@ -63,6 +76,11 @@ function pickDefaultFile(files: string[]): string | null {
   return files[0] ?? null;
 }
 
+/**
+ * Tabbed viewer component for inspecting parsed Docling output files.
+ * Receives `Props` (`runDir`, `outputFiles`, `selectedFile`, `onSelectFile`) from the Step 1 page (`app/page.tsx`).
+ * Fetches the active file content via `getRunFileUrl` and renders either a sandboxed HTML `<iframe>` or a `<pre>` text block, emitting tab changes via `onSelectFile`.
+ */
 export default function OutputViewer({ runDir, outputFiles, selectedFile, onSelectFile }: Props) {
   const [manualFile, setManualFile] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
@@ -94,6 +112,10 @@ export default function OutputViewer({ runDir, outputFiles, selectedFile, onSele
     const controller = new AbortController();
     let active = true;
 
+    /**
+     * Fetches the raw text/HTML content of `activeFile` for `runId` from `GET /api/pipeline/run/{runId}/file/{activeFile}`.
+     * Updates `content`, `loading`, and `error` states in `OutputViewer` unless aborted by tab change or unmount.
+     */
     const loadContent = async () => {
       setLoading(true);
       setError(null);

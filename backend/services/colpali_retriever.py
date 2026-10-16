@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -54,6 +54,9 @@ _QUERY_MODELS: Dict[str, object] = {}
 _QUERY_MODELS_LOCK = threading.RLock()
 
 
+# Called by encode_query with model_name (HuggingFace model ID string).
+# Loads and caches a sentence_transformers.MultiVectorEncoder under _QUERY_MODELS_LOCK so subsequent queries reuse the in-memory model.
+# Returns the cached MultiVectorEncoder instance to encode_query.
 def get_query_model(model_name: str):
     """Return a cached MultiVectorEncoder for query encoding (thread-safe)."""
     with _QUERY_MODELS_LOCK:
@@ -66,6 +69,9 @@ def get_query_model(model_name: str):
         return model
 
 
+# Called by run_colpali_retrieval and fusion_retriever with model_name (str) and query (natural language query string).
+# Serializes MPS forward passes via _QUERY_MODELS_LOCK, prepends the "Question: " prompt prefix if missing, and encodes the query into token vectors.
+# Returns a list of token embedding vectors (list of lists of floats) to the caller.
 def encode_query(model_name: str, query: str) -> list:
     """Encode a text query into ColPali query token vectors (list of lists), serialized on MPS."""
     with _QUERY_MODELS_LOCK:
@@ -81,6 +87,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 QDRANT_STORAGE_DEFAULT = REPO_ROOT / "qdrant_storage"
 
 
+# Internal helper that receives a storage_path string from Qdrant path callers.
+# Resolves relative paths against REPO_ROOT so local Qdrant storage always points to the workspace root.
+# Returns the resolved absolute Path object to the caller.
 def _resolve_qdrant_path(storage_path: str) -> Path:
     """Resolve Qdrant storage path."""
     p = Path(storage_path)
@@ -89,6 +98,9 @@ def _resolve_qdrant_path(storage_path: str) -> Path:
     return p
 
 
+# Called by run_colpali_retrieval with a QdrantClient instance and collection_name (str).
+# Scrolls the first point of the collection to read payload["model"] so query encoding matches the indexing model.
+# Returns the detected model name string (or "vidore/colqwen2-v1.0" as fallback) to run_colpali_retrieval.
 def _detect_model_from_collection(client, collection_name: str) -> str:
     """
     Try to detect the ColPali model used from the first point's payload.
@@ -108,6 +120,9 @@ def _detect_model_from_collection(client, collection_name: str) -> str:
     return "vidore/colqwen2-v1.0"
 
 
+# Called by the ColPali router (routers/colpali.py) with collection_name, query, limit, and optional qdrant_storage_path.
+# Detects the collection's ColPali model, encodes the query into multi-vector token embeddings, and executes a MaxSim search against Qdrant's "colpali" vector.
+# Returns a ColPaliRetrieveResponse containing the top-ranked ColPaliRetrievedPage results to the router.
 def run_colpali_retrieval(
     collection_name: str,
     query: str,

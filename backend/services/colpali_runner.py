@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -56,12 +56,18 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 QDRANT_STORAGE_DEFAULT = REPO_ROOT / "qdrant_storage"
 
 
+# Called by run_colpali_pipeline with a status message string msg.
+# Prefixes msg with the current [HH:MM:SS] timestamp for consistent live log output.
+# Returns the formatted timestamped string to run_colpali_pipeline for SSE streaming.
 def _emit(msg: str) -> str:
     """Format a timestamped log line for SSE streaming."""
     ts = datetime.datetime.now().strftime("%H:%M:%S")
     return f"[{ts}] {msg}"
 
 
+# Called by run_colpali_pipeline with a storage_path string.
+# Resolves relative paths against REPO_ROOT and creates the directory if missing so Qdrant can open local storage.
+# Returns the resolved absolute Path object to run_colpali_pipeline.
 def _resolve_qdrant_path(storage_path: str) -> Path:
     """Resolve the Qdrant storage path (relative paths → repo root)."""
     p = Path(storage_path)
@@ -71,6 +77,9 @@ def _resolve_qdrant_path(storage_path: str) -> Path:
     return p
 
 
+# Called by run_colpali_pipeline with pdf_path (str) when no explicit collection_name is provided.
+# Generates a unique Qdrant collection name combining the normalized PDF filename stem and current timestamp.
+# Returns the generated collection name string to run_colpali_pipeline.
 def _build_collection_name(pdf_path: str) -> str:
     """Auto-generate a Qdrant collection name from the PDF filename + timestamp."""
     stem = Path(pdf_path).stem.replace(" ", "_").lower()
@@ -82,6 +91,9 @@ def _build_collection_name(pdf_path: str) -> str:
 # Reusable building blocks (shared by the ColPali page and the RAG Tester)
 # ---------------------------------------------------------------------------
 
+# Called by run_colpali_pipeline and rag_tester_runner with pdf (Path to a PDF file).
+# Opens the PDF header via PyMuPDF (fitz) to quickly inspect the page count without rasterizing pages.
+# Returns the integer number of pages in the PDF to the caller.
 def count_pdf_pages(pdf: Path) -> int:
     """Return the number of pages of a PDF (cheap, no rendering)."""
     import fitz  # PyMuPDF
@@ -89,6 +101,9 @@ def count_pdf_pages(pdf: Path) -> int:
         return len(doc)
 
 
+# Called by rag_tester_runner (and other visual indexing callers) with pdf (Path), dpi (int), and optional max_pages.
+# Rasterizes up to max_pages of the PDF at the given DPI using PyMuPDF and converts each page to an RGB PIL Image for ColPali processors.
+# Returns a (images, total_pages_in_document) tuple to the caller.
 def render_pdf_pages(pdf: Path, dpi: int, max_pages: Optional[int] = None):
     """
     Render PDF pages to PIL images with PyMuPDF.
@@ -110,6 +125,9 @@ def render_pdf_pages(pdf: Path, dpi: int, max_pages: Optional[int] = None):
     return images, total
 
 
+# Called by load_colpali_model with a requested device string ("mps", "cuda", or "cpu").
+# Checks PyTorch hardware backend availability and falls back to "cpu" when the requested accelerator is unavailable.
+# Returns the resolved device string to load_colpali_model.
 def resolve_torch_device(device: str) -> str:
     """Map the requested device to an available torch device (fallback: cpu)."""
     import torch
@@ -120,6 +138,9 @@ def resolve_torch_device(device: str) -> str:
     return "cpu"
 
 
+# Called by run_colpali_pipeline and rag_tester_runner with model_name (str) and device (str).
+# Resolves the active torch device and initializes sentence_transformers.MultiVectorEncoder for visual page encoding.
+# Returns a (model, torch_device) tuple to the caller.
 def load_colpali_model(model_name: str, device: str):
     """
     Load a ColPali/ColQwen2 model via sentence-transformers' MultiVectorEncoder.
@@ -131,6 +152,9 @@ def load_colpali_model(model_name: str, device: str):
     return model, torch_device
 
 
+# Called by rag_tester_runner with a loaded MultiVectorEncoder model, a list of PIL images, and batch_size (int).
+# Encodes page images into multi-vector patch embeddings in batches under _QUERY_MODELS_LOCK to serialize MPS access.
+# Yields (pages_done, batch_embeddings) tuples after each batch to the caller.
 def encode_pages(model, images, batch_size: int):
     """
     Encode page images in batches.
@@ -147,6 +171,9 @@ def encode_pages(model, images, batch_size: int):
         yield end, [e.tolist() if hasattr(e, "tolist") else e for e in batch_embs]
 
 
+# Called by run_colpali_pipeline and rag_tester_runner with a QdrantClient, collection_name (str), and token_dim (int).
+# Creates a Qdrant collection configured with the "colpali" named multi-vector (MAX_SIM comparator, HNSW disabled) under qdrant_write_lock if missing.
+# Returns True if the collection was created or False if it already existed, to the caller.
 def ensure_colpali_collection(client, collection_name: str, token_dim: int) -> bool:
     """
     Create a MaxSim multi-vector collection (named vector "colpali") if missing.
@@ -175,6 +202,9 @@ def ensure_colpali_collection(client, collection_name: str, token_dim: int) -> b
     return True
 
 
+# Called by run_colpali_pipeline and rag_tester_runner with a QdrantClient, collection_name (str), embeddings (List), and payloads (List[Dict]).
+# Builds UUID-keyed PointStructs with the "colpali" multi-vector and page metadata, then upserts them under qdrant_write_lock.
+# Returns the integer count of upserted page points to the caller.
 def upsert_page_points(client, collection_name: str, embeddings: List, payloads: List[Dict]):
     """Upsert one point per page (multi-vector + payload) under the write lock."""
     from qdrant_client import models
@@ -193,6 +223,9 @@ def upsert_page_points(client, collection_name: str, embeddings: List, payloads:
 # Main runner (ColPali page — single document)
 # ---------------------------------------------------------------------------
 
+# Called by the ColPali router (routers/colpali.py) with pdf_path, model_name, device, batch_size, dpi, max_pages, metadata, collection_name, and qdrant_storage_path.
+# Renders PDF pages in batches, encodes them into multi-vector embeddings via ColPali/ColQwen2, upserts them into Qdrant, and frees MPS/CUDA memory on completion.
+# Yields "__PROGRESS__=<0-100>" status strings and timestamped log lines to the router for SSE streaming.
 async def run_colpali_pipeline(
     pdf_path: str,
     model_name: str = "vidore/colqwen2-v1.0",

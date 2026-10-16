@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -26,9 +26,17 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+/**
+ * Identifier for the saved profile category ("chunk" or "colpali") passed by `SavedProfileBar` and the `/rag-tester` page.
+ * Selects which `/api/profiles/{kind}` backend endpoint and YAML directory (`configs/chunk` or `configs/colpali`) is targeted.
+ */
 export type ProfileKind = "chunk" | "colpali";
 
-/** Throw a readable error for non-2xx responses (uses FastAPI's `detail`). */
+/**
+ * Throw a readable error for non-2xx responses (uses FastAPI's `detail`).
+ * Receives a `Response` object from `fetch` calls within `lib/profiles.ts`.
+ * Checks `res.ok`, parses and throws the FastAPI `detail` error message on failure, or returns the valid `Response` to the calling function.
+ */
 async function check(res: Response): Promise<Response> {
   if (!res.ok) {
     let detail = res.statusText;
@@ -43,19 +51,31 @@ async function check(res: Response): Promise<Response> {
   return res;
 }
 
-/** List all saved profile names of a kind. */
+/**
+ * List all saved profile names of a kind.
+ * Receives `kind` (`ProfileKind`) from `SavedProfileBar` or the `/rag-tester` page.
+ * Queries `GET /api/profiles/{kind}` and returns `string[]` of saved profile names to populate dropdown selectors.
+ */
 export async function listSavedProfiles(kind: ProfileKind): Promise<string[]> {
   const res = await check(await fetch(`${API_BASE}/api/profiles/${kind}`));
   return res.json();
 }
 
-/** Load a saved profile. */
+/**
+ * Load a saved profile.
+ * Receives `kind` (`ProfileKind`) and profile `name` from `SavedProfileBar.handleSelect`.
+ * Queries `GET /api/profiles/{kind}/{name}` and returns the deserialized profile object `T` to `SavedProfileBar` (`onLoad`).
+ */
 export async function loadSavedProfile<T = Record<string, unknown>>(kind: ProfileKind, name: string): Promise<T> {
   const res = await check(await fetch(`${API_BASE}/api/profiles/${kind}/${encodeURIComponent(name)}`));
   return res.json();
 }
 
-/** Create or overwrite a saved profile. Returns the validated profile. */
+/**
+ * Create or overwrite a saved profile. Returns the validated profile.
+ * Receives `kind` (`ProfileKind`), profile `name`, and configuration `data` from `SavedProfileBar.save`.
+ * Sends `PUT /api/profiles/{kind}/{name}` to validate and write the YAML profile on the backend, returning the persisted profile `T` to `SavedProfileBar`.
+ */
 export async function saveSavedProfile<T = Record<string, unknown>>(
   kind: ProfileKind,
   name: string,
@@ -71,7 +91,11 @@ export async function saveSavedProfile<T = Record<string, unknown>>(
   return res.json();
 }
 
-/** Delete a saved profile. */
+/**
+ * Delete a saved profile.
+ * Receives `kind` (`ProfileKind`) and profile `name` from `SavedProfileBar.handleDelete`.
+ * Sends `DELETE /api/profiles/{kind}/{name}` to remove the YAML file on the backend and resolves `void` to `SavedProfileBar`.
+ */
 export async function deleteSavedProfile(kind: ProfileKind, name: string): Promise<void> {
   await check(
     await fetch(`${API_BASE}/api/profiles/${kind}/${encodeURIComponent(name)}`, { method: "DELETE" })

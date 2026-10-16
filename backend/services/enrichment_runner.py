@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -41,6 +41,9 @@ from services.chunk_runner import REPO_ROOT, _resolve_qdrant_path
 logger = logging.getLogger(__name__)
 
 
+# Called by run_enrichment with cfg (EnrichmentConfig).
+# Derives the target Qdrant collection name by appending either cfg.output_collection_suffix or a strategy-specific suffix (_parentchild, _raptor, _graphrag) to source_collection.
+# Returns the output collection name string to run_enrichment.
 def _build_output_collection(cfg: EnrichmentConfig) -> str:
     """Derive the output collection name from source + strategy (or explicit suffix)."""
     suffix = cfg.output_collection_suffix.strip()
@@ -54,6 +57,9 @@ def _build_output_collection(cfg: EnrichmentConfig) -> str:
     return f"{cfg.source_collection}{suffix}"
 
 
+# Called by run_enrichment and strategy enrichers (run_parent_child, run_raptor, run_graph_rag) with a status message string msg.
+# Prefixes msg with the current [HH:MM:SS] timestamp for live log display.
+# Returns the formatted timestamped log string to the caller for SSE streaming.
 def _emit(msg: str) -> str:
     """Format a log/status line for SSE streaming (mirrors chunk_runner convention)."""
     import datetime
@@ -61,6 +67,9 @@ def _emit(msg: str) -> str:
     return f"[{ts}] {msg}"
 
 
+# Called by the enrichment router (routers/enrichment.py) with cfg (EnrichmentConfig).
+# Verifies the source Qdrant collection, detects its dense embedding model, initializes OllamaClient, and dispatches to the selected strategy enricher (Parent-Child, RAPTOR, or GraphRAG).
+# Yields "__PROGRESS__=<0-100>" updates and timestamped log lines to the router for SSE streaming.
 async def run_enrichment(cfg: EnrichmentConfig) -> AsyncGenerator[str, None]:
     """
     Top-level enrichment pipeline generator.

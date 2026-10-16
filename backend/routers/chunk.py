@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -53,6 +53,9 @@ CHUNK_RUNS_DIR.mkdir(parents=True, exist_ok=True)
 # GET /api/chunk/docling-runs
 # ---------------------------------------------------------------------------
 
+# Receives no arguments from GET /api/chunk/docling-runs (called by frontend Step 2 /chunk page).
+# Scans `outputs/` for completed Docling runs containing `parsed_doc.json` so the user can pick a chunking source.
+# Returns a list of dicts (run_id, dir, has_config, json_size_kb) sorted newest-first to the frontend.
 @router.get("/docling-runs")
 def list_docling_runs() -> List[dict]:
     """
@@ -85,6 +88,9 @@ def list_docling_runs() -> List[dict]:
 # POST /api/chunk/run
 # ---------------------------------------------------------------------------
 
+# Receives a validated ChunkPipelineConfig from POST /api/chunk/run (called by useChunkStream in the frontend).
+# Launches the chunking, embedding, and Qdrant upsert pipeline while persisting the final run summary JSON.
+# Returns a FastAPI StreamingResponse emitting Server-Sent Events (progress, logs, result, and [DONE]) to the browser.
 @router.post("/run")
 def start_chunk_run(config: ChunkPipelineConfig) -> StreamingResponse:
     """
@@ -94,6 +100,9 @@ def start_chunk_run(config: ChunkPipelineConfig) -> StreamingResponse:
     if not config.source_run_id:
         raise HTTPException(status_code=400, detail="source_run_id is required")
 
+    # Receives no arguments; invoked lazily by FastAPI's StreamingResponse consumer.
+    # Iterates over `run_chunk_pipeline(config)`, formats each log/progress item as an SSE frame, and writes the final summary to disk.
+    # Yields SSE-formatted strings (`data: ...\n\n`) to the HTTP response stream.
     def event_stream():
         result = {}
         try:
@@ -136,6 +145,9 @@ def start_chunk_run(config: ChunkPipelineConfig) -> StreamingResponse:
 # GET /api/chunk/runs
 # ---------------------------------------------------------------------------
 
+# Receives no arguments from GET /api/chunk/runs (called by the frontend Step 2 page).
+# Reads all saved JSON run summaries from `chunk_runs/` to display historical chunking metrics.
+# Returns a list of chunk run result dicts sorted newest-first to the frontend.
 @router.get("/runs")
 def list_chunk_runs() -> List[dict]:
     """Return all past chunk run results, newest first."""

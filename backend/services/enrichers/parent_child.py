@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -48,11 +48,17 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+# Called by run_parent_child with a chunk's headings list (list[str]) and the configured grouping_level (int).
+# Truncates the heading path to the requested depth and joins it with " › " (or "__root__" if empty) so sibling chunks under the same section are grouped together.
+# Returns the section key string to run_parent_child.
 def _heading_key(headings: list[str], level: int) -> str:
     """Return the heading path truncated at the requested depth."""
     return " › ".join(headings[:level]) if headings else "__root__"
 
 
+# Called by enrichment_runner.run_enrichment with source_collection, output_collection, qdrant_storage_path, llm_client (OllamaClient), options (ParentChildOptions), dense_model_name, and emit callback.
+# Copies child chunks to output_collection, groups them by heading hierarchy, summarizes each group via the LLM, embeds (or averages) parent vectors, upserts parent chunks, and links children to their parent_id.
+# Yields "__PROGRESS__=<0-100>" updates and formatted log lines back to enrichment_runner.run_enrichment for SSE streaming.
 async def run_parent_child(
     *,
     source_collection: str,

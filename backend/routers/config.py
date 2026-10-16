@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -41,12 +41,18 @@ from services.config_manager import (
 router = APIRouter(prefix="/api/config", tags=["config"])
 
 
+# Receives no arguments from GET /api/config/profiles (called by `useConfig` and the RAG Tester page).
+# Queries `services/config_manager.py::list_profiles` to enumerate all saved Docling YAML profiles in `configs/`.
+# Returns a sorted list of profile name strings to the frontend.
 @router.get("/profiles", response_model=List[str])
 async def get_profiles() -> List[str]:
     """Return all saved configuration profile names."""
     return list_profiles()
 
 
+# Receives a profile `name` path parameter from GET /api/config/{name} (called by `useConfig` in the frontend).
+# Loads and validates the corresponding YAML profile from `configs/{name}.yaml` via `load_profile`.
+# Returns the validated PipelineConfig object to the frontend (or raises HTTP 400/404).
 @router.get("/{name}", response_model=PipelineConfig)
 async def get_profile(name: str) -> PipelineConfig:
     """Load and return a specific configuration profile by name."""
@@ -58,6 +64,9 @@ async def get_profile(name: str) -> PipelineConfig:
         raise HTTPException(status_code=404, detail=str(e))
 
 
+# Receives profile `name` from the URL path and `config` (PipelineConfig) from PUT /api/config/{name} (debounced auto-save from `useConfig`).
+# Synchronizes `config.profile_name` with the URL parameter and persists the updated configuration to `configs/{name}.yaml`.
+# Returns the saved PipelineConfig object to the frontend.
 @router.put("/{name}", response_model=PipelineConfig)
 async def update_profile(name: str, config: PipelineConfig) -> PipelineConfig:
     """
@@ -73,6 +82,9 @@ async def update_profile(name: str, config: PipelineConfig) -> PipelineConfig:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# Receives a full PipelineConfig (`config`) from POST /api/config/save-as (triggered by the ProfileManager "Save As" dialog).
+# Writes a new named YAML profile file under `configs/{config.profile_name}.yaml` via `save_profile`.
+# Returns the newly persisted PipelineConfig object to the frontend.
 @router.post("/save-as", response_model=PipelineConfig)
 async def save_as_profile(config: PipelineConfig) -> PipelineConfig:
     """
@@ -86,6 +98,9 @@ async def save_as_profile(config: PipelineConfig) -> PipelineConfig:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# Receives a profile `name` path parameter from DELETE /api/config/{name} (called by ProfileManager in the frontend).
+# Prevents deletion of the `"default"` profile and removes the target YAML file from `configs/`.
+# Returns a confirmation JSONResponse to the frontend (or raises HTTP 400/404).
 @router.delete("/{name}")
 async def remove_profile(name: str) -> JSONResponse:
     """Delete a configuration profile. The 'default' profile cannot be deleted."""

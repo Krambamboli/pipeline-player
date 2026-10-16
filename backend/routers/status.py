@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -24,6 +24,9 @@ from fastapi.responses import JSONResponse
 router = APIRouter(prefix="/api", tags=["status"])
 
 
+# Receives no arguments from GET /api/health (called by frontend health checks or startup scripts).
+# Confirms that the FastAPI server process is alive and responsive.
+# Returns a 200 OK JSONResponse (`{"status": "ok", "service": "pipeline-player-backend"}`) to the caller.
 @router.get("/health")
 async def health() -> JSONResponse:
     """Simple health check — returns 200 OK when the server is running."""

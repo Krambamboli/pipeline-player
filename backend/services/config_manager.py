@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -45,6 +45,9 @@ CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
 _NAME_RE = re.compile(r"^[\w\-. ]{1,80}$")
 
 
+# Called internally by load_profile, save_profile, delete_profile, copy_profile_to, and ensure_default_profile with a profile name string.
+# Validates the profile name against _NAME_RE and path-traversal rules so file operations remain strictly inside CONFIGS_DIR.
+# Returns the resolved Path to the target <name>.yaml file to the caller.
 def _profile_path(name: str) -> Path:
     """Return the validated path to a config profile YAML file."""
     cleaned = (name or "").strip()
@@ -57,6 +60,9 @@ def _profile_path(name: str) -> Path:
     return path
 
 
+# Called by the configs router (routers/configs.py) with no arguments.
+# Scans CONFIGS_DIR for all saved *.yaml files so the frontend can list available Docling profiles.
+# Returns a sorted List[str] of profile names (without the .yaml extension) to the router.
 def list_profiles() -> List[str]:
     """Return a list of all saved profile names (without .yaml extension)."""
     return sorted(
@@ -64,6 +70,9 @@ def list_profiles() -> List[str]:
     )
 
 
+# Called by routers/configs.py, routers/runs.py, docling_worker.py, and rag_tester_runner.py with a profile name string.
+# Reads the YAML file from CONFIGS_DIR and validates its structure into a PipelineConfig Pydantic model.
+# Returns the validated PipelineConfig instance to the caller.
 def load_profile(name: str) -> PipelineConfig:
     """
     Load a config profile from disk.
@@ -80,6 +89,9 @@ def load_profile(name: str) -> PipelineConfig:
     return PipelineConfig.model_validate(raw)
 
 
+# Called by routers/configs.py and ensure_default_profile with a PipelineConfig instance.
+# Dumps the validated configuration as formatted YAML to CONFIGS_DIR/<profile_name>.yaml for persistence.
+# Returns the Path of the written YAML file to the caller.
 def save_profile(config: PipelineConfig) -> Path:
     """
     Persist a PipelineConfig to disk as YAML.
@@ -95,6 +107,9 @@ def save_profile(config: PipelineConfig) -> Path:
     return path
 
 
+# Called by routers/configs.py with a profile name string.
+# Verifies that the profile YAML file exists in CONFIGS_DIR and deletes it from disk.
+# Returns None to the router.
 def delete_profile(name: str) -> None:
     """Delete a config profile. Raises FileNotFoundError if not found."""
     path = _profile_path(name)
@@ -103,6 +118,9 @@ def delete_profile(name: str) -> None:
     path.unlink()
 
 
+# Called by docling_worker.py with a PipelineConfig instance and a destination run directory Path.
+# Copies the profile's source YAML file to <destination>/config.yaml so every run output is self-contained and reproducible.
+# Returns the destination config.yaml Path to the caller.
 def copy_profile_to(config: PipelineConfig, destination: Path) -> Path:
     """
     Copy a config to an arbitrary destination path (used for run reproducibility
@@ -114,6 +132,9 @@ def copy_profile_to(config: PipelineConfig, destination: Path) -> Path:
     return dest_path
 
 
+# Called by backend/main.py at application startup with no arguments.
+# Creates and saves a default PipelineConfig ("default.yaml") if one does not already exist on disk.
+# Returns None to the startup caller.
 def ensure_default_profile() -> None:
     """
     Create the default config profile if it doesn't exist yet.

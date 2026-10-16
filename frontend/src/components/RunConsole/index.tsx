@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -27,6 +27,10 @@
 
 import { useEffect, useRef } from "react";
 
+/**
+ * Props received by `RunConsole` from the Step 1 Docling Parser page (`app/page.tsx`).
+ * Supplies streaming `logs`, `isRunning` status, completion details (`lastStatus`, `lastDuration`, `lastOutputFiles`, `lastOutputDir`, `errorMessage`) from `useRunStream`, and `onSelectFile`.
+ */
 interface Props {
   logs: string[];
   isRunning: boolean;
@@ -38,6 +42,10 @@ interface Props {
   onSelectFile: (dir: string, file: string) => void;
 }
 
+/**
+ * Maps a raw console log `line` string to a semantic CSS modifier class for colour-coding.
+ * Receives `line` from `RunConsole`'s log rendering loop and returns the matching `.console__line--*` class name (or `""`).
+ */
 function classifyLine(line: string): string {
   if (line.includes("✅") || line.includes("✓")) return "console__line--success";
   if (line.includes("❌") || line.includes("Error") || line.includes("failed"))
@@ -50,6 +58,11 @@ function classifyLine(line: string): string {
   return "";
 }
 
+/**
+ * Real-time streaming log console and run completion summary banner for Step 1 Docling runs.
+ * Receives `Props` from the Step 1 page (`app/page.tsx`).
+ * Renders auto-scrolling colour-coded log lines and clickable output file chips that invoke `onSelectFile(dir, file)` to open files in `OutputViewer`.
+ */
 export default function RunConsole({
   logs,
   isRunning,

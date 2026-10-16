@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -29,6 +29,10 @@ import { getCollections, RetrieveCollection, rewriteQuery, runRetrieve, Retrieve
  *
  * HOW: It maintains state for user inputs (collection, prompt, limits), calls the 
  * backend retrieve endpoints via `lib/retrieve`, and renders the JSON/text results.
+ *
+ * - Inputs: Mounted by the Next.js App Router at `/retrieve` with no props; fetches collections via `getCollections`, query rewrites via `rewriteQuery`, search results via `runRetrieve`, and streamed LLM tokens via `generateAnswer`.
+ * - Purpose: Benchmarks dense and hybrid (RRF/DBSF) text retrieval and grounded AI answer generation.
+ * - Output: Renders the left retrieval configuration sidebar and main search prompt, query vector viewer, pre-fusion vs. post-fusion chunk comparison columns, and streaming AI answer section.
  */
 export default function RetrievePage() {
   const [collections, setCollections] = useState<RetrieveCollection[]>([]);
@@ -78,6 +82,10 @@ export default function RetrievePage() {
    *
    * HOW: We look up the selected collection name in our cached `collections` array 
    * and update the `isHybrid` state accordingly.
+   *
+   * - Inputs: Receives `val` (string collection name) from the target collection `<select>` change event.
+   * - Purpose: Synchronizes the active collection name and toggles hybrid fusion controls based on `col.is_hybrid`.
+   * - Output: Updates `selectedCol` and `isHybrid` state for the configuration sidebar.
    */
   const handleColChange = (val: string) => {
     setSelectedCol(val);
@@ -94,6 +102,10 @@ export default function RetrievePage() {
    * 2. It sets processing state to true to disable the button and show a loader.
    * 3. It asks the backend to rewrite the natural language prompt into a clean search query.
    * 4. It asks the backend to run the retrieval with the rewritten query and returns the results.
+   *
+   * - Inputs: Reads `prompt`, `selectedCol`, `limit`, and `fusionStrategy` from component state when triggered by the user clicking "Search".
+   * - Purpose: Executes query rewriting (`rewriteQuery`) followed by vector/hybrid retrieval (`runRetrieve`) against the backend API.
+   * - Output: Updates `result` (`RetrieveResponse`), `error`, and `isProcessing` state to render pre-fusion and post-fusion search results.
    */
   const handleRun = async () => {
     if (!prompt.trim() || !selectedCol) return;

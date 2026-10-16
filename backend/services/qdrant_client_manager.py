@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -57,6 +57,9 @@ _client_path: Optional[str] = None
 qdrant_write_lock = threading.RLock()
 
 
+# Receives an optional `storage_path` string from backend routers (`retrieve.py`, `inspector.py`) and services (`chunk_runner.py`, `colpali_runner.py`, `colpali_retriever.py`, `fusion_retriever.py`, `rag_tester_runner.py`, `retriever.py`, enrichers).
+# Lazily initializes and caches a single process-wide `QdrantClient` under a thread lock so multiple threads/services never open conflicting local file locks on the same Qdrant storage directory.
+# Returns the shared `QdrantClient` singleton instance to the caller.
 def get_qdrant_client(storage_path: str = ""):
     """
     Return the shared QdrantClient, creating it on first call.
@@ -93,6 +96,9 @@ def get_qdrant_client(storage_path: str = ""):
         return _client
 
 
+# Called with no arguments by test suites or runtime reconfiguration helpers when the active Qdrant storage path needs to be released.
+# Acquires the singleton lock, safely closes the open `QdrantClient` instance if present, and clears the cached singleton references.
+# Returns `None` to the caller.
 def reset_qdrant_client():
     """
     Close and discard the shared client.

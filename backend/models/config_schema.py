@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -40,6 +40,9 @@ from pydantic import BaseModel, Field
 # Enums (mirrors Docling's internal enums)
 # ---------------------------------------------------------------------------
 
+# Receives OCR engine string identifiers from OcrOptions (frontend Step 1 or saved YAML profile).
+# Enumerates the OCR backends supported by Docling so invalid engine names are rejected at validation time.
+# Returns a validated OcrEngine enum member to OcrOptions and services/docling_runner.py.
 class OcrEngine(str, Enum):
     """Supported OCR backend engines."""
     EASYOCR = "easyocr"
@@ -51,12 +54,18 @@ class OcrEngine(str, Enum):
     AUTO = "auto"
 
 
+# Receives table parsing mode strings ("fast" or "accurate") from TableStructureOptions.
+# Controls whether Docling uses a fast lightweight table parser or high-accuracy TableTransformer.
+# Returns a validated TableStructureMode enum member to TableStructureOptions and services/docling_runner.py.
 class TableStructureMode(str, Enum):
     """Controls the accuracy/speed trade-off of the table structure parser."""
     FAST = "fast"
     ACCURATE = "accurate"
 
 
+# Receives hardware device strings ("auto", "cpu", "cuda", "mps", "xpu") from AcceleratorOptions.
+# Specifies the target compute accelerator (e.g., Apple Silicon MPS) for Docling model inference.
+# Returns a validated AcceleratorDevice enum member to AcceleratorOptions and services/docling_runner.py.
 class AcceleratorDevice(str, Enum):
     """Hardware accelerator to use for model inference."""
     AUTO = "auto"  # Let docling pick the best device per model (recommended for Apple Silicon)
@@ -66,6 +75,9 @@ class AcceleratorDevice(str, Enum):
     XPU = "xpu"   # Intel XPU
 
 
+# Receives output format strings ("markdown", "json", "doctags", "text", "html", "iterated_items") from OutputSettings.
+# Enumerates the document serialization formats that a Docling run can write to the output directory.
+# Returns a validated OutputFormat enum member to OutputSettings and services/docling_worker.py.
 class OutputFormat(str, Enum):
     """Available output serialization formats."""
     MARKDOWN = "markdown"
@@ -76,6 +88,9 @@ class OutputFormat(str, Enum):
     ITERATED_ITEMS = "iterated_items"
 
 
+# Receives VLM backend preset strings from PictureDescriptionOptions (frontend Step 1 or YAML profile).
+# Selects which local HuggingFace VLM preset or remote OpenAI-compatible API generates image captions.
+# Returns a validated PictureDescriptionKind enum member to PictureDescriptionOptions and services/docling_runner.py.
 class PictureDescriptionKind(str, Enum):
     """
     Vision-language model backend for picture descriptions.
@@ -97,12 +112,18 @@ class PictureDescriptionKind(str, Enum):
     DISABLED = "disabled"
 
 
+# Receives picture classification backend strings ("docling", "disabled") from PictureClassificationOptions.
+# Controls whether Docling's DocumentFigureClassifier model runs on detected images.
+# Returns a validated PictureClassificationKind enum member to PictureClassificationOptions.
 class PictureClassificationKind(str, Enum):
     """Model backend for picture classification."""
     DOCLING = "docling"
     DISABLED = "disabled"
 
 
+# Receives code/formula enrichment backend strings ("granite", "codeformulav2", "disabled") from CodeFormulaOptions.
+# Selects the vision-language model used to recognize code blocks and LaTeX mathematical formulas.
+# Returns a validated CodeFormulaKind enum member to CodeFormulaOptions.
 class CodeFormulaKind(str, Enum):
     """Model backend for code/formula enrichment."""
     GRANITE = "granite"
@@ -110,6 +131,9 @@ class CodeFormulaKind(str, Enum):
     DISABLED = "disabled"
 
 
+# Receives chart extraction backend strings ("docling", "disabled") from ChartExtractionOptions.
+# Controls whether Docling extracts structured tabular data from detected charts.
+# Returns a validated ChartExtractionKind enum member to ChartExtractionOptions.
 class ChartExtractionKind(str, Enum):
     """Model backend for chart data extraction."""
     DOCLING = "docling"
@@ -120,6 +144,9 @@ class ChartExtractionKind(str, Enum):
 # Nested option models
 # ---------------------------------------------------------------------------
 
+# Receives OCR engine choice, language codes, full-page OCR flag, and bitmap area threshold from PdfPipelineOptions.
+# Validates OCR parameters before they are mapped onto Docling's engine-specific OCR option classes.
+# Returns a validated OcrOptions instance to PdfPipelineOptions and services/docling_runner.py.
 class OcrOptions(BaseModel):
     """
     Configuration for the Optical Character Recognition engine.
@@ -166,6 +193,9 @@ class OcrOptions(BaseModel):
     )
 
 
+# Receives table parsing mode and cell-matching toggle from PdfPipelineOptions.
+# Validates table structure recognition parameters used by Docling's TableTransformer stage.
+# Returns a validated TableStructureOptions instance to PdfPipelineOptions and services/docling_runner.py.
 class TableStructureOptions(BaseModel):
     """
     Controls how Docling's table detection and structure recognition works.
@@ -191,6 +221,9 @@ class TableStructureOptions(BaseModel):
     )
 
 
+# Receives compute device and CPU thread count from PdfPipelineOptions.
+# Configures hardware placement (MPS/CUDA/CPU) and thread parallelism for Docling's PyTorch models.
+# Returns a validated AcceleratorOptions instance to PdfPipelineOptions and services/docling_runner.py.
 class AcceleratorOptions(BaseModel):
     """
     Hardware and threading configuration for model inference.
@@ -218,6 +251,9 @@ class AcceleratorOptions(BaseModel):
     )
 
 
+# Receives layout model preset strings from LayoutOptions.
+# Enumerates Docling's Heron and Egret page layout detection model presets.
+# Returns a validated LayoutModelKind enum member to LayoutOptions and services/docling_runner.py.
 class LayoutModelKind(str, Enum):
     DEFAULT = "default"
     HERON_DEFAULT = "layout_heron_default"
@@ -227,6 +263,9 @@ class LayoutModelKind(str, Enum):
     EGRET_XLARGE = "layout_egret_xlarge"
 
 
+# Receives layout model preset and legacy compatibility flags from PdfPipelineOptions.
+# Configures which page layout analysis model Docling uses while maintaining backward compatibility with old YAML profiles.
+# Returns a validated LayoutOptions instance to PdfPipelineOptions and services/docling_runner.py.
 class LayoutOptions(BaseModel):
     """
     Options controlling the page layout analysis model behaviour.
@@ -253,6 +292,9 @@ class LayoutOptions(BaseModel):
     )
 
 
+# Receives heading hierarchy inference parameters from PdfPipelineOptions.
+# Controls how bookmarks, numbering, and font styles are used to reconstruct document heading trees.
+# Returns a validated HeadingHierarchyOptions instance to PdfPipelineOptions.
 class HeadingHierarchyOptions(BaseModel):
     """
     Controls how detected headings are organised into a hierarchy tree.
@@ -268,6 +310,9 @@ class HeadingHierarchyOptions(BaseModel):
     bookmark_match_threshold: float = Field(default=0.8)
 
 
+# Receives VLM backend kind, captioning prompt, area threshold, and optional remote API settings from PdfPipelineOptions.
+# Validates settings for generating natural-language figure descriptions via local VLMs or an OpenAI-compatible API.
+# Returns a validated PictureDescriptionOptions instance to PdfPipelineOptions and services/docling_runner.py.
 class PictureDescriptionOptions(BaseModel):
     """
     Configuration for the vision-language model that generates natural language
@@ -341,6 +386,9 @@ class PictureDescriptionOptions(BaseModel):
     )
 
 
+# Receives picture classification backend selection from PdfPipelineOptions.
+# Configures whether detected figures are categorized into semantic classes (chart, diagram, photo, etc.).
+# Returns a validated PictureClassificationOptions instance to PdfPipelineOptions and services/docling_runner.py.
 class PictureClassificationOptions(BaseModel):
     """
     Configuration for the picture classification model that labels
@@ -357,6 +405,9 @@ class PictureClassificationOptions(BaseModel):
     )
 
 
+# Receives code/formula model selection from PdfPipelineOptions.
+# Configures enrichment of detected code blocks and mathematical expressions into structured code/LaTeX.
+# Returns a validated CodeFormulaOptions instance to PdfPipelineOptions and services/docling_runner.py.
 class CodeFormulaOptions(BaseModel):
     """
     Configuration for code block and mathematical formula enrichment.
@@ -373,6 +424,9 @@ class CodeFormulaOptions(BaseModel):
     )
 
 
+# Receives chart extraction model selection from PdfPipelineOptions.
+# Configures whether Docling runs a specialized VLM to extract tabular data from charts.
+# Returns a validated ChartExtractionOptions instance to PdfPipelineOptions and services/docling_runner.py.
 class ChartExtractionOptions(BaseModel):
     """
     Configuration for automated chart/graph data extraction.
@@ -394,6 +448,9 @@ class ChartExtractionOptions(BaseModel):
 # Top-level PdfPipelineOptions model
 # ---------------------------------------------------------------------------
 
+# Receives all Docling PDF pipeline toggles, batch sizes, queue limits, and nested option groups from PipelineConfig.
+# Mirrors Docling's native PdfPipelineOptions to validate user settings before constructing the DocumentConverter.
+# Returns a validated PdfPipelineOptions instance to PipelineConfig and services/docling_runner.py.
 class PdfPipelineOptions(BaseModel):
     """
     Complete mirror of Docling's PdfPipelineOptions class.
@@ -683,6 +740,9 @@ class PdfPipelineOptions(BaseModel):
 # Top-level config file schema (wraps PdfPipelineOptions + output settings)
 # ---------------------------------------------------------------------------
 
+# Receives output format list and HTML rendering flags from PipelineConfig (frontend Step 1 or saved YAML profile).
+# Configures which serialized files (`parsed_doc.html`, `.md`, `.json`, etc.) the Docling worker writes after parsing.
+# Returns a validated OutputSettings instance to PipelineConfig and services/docling_worker.py.
 class OutputSettings(BaseModel):
     """Output format and routing settings (not part of PdfPipelineOptions itself)."""
 
@@ -715,6 +775,9 @@ class OutputSettings(BaseModel):
     )
 
 
+# Receives content layer string literals ("body", "furniture", "background", "invisible", "notes") from IterateItemsOptions.
+# Mirrors `docling_core`'s ContentLayer enum to filter which structural layers are included during item iteration.
+# Returns a validated ContentLayer enum member to IterateItemsOptions and services/docling_worker.py.
 class ContentLayer(str, Enum):
     """Corresponds to docling_core ContentLayer."""
     BODY = "body"
@@ -724,6 +787,9 @@ class ContentLayer(str, Enum):
     NOTES = "notes"
 
 
+# Receives item traversal flags (`with_groups`, `traverse_pictures`, `page_no`, `included_content_layers`) from PipelineConfig.
+# Controls how `DoclingDocument.iterate_items(...)` walks the parsed document tree when producing `iterated_items` output.
+# Returns a validated IterateItemsOptions instance to PipelineConfig and services/docling_worker.py.
 class IterateItemsOptions(BaseModel):
     """Options for extracting items from the docling document."""
     with_groups: bool = Field(default=False)
@@ -740,6 +806,9 @@ class IterateItemsOptions(BaseModel):
     )
 
 
+# Receives `profile_name`, `description`, `pdf_options`, `output`, and `iterate_items_options` from routers/config.py, routers/pipeline.py, or YAML files in `configs/`.
+# Serves as the root configuration model for a Step 1 Docling profile, ensuring end-to-end validation and reproducible YAML serialization.
+# Returns a validated PipelineConfig instance to routers/config.py, routers/pipeline.py, services/config_manager.py, and services/docling_runner.py.
 class PipelineConfig(BaseModel):
     """
     The root configuration schema stored in YAML files under /configs/.

@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -33,12 +33,18 @@ from typing import Dict
 from pydantic import BaseModel, Field
 
 
+# Receives `folder_path` and `recursive` flag from the frontend (/rag-tester) via routers/rag_tester.py.
+# Validates folder scan requests used to preview all PDFs and page counts before starting a batch ingestion run.
+# Returns a validated FolderScanRequest instance to routers/rag_tester.py and services/rag_tester_runner.py.
 class FolderScanRequest(BaseModel):
     """Request body for previewing the PDFs in a folder."""
     folder_path: str = Field(..., description="Absolute path, '~/...' or a path relative to test_data/.")
     recursive: bool = Field(default=True, description="Include PDFs in sub-folders.")
 
 
+# Receives folder path, saved profile names, track toggles, target collection names, worker count, and metadata from the frontend (/rag-tester).
+# Validates the full configuration for a dual-track (Docling hybrid text + ColPali visual) batch ingestion run.
+# Returns a validated RagTesterRequest instance to routers/rag_tester.py and services/rag_tester_runner.py.
 class RagTesterRequest(BaseModel):
     """Full configuration of one RAG Tester run."""
 

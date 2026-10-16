@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -48,6 +48,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/fusion", tags=["fusion"])
 
 
+# Receives a caught Python `Exception` (`exc`) from any endpoint in `routers/fusion.py`.
+# Maps domain exceptions (`FileNotFoundError`, `ValueError`, `SyntaxError`) to appropriate HTTP status codes (404, 400, 500).
+# Returns a FastAPI `HTTPException` instance to be raised by the calling route handler.
 def _http_error(exc: Exception) -> HTTPException:
     """Map service exceptions to HTTP status codes."""
     if isinstance(exc, FileNotFoundError):
@@ -57,6 +60,9 @@ def _http_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=500, detail=str(exc))
 
 
+# Receives no arguments from GET /api/fusion/collections (called by the frontend /fusion page on mount).
+# Queries `fusion_retriever.list_fusion_collections()` to partition Qdrant collections into text vs. ColPali collections with detected embedding models.
+# Returns a dict with `"text"` and `"colpali"` collection metadata lists to the frontend.
 @router.get("/collections")
 def collections() -> Dict[str, List[Dict[str, Any]]]:
     try:
@@ -65,6 +71,9 @@ def collections() -> Dict[str, List[Dict[str, Any]]]:
         raise _http_error(exc)
 
 
+# Receives no arguments from GET /api/fusion/embedding-models (called by the frontend /fusion page).
+# Queries `fusion_retriever.list_embedding_models()` to list all dense and sparse models supported by the installed `fastembed` package.
+# Returns a dict with `"dense"` and `"sparse"` model descriptor lists for the UI override dropdowns.
 @router.get("/embedding-models")
 def embedding_models() -> Dict[str, List[Dict[str, Any]]]:
     """Options for the dense/sparse override dropdowns (from fastembed itself)."""
@@ -74,6 +83,9 @@ def embedding_models() -> Dict[str, List[Dict[str, Any]]]:
         raise _http_error(exc)
 
 
+# Receives a validated FusionSearchRequest (`req`) from POST /api/fusion/search (called by the frontend /fusion page).
+# Executes parallel hybrid text search (RRF/DBSF/dense/sparse) and ColPali MaxSim search in a worker threadpool.
+# Returns a dict containing `text_hits`, `colpali_hits`, timing, and model diagnostics to the frontend.
 @router.post("/search")
 async def search(req: FusionSearchRequest) -> Dict[str, Any]:
     """Both searches run in a worker thread (model loading can take ~20 s once)."""
@@ -98,12 +110,18 @@ async def search(req: FusionSearchRequest) -> Dict[str, Any]:
         raise _http_error(exc)
 
 
+# Receives a validated RerankRequest (`req`) from POST /api/fusion/rerank (called debounced by the frontend /fusion editor).
+# Runs the user's Python `rerank(text_hits, colpali_hits, k)` function inside an isolated subprocess via `reranker_sandbox.run_reranker`.
+# Returns a dict (`ok`, `results`, `stdout`, `duration_ms`, or `error`/`line`) to the frontend.
 @router.post("/rerank")
 async def rerank(req: RerankRequest) -> Dict[str, Any]:
     """Errors in the user code are returned as {ok: false, error, line} (HTTP 200)."""
     return await run_in_threadpool(reranker_sandbox.run_reranker, req.code, req.text_hits, req.colpali_hits, req.k)
 
 
+# Receives `file_path`, 1-indexed `page` number, and `dpi` query parameters from GET /api/fusion/page-image (used by `<img>` tags in `/fusion` and `/colpali/retrieve`).
+# Renders the requested PDF page to PNG bytes via `fusion_retriever.render_page_png`.
+# Returns a binary `image/png` FastAPI Response with browser caching headers to the frontend.
 @router.get("/page-image")
 def page_image(file_path: str = Query(...), page: int = Query(..., ge=1), dpi: int = Query(72)) -> Response:
     try:
@@ -113,16 +131,25 @@ def page_image(file_path: str = Query(...), page: int = Query(..., ge=1), dpi: i
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "max-age=3600"})
 
 
+# Receives no arguments from GET /api/fusion/default-script (called by the frontend /fusion page on initialization or reset).
+# Retrieves the built-in weighted RRF Python template `DEFAULT_SCRIPT` from `services/reranker_sandbox.py`.
+# Returns a dict `{"code": ...}` to populate the CodeMirror Python editor in the frontend.
 @router.get("/default-script")
 def default_script() -> Dict[str, str]:
     return {"code": reranker_sandbox.DEFAULT_SCRIPT}
 
 
+# Receives no arguments from GET /api/fusion/scripts (called by the frontend /fusion script selector).
+# Lists all saved custom reranker script names in `configs/reranker/` via `reranker_sandbox.list_scripts()`.
+# Returns a sorted list of script name strings to the frontend.
 @router.get("/scripts", response_model=List[str])
 def list_scripts() -> List[str]:
     return reranker_sandbox.list_scripts()
 
 
+# Receives a script `name` path parameter from GET /api/fusion/scripts/{name} (called by the frontend /fusion page).
+# Reads the corresponding `.py` file from `configs/reranker/{name}.py` via `reranker_sandbox.load_script`.
+# Returns a dict `{"name": name, "code": ...}` to the frontend.
 @router.get("/scripts/{name}")
 def get_script(name: str) -> Dict[str, str]:
     try:
@@ -131,6 +158,9 @@ def get_script(name: str) -> Dict[str, str]:
         raise _http_error(exc)
 
 
+# Receives a script `name` path parameter and `RerankScript` (`body`) from PUT /api/fusion/scripts/{name} (called by the frontend /fusion page).
+# Syntax-checks and saves the custom Python reranker code to `configs/reranker/{name}.py`.
+# Returns a confirmation message dict to the frontend (or raises HTTP 400 on syntax/validation errors).
 @router.put("/scripts/{name}")
 def put_script(name: str, body: RerankScript) -> Dict[str, str]:
     try:
@@ -142,6 +172,9 @@ def put_script(name: str, body: RerankScript) -> Dict[str, str]:
         raise _http_error(exc)
 
 
+# Receives a script `name` path parameter from DELETE /api/fusion/scripts/{name} (called by the frontend /fusion page).
+# Deletes the specified `.py` reranker script from `configs/reranker/` via `reranker_sandbox.delete_script`.
+# Returns a confirmation message dict to the frontend.
 @router.delete("/scripts/{name}")
 def delete_script(name: str) -> Dict[str, str]:
     try:

@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -36,6 +36,12 @@ import { listCollections, QdrantCollection } from "@/lib/qdrant";
 import { retrieveColPali, ColPaliRetrievedPage } from "@/lib/colpali";
 import { generateAnswer } from "@/lib/retrieve";
 
+/**
+ * ColPali MaxSim Retrieval page component mounted by the Next.js App Router at `/colpali/retrieve`.
+ * - Inputs: Receives no props from the router; fetches Qdrant collections via `listCollections`, page rankings via `retrieveColPali`, and streamed LLM tokens via `generateAnswer`.
+ * - Purpose: Provides a search and VLM answer-generation interface specialized for multi-vector ColPali collections using late-interaction MaxSim scoring.
+ * - Output: Renders the left query/collection config sidebar and main ranked page results list with optional multimodal AI answer generation.
+ */
 export default function ColPaliRetrievePage() {
   // ── Collection selection (filtered to multivector only) ───────────
   const [collections, setCollections] = useState<QdrantCollection[]>([]);
@@ -69,6 +75,12 @@ export default function ColPaliRetrievePage() {
   }, []);
 
   // ── Run MaxSim retrieval ──────────────────────────────────────────
+  /**
+   * Async handler that executes a MaxSim search against the selected ColPali collection.
+   * - Inputs: Reads `selectedCol`, `query`, and `limit` from component state when triggered by the user clicking "MaxSim Retrieve".
+   * - Purpose: Queries the backend ColPali retrieval endpoint (`retrieveColPali`) to rank document pages by token-to-patch maximum similarity and clears any prior AI answer.
+   * - Output: Updates `results` (`ColPaliRetrievedPage[]`), `error`, `answer`, and `isRetrieving` state for the main results view.
+   */
   const handleRetrieve = useCallback(async () => {
     if (!selectedCol || !query.trim()) return;
     setIsRetrieving(true);

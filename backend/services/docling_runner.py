@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -65,6 +65,9 @@ OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 # Helper: map our enums/models → Docling's native objects
 # ---------------------------------------------------------------------------
 
+# Called by _build_docling_options with pd (PictureDescriptionOptions from PipelineConfig) and notes (List[str] for run log messages).
+# Translates the user's picture-description config into either a Docling PictureDescriptionApiOptions (OpenAI-compatible endpoint) or a local PictureDescriptionVlmEngineOptions preset.
+# Returns the configured Docling picture-description options object to _build_docling_options (and appends status notes to notes).
 def _build_picture_description_options(pd, notes: List[str]):
     """
     Map our PictureDescriptionOptions → a Docling picture-description options
@@ -136,6 +139,9 @@ def _build_picture_description_options(pd, notes: List[str]):
     return opts
 
 
+# Called by docling_worker.main with our_opts (PdfPipelineOptions from PipelineConfig) and an optional notes list.
+# Bridges our Pydantic config schema to Docling's native PdfPipelineOptions, resolving OCR engines, table modes, accelerator devices, and VLM enrichments.
+# Returns a configured Docling PdfPipelineOptions instance to docling_worker.main (and populates notes with resolution messages).
 def _build_docling_options(our_opts: OurPdfOptions, notes: List[str] | None = None):
     """
     Convert our Pydantic PdfPipelineOptions model to Docling's native
@@ -182,10 +188,16 @@ def _build_docling_options(our_opts: OurPdfOptions, notes: List[str] | None = No
               "zh": "zh-Hans", "ja": "ja-JP", "ko": "ko-KR", "ar": "ar-SA"}
     langs = [l.strip() for l in o.ocr_options.lang if l and l.strip()]
 
+    # Called by _make_ocr_options with table (a dict mapping 2-letter ISO codes to engine-specific language codes).
+    # Converts each configured language in langs using table while passing already-formatted codes through unchanged.
+    # Returns a list of engine-specific language code strings to _make_ocr_options.
     def _map_langs(table: dict) -> list:
         """Translate 2-letter codes via `table`; codes already in the target format pass through."""
         return [table.get(l.lower(), l) for l in langs]
 
+    # Called by _make_ocr_options with no arguments (reads langs and notes from the enclosing _build_docling_options scope).
+    # Validates the first configured language with Docling's RapidOCR resolver and falls back to default RapidOcrOptions if unsupported.
+    # Returns a configured RapidOcrOptions instance to _make_ocr_options.
     def _rapid_with_lang():
         """
         RapidOCR options with the FIRST UI language (RapidOCR recognises one
@@ -207,6 +219,9 @@ def _build_docling_options(our_opts: OurPdfOptions, notes: List[str] | None = No
             notes.append(f"ℹ RapidOCR uses one language per run — using '{first}', ignoring {langs[1:]}.")
         return RapidOcrOptions(lang=[first])
 
+    # Called by _build_docling_options with no arguments (reads o.ocr_options, langs, and notes from the enclosing scope).
+    # Instantiates the Docling OCR options matching o.ocr_options.kind, falling back to RapidOcrOptions if an optional OCR package is missing.
+    # Returns the constructed Docling OCR options object to _build_docling_options.
     def _make_ocr_options():
         kind = o.ocr_options.kind
         try:
@@ -429,9 +444,15 @@ from datetime import datetime
 
 _active_processes: Dict[str, subprocess.Popen] = {}
 
+# Called by routers/runs.py or process-inspection helpers with run_id (str).
+# Looks up the active docling_worker.py child process in the _active_processes registry.
+# Returns the running subprocess.Popen instance or None to the caller.
 def get_active_process(run_id: str) -> subprocess.Popen | None:
     return _active_processes.get(run_id)
 
+# Called by the runs router (routers/runs.py) with run_id (str) when a user requests cancellation.
+# Looks up the active worker subprocess for run_id and sends SIGTERM to stop conversion and free RAM/MPS resources.
+# Returns True if an active subprocess was found and terminated, or False otherwise, to the router.
 def cancel_run(run_id: str) -> bool:
     """Cancels an active run by terminating its subprocess."""
     process = _active_processes.get(run_id)
@@ -440,6 +461,9 @@ def cancel_run(run_id: str) -> bool:
         return True
     return False
 
+# Called by the runs router (routers/runs.py) with a PipelineConfig instance and filename (PDF name in test_data/).
+# Spawns docling_worker.py in an isolated subprocess to run Docling conversion, streams stdout events, and persists run.log.
+# Yields "__RUN_ID__=<id>", "__PROGRESS__=...", and log lines to the router for SSE streaming, and returns the final RunResult.
 def run_pipeline(config: PipelineConfig, filename: str) -> Generator[str, None, RunResult]:
     """
     Spawns the docling_worker.py subprocess to execute the pipeline.

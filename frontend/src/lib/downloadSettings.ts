@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -34,6 +34,8 @@ import type { PipelineConfig } from "@/types/config";
 
 /**
  * Triggers a browser download of a text file.
+ * Receives Markdown `content` and a target `filename` from `downloadDoclingProfile` or `downloadColPaliSettings`.
+ * Creates a UTF-8 Markdown `Blob` and temporary object URL, clicks a transient `<a>` element to initiate a client-side download, and returns `void`.
  * @param content   - The text content to write into the file
  * @param filename  - The suggested filename (e.g. "my-config.md")
  */
@@ -54,6 +56,8 @@ function triggerDownload(content: string, filename: string): void {
 /**
  * Exports the currently active Docling pipeline profile as an annotated
  * Markdown file. Each setting includes a comment explaining its effect.
+ * Receives the active `PipelineConfig` from the Step 1 Docling Parser page (via `ProfileManager`'s download button).
+ * Formats all PDF, OCR, layout, enrichment, accelerator, and output settings into a Markdown table document and triggers a browser file download via `triggerDownload` (returns `void`).
  */
 export function downloadDoclingProfile(config: PipelineConfig): void {
   const p = config.pdf_options;
@@ -197,6 +201,10 @@ ${p.picture_description_options?.kind === "api" ? `| \`picture_description_optio
 
 // ── ColPali Settings Export ───────────────────────────────────────────────
 
+/**
+ * Snapshot of ColPali UI configuration passed from the `/colpali` page to `downloadColPaliSettings`.
+ * Captures the selected PDF, model, hardware device, batch size, DPI, page limit, collection name, and custom metadata.
+ */
 export interface ColPaliExportSettings {
   selectedPdf: string;
   modelName: string;
@@ -211,6 +219,8 @@ export interface ColPaliExportSettings {
 /**
  * Exports the current ColPali pipeline configuration as an annotated
  * Markdown file.
+ * Receives `settings` (`ColPaliExportSettings`) from the `/colpali` page when the user clicks Download Settings.
+ * Generates an annotated Markdown summary of the ColPali setup and triggers a browser file download via `triggerDownload` (returns `void`).
  */
 export function downloadColPaliSettings(settings: ColPaliExportSettings): void {
   const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);

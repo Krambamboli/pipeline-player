@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -26,6 +26,12 @@ export const metadata: Metadata = {
     "Localhost web application for testing, configuring, and benchmarking Docling and ColPali document ingestion pipelines. Full parameter control with real-time execution and reproducible run outputs.",
 };
 
+/**
+ * Root application layout component invoked by the Next.js App Router.
+ * - Inputs: Receives `children` (React.ReactNode) representing the active route page from the Next.js router.
+ * - Purpose: Establishes the global HTML/body document shell and mounts the persistent `TabNav` navigation bar across all pipeline stages.
+ * - Output: Renders the top-level `<html>` and `<body>` elements containing `<TabNav />` and the main flex viewport container for the browser.
+ */
 export default function RootLayout({
   children,
 }: {

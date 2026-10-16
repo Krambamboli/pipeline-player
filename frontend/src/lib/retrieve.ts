@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -19,11 +19,19 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const API_BASE = `${BASE_URL}/api/retrieve`;
 
+/**
+ * Descriptor for a searchable Qdrant text collection returned by `GET /api/retrieve/collections` via `getCollections`.
+ * Consumed by the Step 5 (`/retrieve`) page to populate the collection dropdown and indicate whether hybrid (dense + sparse) retrieval is supported.
+ */
 export interface RetrieveCollection {
   name: string;
   is_hybrid: boolean;
 }
 
+/**
+ * Single ranked chunk item returned inside `PrefetchResult` or `RetrieveResponse.fused_results` from `POST /api/retrieve/run`.
+ * Consumed by the `/retrieve` page to display similarity score, chunk text, and Qdrant payload metadata.
+ */
 export interface RetrievedChunk {
   id: string;
   score: number;
@@ -31,11 +39,19 @@ export interface RetrievedChunk {
   metadata: Record<string, unknown>;
 }
 
+/**
+ * Pre-fusion candidate list for a single vector space (`using`, e.g. dense or sparse) returned inside `RetrieveResponse`.
+ * Consumed by the `/retrieve` page to inspect individual retriever rankings prior to RRF/DBSF fusion.
+ */
 export interface PrefetchResult {
   using: string;
   chunks: RetrievedChunk[];
 }
 
+/**
+ * Full retrieval response payload returned by `POST /api/retrieve/run` via `runRetrieve`.
+ * Delivers the query, encoded vector previews, `pre_fusion` lists, and final `fused_results` to the `/retrieve` page.
+ */
 export interface RetrieveResponse {
   rewritten_query: string;
   query_vectors: Record<string, unknown>;
@@ -43,12 +59,22 @@ export interface RetrieveResponse {
   fused_results: RetrievedChunk[];
 }
 
+/**
+ * Fetches all Qdrant text collections compatible with Step 5 retrieval.
+ * Receives no arguments; called by the `/retrieve` page on mount.
+ * Queries `GET /api/retrieve/collections` and returns `RetrieveCollection[]` to the `/retrieve` page.
+ */
 export async function getCollections(): Promise<RetrieveCollection[]> {
   const res = await fetch(`${API_BASE}/collections`);
   if (!res.ok) throw new Error("Failed to fetch retrieve collections");
   return res.json();
 }
 
+/**
+ * Rewrites or expands a user search query using the backend LLM helper.
+ * Receives the raw `query` string from the `/retrieve` page.
+ * Sends `POST /api/retrieve/rewrite` to the backend and returns the `rewritten_query` string to the caller.
+ */
 export async function rewriteQuery(query: string): Promise<string> {
   const res = await fetch(`${API_BASE}/rewrite`, {
     method: "POST",
@@ -60,6 +86,11 @@ export async function rewriteQuery(query: string): Promise<string> {
   return data.rewritten_query;
 }
 
+/**
+ * Executes dense, sparse, or hybrid (RRF/DBSF) vector search against a Qdrant collection.
+ * Receives `collectionName`, `query`, top-k `limit`, and `fusionStrategy` from the `/retrieve` page.
+ * Sends `POST /api/retrieve/run` to the backend and returns the `RetrieveResponse` with pre-fusion and fused chunks to `/retrieve`.
+ */
 export async function runRetrieve(
   collectionName: string,
   query: string,
@@ -84,6 +115,9 @@ export async function runRetrieve(
 }
 
 /**
+ * Streams a grounded LLM answer synthesized from retrieved text chunks and/or page images.
+ * Receives `query`, `chunks`, Ollama `model`, optional `imageRefs`, streaming callbacks (`onToken`, `onDone`, `onError`), and `prelabeled` flag from `/retrieve`, `/colpali/retrieve`, or `/fusion`.
+ *
  * WHY: After retrieval, we want the selected LLM to synthesise a grounded answer
  * from the ranked chunks. We stream tokens in real-time for a typing effect.
  *
@@ -91,6 +125,7 @@ export async function runRetrieve(
  * read the response body as a stream, invoking the callback for each token.
  * Wrapped in try/catch so network failures always trigger onError instead of
  * leaving isGenerating stuck at true.
+ * Emits incremental text tokens via `onToken` and signals completion (`onDone`) or errors (`onError`) to the calling page.
  */
 export async function generateAnswer(
   query: string,

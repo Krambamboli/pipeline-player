@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -39,6 +39,10 @@ import {
   saveSavedProfile,
 } from "@/lib/profiles";
 
+/**
+ * Props received by `SavedProfileBar<T>` from the `/chunk` or `/colpali` page.
+ * Specifies the profile `kind` (`"chunk"` or `"colpali"`), `getCurrent` snapshot getter, `onLoad` callback for applying loaded profiles, and optional `disabled` state.
+ */
 interface Props<T> {
   kind: ProfileKind;
   /** Returns the current settings to persist. */
@@ -48,6 +52,11 @@ interface Props<T> {
   disabled?: boolean;
 }
 
+/**
+ * Reusable profile management toolbar for Step 2 Chunk (`kind="chunk"`) and ColPali (`kind="colpali"`) configurations.
+ * Receives `Props<T>` from the `/chunk` or `/colpali` page.
+ * Renders a profile selector dropdown and Save / Save-as-new / Delete controls backed by `/api/profiles/{kind}`, emitting loaded profile objects to the parent page via `onLoad`.
+ */
 export default function SavedProfileBar<T extends object>({ kind, getCurrent, onLoad, disabled }: Props<T>) {
   const [profiles, setProfiles] = useState<string[]>([]);
   const [selected, setSelected] = useState("");
@@ -57,6 +66,10 @@ export default function SavedProfileBar<T extends object>({ kind, getCurrent, on
   const flashTimerRef = useRef<number | null>(null);
 
   // Show a short status message that disappears after 3s, clearing any prior timer
+  /**
+   * Displays a transient 3-second status or error banner in `SavedProfileBar`.
+   * Receives `text` and optional `isError` flag from internal profile actions (`refresh`, `handleSelect`, `save`, `handleDelete`) and updates `message` state.
+   */
   const flash = useCallback((text: string, isError = false) => {
     setMessage({ text, isError });
     if (flashTimerRef.current !== null) {
@@ -68,6 +81,10 @@ export default function SavedProfileBar<T extends object>({ kind, getCurrent, on
     }, 3000);
   }, []);
 
+  /**
+   * Fetches the latest saved profile names for `kind` via `listSavedProfiles(kind)`.
+   * Updates `profiles` state in `SavedProfileBar` or displays an error via `flash`.
+   */
   const refresh = useCallback(async () => {
     try {
       setProfiles(await listSavedProfiles(kind));
@@ -94,6 +111,10 @@ export default function SavedProfileBar<T extends object>({ kind, getCurrent, on
   }, [kind, flash]);
 
   // Load a profile as soon as it is selected
+  /**
+   * Loads the selected profile `name` from the backend via `loadSavedProfile` when the dropdown changes.
+   * Passes the loaded configuration `T` up to the parent page via `onLoad`.
+   */
   const handleSelect = async (name: string) => {
     setSelected(name);
     if (!name) return;
@@ -105,6 +126,10 @@ export default function SavedProfileBar<T extends object>({ kind, getCurrent, on
     }
   };
 
+  /**
+   * Persists the current page settings (`getCurrent()`) under `name` via `saveSavedProfile`.
+   * Refreshes the profile list, selects `name`, and returns `true` on success or `false` on error.
+   */
   const save = async (name: string) => {
     try {
       await saveSavedProfile(kind, name, getCurrent());
@@ -118,6 +143,10 @@ export default function SavedProfileBar<T extends object>({ kind, getCurrent, on
     }
   };
 
+  /**
+   * Validates `newName`, prompts for overwrite confirmation if needed, and saves a new profile via `save`.
+   * Triggered by the Save-as confirm button or Enter key in `SavedProfileBar`.
+   */
   const handleSaveAs = async () => {
     const name = newName.trim();
     if (!name) return;
@@ -128,6 +157,10 @@ export default function SavedProfileBar<T extends object>({ kind, getCurrent, on
     }
   };
 
+  /**
+   * Confirms and deletes the currently `selected` profile via `deleteSavedProfile(kind, selected)`.
+   * Clears `selected` state and refreshes the dropdown list.
+   */
   const handleDelete = async () => {
     if (!selected || !window.confirm(`Delete profile '${selected}'?`)) return;
     try {
@@ -141,6 +174,10 @@ export default function SavedProfileBar<T extends object>({ kind, getCurrent, on
   };
 
   // "Save": overwrite the selected profile, otherwise ask for a name first
+  /**
+   * Overwrites the currently `selected` profile via `save(selected)`, or opens the Save-as name input if no profile is selected.
+   * Triggered by clicking the primary Save button in `SavedProfileBar`.
+   */
   const handleSave = () => {
     if (selected) {
       save(selected);

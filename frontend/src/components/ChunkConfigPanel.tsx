@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -38,6 +38,10 @@ import {
   ToggleRow,
 } from "@/components/ui/Controls";
 
+/**
+ * Props received by `ChunkConfigPanel` from the Step 2 Chunk & Vectorize page (`app/chunk/page.tsx`).
+ * Provides the active `ChunkConfig`, field update handler `onUpdate`, and custom metadata key-value input state and callbacks.
+ */
 interface Props {
   config: ChunkConfig;
   onUpdate: (path: string, value: unknown) => void;
@@ -83,6 +87,11 @@ const DENSE_MODELS = [
   },
 ];
 
+/**
+ * Configuration form component for Step 2 Chunk & Vectorize.
+ * Receives `Props` (`config`, `onUpdate`, and custom metadata field handlers) from the `/chunk` page (`app/chunk/page.tsx`).
+ * Renders collapsible `ConfigSection` groups for chunker strategy, hybrid/hierarchical options, serialization, metadata enrichment, embedding models, and Qdrant storage, emitting field updates to `/chunk`.
+ */
 export default function ChunkConfigPanel({
   config,
   onUpdate,

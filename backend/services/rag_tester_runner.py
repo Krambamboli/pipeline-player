@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -75,6 +75,9 @@ COLPALI_UPSERT_PAGES = 16
 # Folder discovery helpers
 # ---------------------------------------------------------------------------
 
+# Receives a user-supplied `folder_path` string from `scan_folder` or `run_rag_tester`.
+# Expands `~`, resolves relative paths against `TEST_DATA_DIR`, and verifies that the target exists and is a directory.
+# Returns the resolved `Path` object to `scan_folder` or `run_rag_tester`, or raises `FileNotFoundError` / `NotADirectoryError`.
 def resolve_folder(folder_path: str) -> Path:
     """
     Resolve a user-supplied folder path:
@@ -97,12 +100,18 @@ def resolve_folder(folder_path: str) -> Path:
     return p
 
 
+# Receives a folder or file stem `name` and optional `max_len` from `scan_folder`, `_text_track`, or `run_rag_tester`.
+# Replaces non-alphanumeric characters with underscores and truncates to `max_len` to produce safe Qdrant collection and run directory names.
+# Returns the sanitized slug `str` (defaulting to `"course"` if empty) to the caller.
 def slugify(name: str, max_len: int = 48) -> str:
     """Turn a folder name into a safe Qdrant collection name fragment."""
     slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
     return (slug[:max_len].rstrip("_")) or "course"
 
 
+# Receives a resolved `folder` (`Path`) and `recursive` boolean from `scan_folder` or `run_rag_tester`.
+# Globs for `.pdf` files (recursively or top-level only), filtering out hidden files/folders and sorting case-insensitively by relative path.
+# Returns a sorted `List[Path]` of PDF files to `scan_folder` or `run_rag_tester`.
 def discover_pdfs(folder: Path, recursive: bool) -> List[Path]:
     """Return all PDFs in a folder (optionally recursive), sorted, skipping hidden files."""
     pattern = "**/*" if recursive else "*"
@@ -115,6 +124,9 @@ def discover_pdfs(folder: Path, recursive: bool) -> List[Path]:
     return sorted(pdfs, key=lambda p: str(p.relative_to(folder)).lower())
 
 
+# Receives a `pdf` (`Path`) from `scan_folder` or `run_rag_tester`.
+# Opens the PDF via PyMuPDF (`fitz`) to count its pages for UI previews and progress tracking.
+# Returns the integer page count `Optional[int]` (or `None` if the PDF cannot be opened) to the caller.
 def _page_count(pdf: Path) -> Optional[int]:
     """Return the page count of a PDF, or None if it cannot be opened."""
     try:
@@ -125,6 +137,9 @@ def _page_count(pdf: Path) -> Optional[int]:
         return None
 
 
+# Receives `folder_path` and `recursive` from `routers/rag_tester.py` (`POST /api/rag-tester/scan`).
+# Resolves the folder, discovers all PDFs with their page counts and sizes, and generates default `<slug>_hybrid` and `<slug>_colpali` collection names.
+# Returns a folder preview dict (`{"folder", "course", "pdfs", "total_pages", "suggested_hybrid_collection", "suggested_colpali_collection"}`) to `routers/rag_tester.py`.
 def scan_folder(folder_path: str, recursive: bool = True) -> Dict[str, Any]:
     """Preview a course folder: PDFs, page counts and suggested collection names."""
     folder = resolve_folder(folder_path)
@@ -149,6 +164,9 @@ def scan_folder(folder_path: str, recursive: bool = True) -> Dict[str, Any]:
     }
 
 
+# Called with no arguments by `routers/rag_tester.py` (`GET /api/rag-tester/folders`).
+# Walks `TEST_DATA_DIR` to find every non-hidden directory that directly contains at least one `.pdf` file so the UI can offer quick-select course folders.
+# Returns a `List[Dict[str, Any]]` with each folder's `name`, `rel_path`, `path`, and `pdf_count` to `routers/rag_tester.py`.
 def list_course_folders() -> List[Dict[str, Any]]:
     """
     List candidate course folders below test_data/ (every folder that contains
@@ -179,6 +197,9 @@ def list_course_folders() -> List[Dict[str, Any]]:
 # Run state & cancellation
 # ---------------------------------------------------------------------------
 
+# Instantiated by `run_rag_tester` for each discovered PDF in the target folder (`idx`, `path`, `rel_path`, `name`, `pages`).
+# Holds immutable per-document file metadata passed to both `_text_track` and `_visual_track`.
+# Consumed by `_parse_doc`, `_text_track`, `_visual_track`, `_doc_meta`, and `run_rag_tester`.
 @dataclass
 class DocItem:
     """One PDF of the course folder."""
@@ -189,6 +210,9 @@ class DocItem:
     pages: Optional[int]
 
 
+# Instantiated by `run_rag_tester` with a unique `run_id` and registered in `_active_runs`.
+# Coordinates thread-safe cancellation events (`cancel_event`, `text_stop`) and tracks active `docling_worker.py` subprocesses across the text and visual tracks.
+# Consumed by `run_rag_tester`, `_text_track`, `_visual_track`, `_parse_doc`, and `cancel_run`.
 @dataclass
 class RagRun:
     """Mutable state of an active RAG Tester run (shared between threads)."""
@@ -198,10 +222,16 @@ class RagRun:
     procs: List[subprocess.Popen] = field(default_factory=list)
     procs_lock: threading.Lock = field(default_factory=threading.Lock)
 
+    # Accessed as a property on `run` by `_parse_doc`, `_text_track`, `_visual_track`, and `run_rag_tester`.
+    # Checks whether `self.cancel_event` has been set to signal that the run should abort.
+    # Returns a `bool` (`True` if cancelled) to the checking thread or generator.
     @property
     def cancelled(self) -> bool:
         return self.cancel_event.is_set()
 
+    # Called on `self` by `RagRun.cancel` or `_text_track` when aborting.
+    # Iterates over `self.procs` under `self.procs_lock` and terminates any still-running `docling_worker.py` child processes.
+    # Returns `None` to the caller.
     def kill_procs(self) -> None:
         """Terminate all running Docling subprocesses."""
         with self.procs_lock:
@@ -212,6 +242,9 @@ class RagRun:
                     except Exception:
                         pass
 
+    # Called on `self` by `cancel_run` or `run_rag_tester` (on client disconnect).
+    # Sets `self.cancel_event` to stop both tracks and calls `self.kill_procs()` to terminate active Docling subprocesses.
+    # Returns `None` to the caller.
     def cancel(self) -> None:
         """Request cancellation of both tracks."""
         self.cancel_event.set()
@@ -221,6 +254,9 @@ class RagRun:
 _active_runs: Dict[str, RagRun] = {}
 
 
+# Receives a `run_id` string from `routers/rag_tester.py` (`POST /api/rag-tester/cancel/{run_id}`).
+# Looks up the active `RagRun` in `_active_runs` and invokes `run.cancel()` if found.
+# Returns `True` if an active run was found and cancelled, or `False` otherwise, to `routers/rag_tester.py`.
 def cancel_run(run_id: str) -> bool:
     """Cancel an active run. Returns False if the run is unknown/finished."""
     run = _active_runs.get(run_id)
@@ -230,6 +266,9 @@ def cancel_run(run_id: str) -> bool:
     return True
 
 
+# Called with no arguments by `_parse_doc`, `_text_track`, `_visual_track`, and `run_rag_tester`.
+# Formats the current local time as `HH:MM:SS` for prefixing live SSE log messages.
+# Returns the timestamp `str` to the caller.
 def _ts() -> str:
     return datetime.now().strftime("%H:%M:%S")
 
@@ -241,6 +280,9 @@ HEARTBEAT_SECONDS = 60
 _ML_IMPORT_LOCK = threading.Lock()
 
 
+# Receives boolean flags `text` and `visual` from `run_rag_tester` (via `asyncio.to_thread`).
+# Imports `torch`, `transformers`, `docling`, `fastembed`, and `sentence_transformers` sequentially under `_ML_IMPORT_LOCK` before worker threads start to prevent thread-unsafe lazy-import races.
+# Returns `None` to `run_rag_tester`.
 def _warm_ml_imports(text: bool, visual: bool) -> None:
     """
     Import the heavy ML libraries ONCE, sequentially, before the text and
@@ -274,6 +316,9 @@ _KNOWN_ERROR_HINTS = [
 _GENERIC_ERRORS = ("Pipeline StandardPdfPipeline failed", "Pipeline failed")
 
 
+# Receives `log_lines` captured from `docling_worker.py` and a `fallback` error string from `_parse_doc`.
+# Scans worker stdout lines for the first specific Python `*Error:` / `*Exception:` line (ignoring generic wrapper messages) and appends actionable user hints for known incompatibilities.
+# Returns a concise, human-readable error cause `str` to `_parse_doc`.
 def _root_cause(log_lines: List[str], fallback: str) -> str:
     """
     Extract the most specific exception line from a worker log (the first
@@ -300,6 +345,9 @@ def _root_cause(log_lines: List[str], fallback: str) -> str:
 # Text track
 # ---------------------------------------------------------------------------
 
+# Receives `run` (`RagRun`), Docling `profile` name, `doc` (`DocItem`), `out_dir` (`Path`), and event queue callback `put` from `_text_track`'s `ThreadPoolExecutor`.
+# Spawns `docling_worker.py --force-json` in a subprocess to parse a single PDF, forwarding progress and heartbeat events via `put` and saving `run.log`.
+# Returns `{"ok": bool, "json_path": Path|None, "error": str|None, "seconds": float}` to `_text_track`.
 def _parse_doc(run: RagRun, profile: str, doc: DocItem, out_dir: Path, put: Callable) -> Dict[str, Any]:
     """
     Parse one PDF with Docling in a subprocess (docling_worker.py --force-json).
@@ -321,6 +369,9 @@ def _parse_doc(run: RagRun, profile: str, doc: DocItem, out_dir: Path, put: Call
     last_step = {"msg": "starting"}
     hb_stop = threading.Event()
 
+    # Invoked as the target of daemon thread `hb` inside `_parse_doc` (captures `hb_stop`, `run`, `t0`, `doc`, `last_step`, `put`).
+    # Periodically pushes a `"still parsing"` log event every `HEARTBEAT_SECONDS` until `hb_stop` is set so long-running PDF parses show liveness in the UI.
+    # Returns `None` when parsing finishes or the run is cancelled.
     def _heartbeat() -> None:
         """Emit a 'still parsing' log every HEARTBEAT_SECONDS so long parses don't look hung."""
         while not hb_stop.wait(HEARTBEAT_SECONDS):
@@ -383,6 +434,9 @@ def _parse_doc(run: RagRun, profile: str, doc: DocItem, out_dir: Path, put: Call
     return {"ok": False, "json_path": None, "error": _root_cause(log_lines, error), "seconds": seconds}
 
 
+# Invoked in background thread `rag-text-<run_id>` by `run_rag_tester` with `run`, `req`, `cfg`, `docs`, `collection`, `base_meta`, `run_out_dir`, shared `results`, and queue callback `put`.
+# Runs `N` parallel Docling subprocesses via `_parse_doc`, loads the chunker and `fastembed` models once, and chunks, embeds, and upserts each document into `collection` as soon as its parse completes.
+# Returns `None` on thread completion while mutating `results` in place and pushing progress/log events to `put` (drained by `run_rag_tester`).
 def _text_track(
     run: RagRun,
     req: RagTesterRequest,
@@ -402,6 +456,9 @@ def _text_track(
     )
     from services.qdrant_client_manager import get_qdrant_client, qdrant_write_lock
 
+    # Receives a log message string `msg` from `_text_track`.
+    # Prefixes `msg` with the current timestamp (`_ts()`) and pushes a `"text"`-track log event to the shared SSE queue via `put`.
+    # Returns `None` to `_text_track`.
     def log(msg: str) -> None:
         put({"type": "log", "track": "text", "msg": f"[{_ts()}] {msg}"})
 
@@ -496,6 +553,9 @@ def _text_track(
 # Visual track
 # ---------------------------------------------------------------------------
 
+# Invoked in background thread `rag-visual-<run_id>` by `run_rag_tester` with `run`, ColPali profile `prof`, `docs`, `collection`, `base_meta`, shared `results`, and queue callback `put`.
+# Loads the ColPali/ColQwen2 multi-vector model once, renders each PDF's pages in batches at `prof.dpi`, encodes page images into multi-vectors, and upserts them into `collection` before releasing GPU/MPS memory.
+# Returns `None` on thread completion while mutating `results` in place and pushing progress/log events to `put` (drained by `run_rag_tester`).
 def _visual_track(
     run: RagRun,
     prof: ColPaliProcessProfile,
@@ -512,6 +572,9 @@ def _visual_track(
     from services.colpali_runner import ensure_colpali_collection, load_colpali_model, upsert_page_points
     from services.qdrant_client_manager import get_qdrant_client
 
+    # Receives a log message string `msg` from `_visual_track`.
+    # Prefixes `msg` with the current timestamp (`_ts()`) and pushes a `"visual"`-track log event to the shared SSE queue via `put`.
+    # Returns `None` to `_visual_track`.
     def log(msg: str) -> None:
         put({"type": "log", "track": "visual", "msg": f"[{_ts()}] {msg}"})
 
@@ -617,6 +680,9 @@ def _visual_track(
         log("🏁 Visual track finished")
 
 
+# Receives a `DocItem` (`doc`) and `base_meta` dict from `_text_track` and `_visual_track`.
+# Builds the common per-document payload fields (`doc_name`, `doc_source`, `file_path`, `rel_path`) so points in both hybrid and ColPali collections share identical document identifiers.
+# Returns the metadata `Dict[str, Any]` to `_text_track` or `_visual_track`.
 def _doc_meta(doc: DocItem, base_meta: Dict[str, Any]) -> Dict[str, Any]:
     """Per-document metadata shared by BOTH collections."""
     return {
@@ -631,6 +697,9 @@ def _doc_meta(doc: DocItem, base_meta: Dict[str, Any]) -> Dict[str, Any]:
 # Orchestrator (async generator consumed by the SSE endpoint)
 # ---------------------------------------------------------------------------
 
+# Receives a `RagTesterRequest` (`req`) from `routers/rag_tester.py` (`POST /api/rag-tester/run`).
+# Validates folder and profile inputs, warms up ML imports, launches `_text_track` and `_visual_track` in background threads, drains their shared event queue, and writes a run manifest to `rag_runs/<run_id>.json`.
+# Yields structured SSE event dicts (`start`, `log`, `doc`, `result`) via an `AsyncGenerator` back to `routers/rag_tester.py`.
 async def run_rag_tester(req: RagTesterRequest) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Validate the request, start both tracks in background threads and yield
@@ -643,6 +712,9 @@ async def run_rag_tester(req: RagTesterRequest) -> AsyncGenerator[Dict[str, Any]
 
     t_start = time.time()
 
+    # Receives an error message `msg` from validation checks inside `run_rag_tester`.
+    # Formats a terminal `"result"` event with `"status": "error"` so the frontend SSE stream can display the failure reason cleanly.
+    # Returns the structured error event `Dict[str, Any]` to `run_rag_tester` to be yielded to `routers/rag_tester.py`.
     def fail(msg: str) -> Dict[str, Any]:
         return {"type": "result", "result": {"status": "error", "error": msg}}
 
@@ -802,6 +874,9 @@ async def run_rag_tester(req: RagTesterRequest) -> AsyncGenerator[Dict[str, Any]
         _active_runs.pop(run_id, None)
 
     # ── Summary + manifest ────────────────────────────────────────────
+    # Receives `track` (`"text"` or `"visual"`) and metric `key` (`"chunks"` or `"pages"`) from `run_rag_tester`.
+    # Sums the completed items (`chunks` or `pages`) across all documents in `results` whose track status is `"done"`.
+    # Returns the total integer count to `run_rag_tester` for the run summary and manifest.
     def _count(track: str, key: str) -> int:
         return sum(r[track].get(key, 0) for r in results.values() if r[track].get("status") == "done")
 

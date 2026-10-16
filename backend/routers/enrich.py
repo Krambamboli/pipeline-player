@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -46,6 +46,9 @@ logger = logging.getLogger(__name__)
 # POST /api/enrich/run
 # ---------------------------------------------------------------------------
 
+# Receives a validated EnrichmentConfig (`cfg`) from POST /api/enrich/run (called by `startEnrichRun` in `frontend/src/lib/enrich.ts`).
+# Dispatches the selected Step 4 enrichment pipeline (Parent-Child, RAPTOR, or GraphRAG) and streams live progress.
+# Returns a FastAPI StreamingResponse delivering SSE progress and log frames to the frontend.
 @router.post("/run")
 async def enrich_run(cfg: EnrichmentConfig) -> StreamingResponse:
     """
@@ -55,6 +58,9 @@ async def enrich_run(cfg: EnrichmentConfig) -> StreamingResponse:
       - "__PROGRESS__=<int>"   (0–100 progress bar update)
       - "[HH:MM:SS] ..."       (log line for the UI)
     """
+    # Receives no arguments; consumed asynchronously by FastAPI's StreamingResponse.
+    # Iterates over `run_enrichment(cfg)` and formats each log/progress string as an SSE event.
+    # Yields SSE strings (`data: ...\n\n`) to the client browser.
     async def _stream():
         try:
             async for line in run_enrichment(cfg):
@@ -77,6 +83,9 @@ async def enrich_run(cfg: EnrichmentConfig) -> StreamingResponse:
 # GET /api/enrich/ollama/status
 # ---------------------------------------------------------------------------
 
+# Receives an optional Ollama `host` query parameter from GET /api/enrich/ollama/status (called by the frontend Step 4 /enrich page).
+# Pings the local Ollama server via `OllamaClient` and fetches all locally pulled model tags.
+# Returns a JSON dict (`available`, `host`, `models`) to the frontend so it can populate the LLM model selector.
 @router.get("/ollama/status")
 async def ollama_status(host: str = "http://localhost:11434") -> Dict[str, Any]:
     """

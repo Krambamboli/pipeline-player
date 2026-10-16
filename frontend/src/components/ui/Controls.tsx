@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -22,7 +22,11 @@
 import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-/** Labelled toggle switch with tooltip. */
+/**
+ * Labelled toggle switch with tooltip.
+ * Receives `id`, `label`, `paramKey`, `checked` boolean, `onChange` callback, and `tooltip` text from `ConfigPanel`, `ChunkConfigPanel`, or page config forms.
+ * Renders a styled checkbox switch row and emits the toggled boolean value via `onChange`.
+ */
 export function ToggleRow({
   id,
   label,
@@ -61,7 +65,11 @@ export function ToggleRow({
   );
 }
 
-/** Dropdown select with label and tooltip. */
+/**
+ * Dropdown select with label and tooltip.
+ * Receives `id`, `label`, `paramKey`, selected `value`, `options` array, `onChange` callback, and `tooltip` text from `ConfigPanel`, `ChunkConfigPanel`, or page forms.
+ * Renders a labelled `<select>` dropdown and emits the selected option's string `value` via `onChange`.
+ */
 export function SelectField({
   id,
   label,
@@ -101,7 +109,11 @@ export function SelectField({
   );
 }
 
-/** Numeric range slider with live value display. */
+/**
+ * Numeric range slider with live value display.
+ * Receives `id`, `label`, `paramKey`, numeric `value`, `min`, `max`, `step`, optional `unit`, `onChange`, and `tooltip` from `ConfigPanel` or page forms.
+ * Renders an `<input type="range">` slider alongside the current numeric value and emits parsed float updates via `onChange`.
+ */
 export function SliderField({
   id,
   label,
@@ -151,7 +163,11 @@ export function SliderField({
   );
 }
 
-/** Plain number input. */
+/**
+ * Plain number input.
+ * Receives `id`, `label`, `paramKey`, `value` (`number | null`), optional `min`/`max`/`nullable`, `onChange`, and `tooltip` from `ConfigPanel` or `ChunkConfigPanel`.
+ * Renders an `<input type="number">` and emits parsed numbers (or `null` when cleared and `nullable` is true) via `onChange`.
+ */
 export function NumberField({
   id,
   label,
@@ -204,7 +220,11 @@ export function NumberField({
   );
 }
 
-/** Plain text input. */
+/**
+ * Plain text input.
+ * Receives `id`, `label`, `paramKey`, `value` (`string | null`), optional `placeholder`, `onChange`, and `tooltip` from `ConfigPanel` or `ChunkConfigPanel`.
+ * Renders an `<input type="text">` and emits the updated string (or `null` when empty) via `onChange`.
+ */
 export function TextField({
   id,
   label,
@@ -240,7 +260,11 @@ export function TextField({
   );
 }
 
-/** Textarea for multi-line strings like prompts. */
+/**
+ * Textarea for multi-line strings like prompts.
+ * Receives `id`, `label`, `paramKey`, `value`, `onChange`, and `tooltip` from `ConfigPanel` or `/enrich`.
+ * Renders a multi-line `<textarea>` and emits the updated string via `onChange`.
+ */
 export function TextareaField({
   id,
   label,
@@ -272,7 +296,11 @@ export function TextareaField({
   );
 }
 
-/** Tag-based list input (e.g., OCR language codes). */
+/**
+ * Tag-based list input (e.g., OCR language codes).
+ * Receives `id`, `label`, `paramKey`, string array `values`, `onChange` callback, and `tooltip` from `ConfigPanel`.
+ * Renders removable tag pills and an inline text input, emitting the updated `string[]` via `onChange`.
+ */
 export function TagListField({
   id,
   label,
@@ -290,6 +318,10 @@ export function TagListField({
 }) {
   const [inputVal, setInputVal] = useState("");
 
+  /**
+   * Trims `val` and appends it to `values` if non-empty and not already present.
+   * Called on Enter, comma, or input blur inside `TagListField`, emitting the updated array via `onChange`.
+   */
   const addTag = (val: string) => {
     const trimmed = val.trim();
     if (trimmed && !values.includes(trimmed)) {
@@ -345,7 +377,11 @@ export function TagListField({
   );
 }
 
-/** Multi-select checkboxes (for output formats). */
+/**
+ * Multi-select checkboxes (for output formats).
+ * Receives `label`, `paramKey`, `options` list, currently `selected` values (`string[]`), `onChange`, and `tooltip` from `ConfigPanel`.
+ * Renders toggleable pill checkboxes and emits the updated array of selected option values via `onChange`.
+ */
 export function MultiCheckField({
   label,
   paramKey,
@@ -361,6 +397,10 @@ export function MultiCheckField({
   onChange: (values: string[]) => void;
   tooltip: string;
 }) {
+  /**
+   * Adds or removes option value `v` from the `selected` array.
+   * Triggered when a checkbox pill is clicked in `MultiCheckField`, emitting the updated list via `onChange`.
+   */
   const toggle = (v: string) => {
     if (selected.includes(v)) onChange(selected.filter((x) => x !== v));
     else onChange([...selected, v]);
@@ -405,7 +445,11 @@ export function MultiCheckField({
   );
 }
 
-/** Collapsible section wrapper. */
+/**
+ * Collapsible section wrapper.
+ * Receives `icon`, `title`, optional `badge`, `defaultOpen` flag, and `children` controls from `ConfigPanel`, `ChunkConfigPanel`, or page sidebars.
+ * Renders an accordion header button and conditionally renders `children` when expanded.
+ */
 export function ConfigSection({
   icon,
   title,
@@ -441,6 +485,7 @@ export function ConfigSection({
 
 /**
  * Inline tooltip with hover bubble.
+ * Receives help `text` from any form control in `Controls.tsx` or page components.
  *
  * Renders the bubble via a React portal at `document.body` with
  * `position: fixed` coordinates derived from getBoundingClientRect.
@@ -452,6 +497,10 @@ export function Tooltip({ text }: { text: string }) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
 
+  /**
+   * Computes viewport-clamped `fixed` coordinates around `iconRef` and makes the tooltip portal visible.
+   * Triggered on mouse enter or keyboard focus of the `?` icon in `Tooltip`.
+   */
   const show = useCallback(() => {
     if (!iconRef.current) return;
     const rect = iconRef.current.getBoundingClientRect();
@@ -485,6 +534,9 @@ export function Tooltip({ text }: { text: string }) {
     setVisible(true);
   }, []);
 
+  /**
+   * Hides the tooltip portal bubble when mouse leaves, focus blurs, or Escape is pressed.
+   */
   const hide = useCallback(() => setVisible(false), []);
 
   // Only create portal on client when tooltip is visible

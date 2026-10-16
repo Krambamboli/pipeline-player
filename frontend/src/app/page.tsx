@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -41,6 +41,12 @@ import RunConsole from "@/components/RunConsole";
 import OutputViewer from "@/components/OutputViewer";
 import RunHistory from "@/components/RunHistory";
 
+/**
+ * Step 1 (Docling Parse) dashboard page component mounted by the Next.js App Router at `/`.
+ * - Inputs: Receives no props from the router; consumes backend health/document lists via REST APIs, active profile state from `useConfig`, and live SSE run state from `useRunStream`.
+ * - Purpose: Coordinates Docling parameter configuration, profile management, pipeline execution, and output inspection in a three-column workspace.
+ * - Output: Renders the configuration sidebar (`ConfigPanel`, `ProfileManager`), center `OutputViewer` and `RunHistory`, and right-hand `RunConsole` for the user.
+ */
 export default function Home() {
   const [serverOk, setServerOk] = useState<boolean | null>(null);
   const [selectedRun, setSelectedRun] = useState<RunResult | null>(null);
@@ -84,6 +90,12 @@ export default function Home() {
       .catch(console.error);
   }, []);
 
+  /**
+   * Callback invoked when the user selects a past run row in the `RunHistory` component.
+   * - Inputs: Receives `run` (`RunResult`) from user interaction in `RunHistory`.
+   * - Purpose: Switches the `OutputViewer` to inspect the artifacts of the chosen historical run and resets any specific file tab override.
+   * - Output: Updates `selectedRun` to `run` and resets `requestedFile` to `null` for `OutputViewer`.
+   */
   const handleRunHistorySelect = useCallback((run: RunResult) => {
     setSelectedRun(run);
     setRequestedFile(null);
@@ -94,6 +106,12 @@ export default function Home() {
   const displayFiles = selectedRun ? selectedRun.output_files : lastOutputFiles;
 
   // Selecting a file chip in RunConsole switches OutputViewer to the latest run and activates that file tab
+  /**
+   * Callback triggered when the user clicks an output file chip in `RunConsole`.
+   * - Inputs: Receives `_dir` (string, unused output directory) and `file` (string filename) from user click events in `RunConsole`.
+   * - Purpose: Focuses the `OutputViewer` on the latest live run output and activates the clicked file tab.
+   * - Output: Clears `selectedRun` (`null`) and updates `requestedFile` (`file`) for `OutputViewer`.
+   */
   const handleSelectFile = useCallback((_dir: string, file: string) => {
     setSelectedRun(null);
     setRequestedFile(file);

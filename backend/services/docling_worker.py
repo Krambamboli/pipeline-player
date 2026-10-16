@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -34,8 +34,14 @@ from models.run_result import RunResult, RunStatus
 from services.config_manager import load_profile, copy_profile_to
 from services.docling_runner import _build_docling_options
 
+# Instantiated by main() and attached to the "docling" Python logger inside the worker subprocess.
+# Intercepts Docling stage log messages to estimate conversion progress and print "__PROGRESS__=..." lines to stdout.
+# Provides emit(record) which is invoked by Python's logging system and writes progress updates to stdout for the parent runner.
 class ProgressLogHandler(logging.Handler):
     """Intercepts docling logs to emit progress percentages."""
+    # Called by Python's logging framework with a LogRecord instance whenever the "docling" logger emits an INFO message.
+    # Maps stage keywords in the log message to heuristic progress percentages and flushes a "__PROGRESS__=" JSON line to stdout.
+    # Returns None (stdout is read by docling_runner.run_pipeline or rag_tester_runner).
     def emit(self, record):
         msg = record.getMessage()
         # Simple heuristics for progress based on docling-core logs
@@ -51,6 +57,9 @@ class ProgressLogHandler(logging.Handler):
         if pct is not None:
             print(f"__PROGRESS__={json.dumps({'percent': pct, 'message': msg})}", flush=True)
 
+# Called as the CLI entry point when docling_runner.run_pipeline or rag_tester_runner spawns docling_worker.py with sys.argv (<profile_name> <filename> <run_dir> [--force-json]).
+# Loads the PipelineConfig profile, runs Docling's DocumentConverter on the target PDF, and exports all requested output formats plus run_result.json into run_dir.
+# Returns None (flushes timestamped logs and progress events to stdout for the parent process and writes run_result.json on disk).
 def main():
     if len(sys.argv) < 4:
         print("Usage: docling_worker.py <profile_name> <filename> <run_dir> [--force-json]")
@@ -71,6 +80,9 @@ def main():
     docling_logger.setLevel(logging.INFO)
     docling_logger.addHandler(ProgressLogHandler())
 
+    # Called internally by main() with a status message string msg.
+    # Prefixes msg with the current [HH:MM:SS] timestamp and flushes it to stdout so the parent runner can stream it via SSE.
+    # Returns None.
     def log(msg: str):
         timestamped = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
         print(timestamped, flush=True)

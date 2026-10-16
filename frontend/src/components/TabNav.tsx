@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -43,6 +43,11 @@ const TABS = [
   { href: "/fusion", label: "🔀 Fusion Retriever", id: "tab-fusion", group: "rag" },
 ] as const;
 
+/**
+ * Global top navigation bar component rendered across all pages via the root layout (`app/layout.tsx`).
+ * Receives no props; reads the current route via Next.js `usePathname()`.
+ * Renders navigation `Link` tabs for Steps 1–5, ColPali, RAG Tester, and Fusion Retriever with active-tab highlighting and group dividers.
+ */
 export default function TabNav() {
   const pathname = usePathname();
 

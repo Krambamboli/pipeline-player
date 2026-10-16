@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -48,6 +48,9 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+# Called by run_raptor with vectors (2D np.ndarray of UMAP-reduced embeddings) and optional max_k (int) when options.gmm_n_components is 0.
+# Fits Gaussian Mixture Models across candidate cluster counts (2..max_k) and selects the k that minimizes the Bayesian Information Criterion (BIC).
+# Returns the optimal integer number of GMM clusters to run_raptor.
 def _auto_n_components(vectors: np.ndarray, max_k: int = 15) -> int:
     """Pick the number of GMM components via BIC (lower is better)."""
     from sklearn.mixture import GaussianMixture
@@ -72,6 +75,9 @@ def _auto_n_components(vectors: np.ndarray, max_k: int = 15) -> int:
     return best_k
 
 
+# Called by enrichment_runner.run_enrichment with source_collection, output_collection, qdrant_storage_path, llm_client (OllamaClient), options (RaptorOptions), dense_model_name, and emit callback.
+# Copies leaf chunks into output_collection and iteratively applies UMAP dimensionality reduction, GMM clustering, LLM cluster summarization, and FastEmbed encoding across tree levels.
+# Yields "__PROGRESS__=<0-100>" updates and formatted log lines back to enrichment_runner.run_enrichment for SSE streaming.
 async def run_raptor(
     *,
     source_collection: str,

@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -43,6 +43,9 @@ from pydantic import BaseModel, Field
 # Enums
 # ---------------------------------------------------------------------------
 
+# Receives enrichment strategy string values ("parent_child", "raptor", "graph_rag") from EnrichmentConfig.
+# Enumerates the supported Step 4 collection enrichment algorithms.
+# Returns a validated EnrichStrategy enum member to EnrichmentConfig and services/enrichment_runner.py.
 class EnrichStrategy(str, Enum):
     """Which enrichment algorithm to run."""
     PARENT_CHILD = "parent_child"
@@ -50,6 +53,9 @@ class EnrichStrategy(str, Enum):
     GRAPH_RAG    = "graph_rag"
 
 
+# Receives graph storage backend strings ("networkx", "neo4j") from GraphRagOptions.
+# Determines whether extracted knowledge graphs are persisted inline in Qdrant payloads or in an external Neo4j database.
+# Returns a validated GraphBackend enum member to GraphRagOptions and services/enrichers/graph_rag.py.
 class GraphBackend(str, Enum):
     """Backend used to persist the knowledge graph (GraphRAG only)."""
     NETWORKX = "networkx"  # in-process, saved as JSON in Qdrant payload
@@ -60,6 +66,9 @@ class GraphBackend(str, Enum):
 # LLM (Ollama)
 # ---------------------------------------------------------------------------
 
+# Receives Ollama host URL, model tag, timeout, and retry count from EnrichmentConfig (frontend Step 4 UI).
+# Validates connection parameters for the local Ollama daemon used by all enrichment strategies.
+# Returns a validated OllamaConfig instance to EnrichmentConfig and services/llm_client.py.
 class OllamaConfig(BaseModel):
     """Connection settings for the local Ollama daemon."""
     host: str = Field(
@@ -87,6 +96,9 @@ class OllamaConfig(BaseModel):
 # Per-strategy option groups
 # ---------------------------------------------------------------------------
 
+# Receives heading grouping depth, token budget, prompt template, and linking toggles from EnrichmentConfig.
+# Configures how the Parent-Child enricher groups leaf chunks by section heading and summarizes them via Ollama.
+# Returns a validated ParentChildOptions instance to EnrichmentConfig and services/enrichers/parent_child.py.
 class ParentChildOptions(BaseModel):
     """Options for the Parent-Child enrichment strategy."""
     grouping_level: int = Field(
@@ -130,6 +142,9 @@ class ParentChildOptions(BaseModel):
     )
 
 
+# Receives tree depth, UMAP dimensionality reduction parameters, GMM cluster count, and summary token budget from EnrichmentConfig.
+# Configures recursive UMAP+GMM clustering and hierarchical LLM summarization in the RAPTOR enricher.
+# Returns a validated RaptorOptions instance to EnrichmentConfig and services/enrichers/raptor.py.
 class RaptorOptions(BaseModel):
     """Options for the RAPTOR enrichment strategy."""
     max_levels: int = Field(
@@ -170,6 +185,9 @@ class RaptorOptions(BaseModel):
     )
 
 
+# Receives graph backend choice, Neo4j credentials, entity extraction limits, and community detection settings from EnrichmentConfig.
+# Configures knowledge graph extraction and Louvain community summarization in the GraphRAG enricher.
+# Returns a validated GraphRagOptions instance to EnrichmentConfig and services/enrichers/graph_rag.py.
 class GraphRagOptions(BaseModel):
     """Options for the GraphRAG enrichment strategy."""
     graph_backend: GraphBackend = Field(
@@ -221,6 +239,9 @@ class GraphRagOptions(BaseModel):
 # Top-level config
 # ---------------------------------------------------------------------------
 
+# Receives source collection, strategy selection, Ollama settings, and strategy-specific options from routers/enrich.py (POST /api/enrich/run).
+# Validates the complete Step 4 enrichment job configuration before dispatching to the selected enricher.
+# Returns a validated EnrichmentConfig instance to routers/enrich.py and services/enrichment_runner.py.
 class EnrichmentConfig(BaseModel):
     """
     Full configuration for a single enrichment pipeline run.

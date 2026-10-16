@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -39,13 +39,26 @@ import {
   ToggleRow,
 } from "@/components/ui/Controls";
 
+/**
+ * Props received by `ConfigPanel` from the Step 1 Docling Parser page (`app/page.tsx`).
+ * Supplies the active `PipelineConfig` from `useConfig` and the `onUpdate` (`updateField`) callback for persisting changes.
+ */
 interface Props {
   config: PipelineConfig;
   onUpdate: (path: string, value: unknown) => void;
 }
 
+/**
+ * Interactive configuration sidebar for the Step 1 Docling PDF parser.
+ * Receives `config` (`PipelineConfig`) and `onUpdate` from the Step 1 page (`app/page.tsx`).
+ * Renders collapsible `ConfigSection` panels for all Docling options and emits dot-path field updates back to `useConfig` via `onUpdate`.
+ */
 export default function ConfigPanel({ config, onUpdate }: Props) {
   const o = config.pdf_options;
+  /**
+   * Prefixes a relative `PdfPipelineOptions` field `path` with `"pdf_options."`.
+   * Receives `path` from control `onChange` handlers in `ConfigPanel` and returns the full dot-notation path string for `onUpdate`.
+   */
   const p = (path: string) => `pdf_options.${path}`;
   const pd = o.picture_description_options;
 
@@ -54,31 +67,55 @@ export default function ConfigPanel({ config, onUpdate }: Props) {
   // dropdown (*_options.kind). The backend treats the toggle as the master
   // switch and the dropdown as model choice, so we keep both consistent here:
   // picking a model switches the stage on, switching it off resets the model.
+  /**
+   * Synchronizes the `do_picture_description` toggle with `picture_description_options.kind`.
+   * Receives boolean `on` from the "Generate Picture Captions" `ToggleRow` and emits coordinated updates via `onUpdate`.
+   */
   const setPictureDescription = (on: boolean) => {
     onUpdate(p("do_picture_description"), on);
     if (on && pd.kind === "disabled") onUpdate(p("picture_description_options.kind"), "smolvlm");
     if (!on) onUpdate(p("picture_description_options.kind"), "disabled");
   };
+  /**
+   * Synchronizes the `picture_description_options.kind` VLM selector with `do_picture_description` and `enable_remote_services`.
+   * Receives the selected VLM `kind` string from the "VLM Backend" `SelectField` and emits updates via `onUpdate`.
+   */
   const setPictureDescriptionKind = (kind: string) => {
     onUpdate(p("picture_description_options.kind"), kind);
     onUpdate(p("do_picture_description"), kind !== "disabled");
     // Docling refuses API calls unless remote services are allowed
     if (kind === "api") onUpdate(p("enable_remote_services"), true);
   };
+  /**
+   * Synchronizes `do_picture_classification` with `picture_classification_options.kind`.
+   * Receives boolean `on` from the "Classify Pictures" toggle or classification dropdown and updates both fields via `onUpdate`.
+   */
   const setPictureClassification = (on: boolean) => {
     onUpdate(p("do_picture_classification"), on);
     onUpdate(p("picture_classification_options.kind"), on ? "docling" : "disabled");
   };
+  /**
+   * Synchronizes `do_chart_extraction` with `chart_extraction_options.kind`.
+   * Receives boolean `on` from the "Chart Data Extraction" toggle or chart model dropdown and updates both fields via `onUpdate`.
+   */
   const setChartExtraction = (on: boolean) => {
     onUpdate(p("do_chart_extraction"), on);
     onUpdate(p("chart_extraction_options.kind"), on ? "docling" : "disabled");
   };
+  /**
+   * Synchronizes either `do_code_enrichment` or `do_formula_enrichment` with `code_formula_options.kind`.
+   * Receives the target `field` name and boolean `on` state from its `ToggleRow`, ensuring `code_formula_options.kind` is enabled or disabled accordingly via `onUpdate`.
+   */
   const setCodeFormulaToggle = (field: "do_code_enrichment" | "do_formula_enrichment", on: boolean) => {
     onUpdate(p(field), on);
     const other = field === "do_code_enrichment" ? o.do_formula_enrichment : o.do_code_enrichment;
     if (on && o.code_formula_options.kind === "disabled") onUpdate(p("code_formula_options.kind"), "codeformulav2");
     if (!on && !other) onUpdate(p("code_formula_options.kind"), "disabled");
   };
+  /**
+   * Synchronizes `code_formula_options.kind` with the `do_code_enrichment` and `do_formula_enrichment` toggles.
+   * Receives `kind` from the "Code/Formula Model" `SelectField` and updates the model kind and boolean toggles via `onUpdate`.
+   */
   const setCodeFormulaKind = (kind: string) => {
     onUpdate(p("code_formula_options.kind"), kind);
     if (kind === "disabled") {

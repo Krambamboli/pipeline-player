@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -77,6 +77,9 @@ _DIM_MODEL_MAP = {
 }
 
 
+# Receives a dense vector dimension `dim` from `detect_text_models` or `services/retriever.py` (`run_retrieval`).
+# Infers the likely `fastembed` dense model name for legacy collections lacking payload/manifest metadata, checking the local `~/.cache/fastembed` directory for 768-dim models.
+# Returns the guessed model name `Optional[str]` (or `None` if `dim` is falsy) to the calling model detector or retriever.
 def _guess_dense_model_by_dim(dim: Optional[int]) -> Optional[str]:
     """
     Guess the dense embedding model for a legacy collection without payload metadata.
@@ -110,6 +113,9 @@ _IMPORT_LOCK = threading.Lock()
 # Collection inspection
 # ---------------------------------------------------------------------------
 
+# Receives the shared `client` (`QdrantClient`) and `collection` name from `list_fusion_collections`, `detect_text_models`, or `search_colpali`.
+# Scrolls a single point from the Qdrant collection without vectors so callers can inspect stored payload metadata (such as `"dense_model"`, `"sparse_model"`, or `"model"`).
+# Returns the first point's payload `Dict[str, Any]` (or `{}` if empty or on error) to the caller.
 def _first_payload(client, collection: str) -> Dict[str, Any]:
     """Payload of one point (used to detect models and fields)."""
     try:
@@ -119,6 +125,9 @@ def _first_payload(client, collection: str) -> Dict[str, Any]:
         return {}
 
 
+# Receives a `QdrantClient` (`client`) and collection `name` from `list_fusion_collections`, `detect_text_models`, or `search_text`.
+# Inspects the Qdrant collection's vector configuration to classify whether it is a `"text"` (dense/sparse), `"colpali"` (multi-vector), or `"other"` collection.
+# Returns a metadata dict (`{"name", "kind", "points", "has_sparse", "dense_dim"}`) to the calling function.
 def classify_collection(client, name: str) -> Dict[str, Any]:
     """Return {name, kind: text|colpali|other, points, ...} for the UI."""
     info = client.get_collection(name)
@@ -147,6 +156,9 @@ def classify_collection(client, name: str) -> Dict[str, Any]:
     }
 
 
+# Called with no arguments by `routers/fusion.py` (`GET /api/fusion/collections`) and `routers/rag_chat.py`.
+# Iterates over all Qdrant collections, classifies each into `"text"` or `"colpali"`, and attaches the detected embedding model names so the UI can populate collection selectors.
+# Returns `{"text": [...], "colpali": [...]}` sorted by collection name to the calling router.
 def list_fusion_collections() -> Dict[str, List[Dict[str, Any]]]:
     """Split all collections into text and ColPali collections (+ detected models)."""
     client = get_qdrant_client()
@@ -165,6 +177,9 @@ def list_fusion_collections() -> Dict[str, List[Dict[str, Any]]]:
     return {"text": sorted(text, key=lambda x: x["name"]), "colpali": sorted(colpali, key=lambda x: x["name"])}
 
 
+# Receives a `collection` name string from `detect_text_models`.
+# Scans `rag_runs/*.json` manifests (newest first) to recover the `(dense_model, sparse_model)` used when a RAG Tester run created `collection`.
+# Returns a `(dense_model, sparse_model)` tuple (or `None` if no matching manifest is found) to `detect_text_models`.
 def _model_from_manifest(collection: str) -> Optional[Tuple[str, str]]:
     """Find (dense_model, sparse_model) of a collection in the RAG Tester manifests."""
     if not RAG_RUNS_DIR.exists():
@@ -182,6 +197,9 @@ def _model_from_manifest(collection: str) -> Optional[Tuple[str, str]]:
     return None
 
 
+# Receives a `QdrantClient` (`client`), `collection` name, and optional `meta` dict from `list_fusion_collections`, `search_text`, or `services/retriever.py` (`run_retrieval`).
+# Determines the dense and sparse embedding models used to index `collection` by checking point payload metadata first, then RAG Tester manifests, and finally a dimension-based guess.
+# Returns `(dense_model, sparse_model, source)` where `source` is `"payload"`, `"manifest"`, or `"dimension-guess"` to the caller.
 def detect_text_models(client, collection: str, meta: Optional[Dict[str, Any]] = None) -> Tuple[Optional[str], Optional[str], str]:
     """
     Detect the embedding models of a text collection.
@@ -203,6 +221,9 @@ def detect_text_models(client, collection: str, meta: Optional[Dict[str, Any]] =
 # Embedding helpers (cached)
 # ---------------------------------------------------------------------------
 
+# Receives a `fastembed` dense model `name` from `search_text` or `services/retriever.py` (`run_retrieval`).
+# Lazily loads and caches the `TextEmbedding` instance in `_DENSE` under `_EMBED_LOCK` so subsequent queries reuse the in-memory model without reloading weights.
+# Returns the cached `TextEmbedding` instance to `search_text` or `run_retrieval`.
 def _dense_model(name: str):
     with _EMBED_LOCK:
         if name not in _DENSE:
@@ -212,6 +233,9 @@ def _dense_model(name: str):
         return _DENSE[name]
 
 
+# Receives a `fastembed` sparse model `name` from `search_text` or `services/retriever.py` (`run_retrieval`).
+# Lazily loads and caches the `SparseTextEmbedding` instance in `_SPARSE` under `_EMBED_LOCK` to avoid repeated model initialization overhead.
+# Returns the cached `SparseTextEmbedding` instance to `search_text` or `run_retrieval`.
 def _sparse_model(name: str):
     with _EMBED_LOCK:
         if name not in _SPARSE:
@@ -221,6 +245,9 @@ def _sparse_model(name: str):
         return _SPARSE[name]
 
 
+# Receives boolean flags `text` and `colpali` from `run_fusion_search`.
+# Pre-imports `fastembed`, `transformers`, and `sentence_transformers` sequentially under `_IMPORT_LOCK` before spawning worker threads so concurrent lazy imports cannot leave modules half-initialized.
+# Returns `None` to `run_fusion_search`.
 def _warm_imports(text: bool, colpali: bool) -> None:
     """Import heavy libraries sequentially before the parallel searches start."""
     with _IMPORT_LOCK:
@@ -231,6 +258,9 @@ def _warm_imports(text: bool, colpali: bool) -> None:
             from sentence_transformers import MultiVectorEncoder  # noqa: F401
 
 
+# Called with no arguments by `routers/fusion.py` (`GET /api/fusion/embedding-models`).
+# Queries `fastembed` for all supported dense and sparse text embedding models (caching the result via `@lru_cache`) and filters out deprecated alias names so the UI can populate model override dropdowns.
+# Returns `{"dense": [...], "sparse": [...]}` to `routers/fusion.py`.
 @lru_cache(maxsize=1)
 def list_embedding_models() -> Dict[str, List[Dict[str, Any]]]:
     """
@@ -262,6 +292,9 @@ def list_embedding_models() -> Dict[str, List[Dict[str, Any]]]:
 # contributions add up to the fused score Qdrant returns)
 # ---------------------------------------------------------------------------
 
+# Receives a 1-based `rank` (or `None`), RRF constant `k`, and list `weight` from `search_text`.
+# Computes a single retriever's weighted Reciprocal Rank Fusion contribution (`1 / (rank / weight + k - 1)`) matching `qdrant-client`'s formula so the UI can display how much dense vs. sparse contributed.
+# Returns the contribution `float` to `search_text`.
 def _rrf_contrib(rank: Optional[int], k: int, weight: float) -> float:
     """
     RRF contribution of one result list for a point at 1-based `rank`:
@@ -273,6 +306,9 @@ def _rrf_contrib(rank: Optional[int], k: int, weight: float) -> float:
     return 1.0 / (rank / weight + k - 1.0)
 
 
+# Receives a list of Qdrant scored `points` from `search_text` when `fusion == "dbsf"`.
+# Normalizes point scores across `[mean - 3σ, mean + 3σ]` using sample standard deviation (matching Qdrant's DBSF formula) so per-retriever score contributions can be inspected.
+# Returns a `Dict[str, float]` mapping each `point_id` to its normalized DBSF score back to `search_text`.
 def _dbsf_normalise(points: List[Any]) -> Dict[str, float]:
     """
     DBSF normalisation of one result list: scores are mapped from
@@ -293,6 +329,9 @@ def _dbsf_normalise(points: List[Any]) -> Dict[str, float]:
     return {str(p.id): (float(p.score) - low) / (high - low) for p in points}
 
 
+# Receives `dense_share` (`Optional[float]` in `0..1`) from `search_text`.
+# Categorizes whether a hybrid hit was primarily driven by the dense retriever (`>= 0.6`), sparse retriever (`<= 0.4`), or both (`"balanced"`).
+# Returns the driver label `str` (`"dense"`, `"sparse"`, `"balanced"`, or `"none"`) to `search_text`.
 def _driver(dense_share: Optional[float]) -> str:
     """Classify which retriever produced a hit: dense / sparse / balanced."""
     if dense_share is None:
@@ -308,6 +347,9 @@ def _driver(dense_share: Optional[float]) -> str:
 # Hit normalisation
 # ---------------------------------------------------------------------------
 
+# Receives a list of hit dicts (`hits`) from `search_text` or `search_colpali`.
+# Computes and attaches a min-max normalized score (`score_norm` in `0.0..1.0`) to each hit within its list for easier cross-list comparison in custom rerankers.
+# Returns the mutated `List[Dict[str, Any]]` back to `search_text` or `search_colpali`.
 def _add_norm(hits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Add min-max normalised scores (0..1) within one result list."""
     if not hits:
@@ -319,6 +361,9 @@ def _add_norm(hits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return hits
 
 
+# Receives a Qdrant point `payload` dict from `search_text` or `search_colpali`.
+# Resolves a best-effort absolute filesystem path to the source PDF by checking `file_path` first and falling back to searching `TEST_DATA_DIR` for `doc_name` / `doc_source`.
+# Returns the resolved PDF path `Optional[str]` (or `None` if not found) to `search_text` or `search_colpali`.
 def _resolve_pdf(payload: Dict[str, Any]) -> Optional[str]:
     """Best-effort absolute PDF path for a hit (for thumbnails and the LLM)."""
     fp = payload.get("file_path")
@@ -339,6 +384,9 @@ def _resolve_pdf(payload: Dict[str, Any]) -> Optional[str]:
 # Searches
 # ---------------------------------------------------------------------------
 
+# Receives `collection`, `query`, `limit`, model overrides, and fusion parameters (`fusion`, `rrf_k`, `dense_weight`, `sparse_weight`) from `run_fusion_search` (via its `timed` worker wrapper).
+# Embeds `query` with the detected or overridden dense/sparse `fastembed` models, runs individual prefetch queries plus Qdrant's fused query (`RrfQuery`, `Fusion.DBSF`, or single-vector), and computes each retriever's exact score contribution.
+# Returns a dict containing normalized `"hits"` and fusion/model metadata to `run_fusion_search`.
 def search_text(collection: str, query: str, limit: int, dense_override: str = "",
                 sparse_override: str = "", fusion: str = "rrf", rrf_k: int = 60,
                 dense_weight: float = 1.0, sparse_weight: float = 1.0) -> Dict[str, Any]:
@@ -476,6 +524,9 @@ def search_text(collection: str, query: str, limit: int, dense_override: str = "
             "dense_model": dense_name, "sparse_model": sparse_name, "model_source": src}
 
 
+# Receives `collection`, `query`, and `limit` from `run_fusion_search` (via its `timed` worker wrapper).
+# Encodes `query` into multi-vector token embeddings with the collection's ColPali/ColQwen2 model and queries Qdrant using MaxSim (`using="colpali"`).
+# Returns `{"hits": [...], "model": model_name}` with normalized page hits to `run_fusion_search`.
 def search_colpali(collection: str, query: str, limit: int) -> Dict[str, Any]:
     """MaxSim search on a ColPali multi-vector collection."""
     from services.colpali_retriever import encode_query
@@ -502,6 +553,9 @@ def search_colpali(collection: str, query: str, limit: int) -> Dict[str, Any]:
     return {"hits": _add_norm(hits), "model": model_name}
 
 
+# Receives `query`, `text_collection`, `colpali_collection`, `text_limit`, `colpali_limit`, and `text_opts` from `routers/fusion.py` (`POST /api/fusion/search`) or `services/rag_chat_service.py`.
+# Warms up heavy ML imports and executes `search_text` and `search_colpali` concurrently in a 2-worker `ThreadPoolExecutor` so both modalities are searched in parallel.
+# Returns `{"query", "text", "colpali", "errors"}` with hits, elapsed timings, and model details to the calling router or service.
 def run_fusion_search(query: str, text_collection: str, colpali_collection: str,
                       text_limit: int = 5, colpali_limit: int = 5,
                       text_opts: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -513,6 +567,9 @@ def run_fusion_search(query: str, text_collection: str, colpali_collection: str,
     out: Dict[str, Any] = {"query": query, "text": None, "colpali": None, "errors": {}}
     text_opts = text_opts or {}
 
+    # Receives a target search function `fn` (`search_text` or `search_colpali`) and its positional/keyword arguments from `ThreadPoolExecutor.submit` inside `run_fusion_search`.
+    # Executes `fn(*args, **kwargs)` while measuring wall-clock duration and attaches `"elapsed_ms"` to the returned dict.
+    # Returns the augmented result dict back to the `Future` awaited by `run_fusion_search`.
     def timed(fn, *args, **kwargs):
         t0 = time.time()
         res = fn(*args, **kwargs)
@@ -537,6 +594,9 @@ def run_fusion_search(query: str, text_collection: str, colpali_collection: str,
 # Page thumbnails
 # ---------------------------------------------------------------------------
 
+# Receives resolved PDF `path`, 1-based `page` number, `dpi`, and file `mtime` from `render_page_png`.
+# Opens the PDF with PyMuPDF (`fitz`), renders the requested page at `dpi` to PNG bytes, and caches up to 256 rendered pages in memory (invalidated automatically when `mtime` changes).
+# Returns the raw PNG `bytes` to `render_page_png`.
 @lru_cache(maxsize=256)
 def _render_png(path: str, page: int, dpi: int, mtime: float) -> bytes:
     """Render one PDF page to PNG bytes (cached; mtime invalidates the cache)."""
@@ -548,6 +608,9 @@ def _render_png(path: str, page: int, dpi: int, mtime: float) -> bytes:
         return doc.load_page(page - 1).get_pixmap(dpi=dpi).tobytes("png")
 
 
+# Receives `file_path`, 1-based `page` number, and `dpi` from `routers/fusion.py` (`GET /api/fusion/page-image`) or `services/answer_generator.py` / `services/rag_chat_service.py`.
+# Validates that `file_path` points to an existing `.pdf` file, clamps `dpi` to `36..200`, and delegates rendering to the LRU-cached `_render_png`.
+# Returns the rendered PNG image `bytes` to the calling router or service.
 def render_page_png(file_path: str, page: int, dpi: int = 72) -> bytes:
     """Validate the path (must be an existing .pdf) and render the page."""
     p = Path(file_path).expanduser().resolve()

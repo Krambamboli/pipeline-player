@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -29,6 +29,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // Default chunk config shape sent to the backend
+/**
+ * Complete configuration state for Step 2 Chunk & Vectorize, managed on the `/chunk` page and edited via `ChunkConfigPanel`.
+ * Sent to `POST /api/chunk/run` by `useChunkStream.startRun` and persisted as a saved profile via `SavedProfileBar`.
+ */
 export interface ChunkConfig {
   profile_name: string;
   description: string;
@@ -117,6 +121,10 @@ export const DEFAULT_CHUNK_CONFIG: ChunkConfig = {
   },
 };
 
+/**
+ * Terminal outcome object emitted in the final SSE event of `POST /api/chunk/run`.
+ * Stored in `useChunkStream` state (`result`) and consumed by the `/chunk` page to display collection name, chunk count, average tokens, and elapsed time.
+ */
 export interface ChunkResult {
   status: string;
   chunk_run_id?: string;
@@ -128,6 +136,11 @@ export interface ChunkResult {
   error?: string;
 }
 
+/**
+ * Custom React hook that manages the SSE streaming execution of the Step 2 chunking, embedding, and Qdrant upsert pipeline.
+ * Receives no initial arguments; invoked by the `/chunk` page component.
+ * Returns reactive state (`isRunning`, `logs`, `progress`, `result`, `errorMessage`) and control actions (`startRun`, `cancelRun`, `clearLogs`) to `/chunk`.
+ */
 export function useChunkStream() {
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
@@ -144,6 +157,10 @@ export function useChunkStream() {
     };
   }, []);
 
+  /**
+   * Resets all log lines, progress percentage, result summary, and error state in `useChunkStream`.
+   * Receives no arguments; called by the `/chunk` page when clearing console output.
+   */
   const clearLogs = useCallback(() => {
     setLogs([]);
     setResult(null);
@@ -151,6 +168,10 @@ export function useChunkStream() {
     setProgress(0);
   }, []);
 
+  /**
+   * Starts a Step 2 chunking & vectorization run by posting `config` (`ChunkConfig`) to `POST /api/chunk/run`.
+   * Receives `config` from the `/chunk` page, reads the SSE stream to update `logs`, `progress`, `result`, and `errorMessage`, and resolves `Promise<void>`.
+   */
   const startRun = useCallback(async (config: ChunkConfig) => {
     if (isRunning) return;
 
@@ -228,6 +249,10 @@ export function useChunkStream() {
     }
   }, [isRunning]);
 
+  /**
+   * Aborts the active `POST /api/chunk/run` SSE stream via `AbortController`.
+   * Receives no arguments from the `/chunk` page Cancel button; updates `isRunning` and appends a cancellation notice to `logs`.
+   */
   const cancelRun = useCallback(() => {
     abortRef.current?.abort();
     setIsRunning(false);

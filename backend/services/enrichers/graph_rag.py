@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -79,6 +79,9 @@ Text:
 """
 
 
+# Called by run_graph_rag with raw (the raw string completion returned by llm_client.complete).
+# Strips optional Markdown code fences and parses the JSON entity/relationship extraction output, returning empty lists if parsing fails.
+# Returns a dict with "entities" and "relationships" lists to run_graph_rag.
 def _parse_entity_json(raw: str) -> Dict:
     """Robustly parse LLM output that should be JSON."""
     if not raw:
@@ -94,6 +97,9 @@ def _parse_entity_json(raw: str) -> Dict:
         return {"entities": [], "relationships": []}
 
 
+# Called by enrichment_runner.run_enrichment with source_collection, output_collection, qdrant_storage_path, llm_client (OllamaClient), options (GraphRagOptions), dense_model_name, and emit callback.
+# Extracts entities and relationships per chunk via the LLM, builds a NetworkX DiGraph (or exports to Neo4j), detects Louvain communities, summarizes them, and upserts child chunks, entity nodes, and community summaries into output_collection.
+# Yields "__PROGRESS__=<0-100>" updates and formatted log lines back to enrichment_runner.run_enrichment for SSE streaming.
 async def run_graph_rag(
     *,
     source_collection: str,

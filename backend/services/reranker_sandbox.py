@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -150,6 +150,9 @@ sys.__stdout__.write(MARK + json.dumps(out, default=str) + "\n")
 _MARK = "__RERANK_RESULT__="
 
 
+# Receives user Python `code`, `text_hits`, `colpali_hits`, and top-`k` limit from `routers/fusion.py` (`POST /api/fusion/rerank`) or `services/rag_chat_service.py`.
+# Executes the user's `rerank()` function in an isolated child Python process (`python -I -c _HARNESS`) with a stripped environment and hard timeout so crashes or infinite loops cannot affect the backend, then rehydrates the selected `(source, id)` pairs into full hit dicts.
+# Returns a result dict (`{"ok", "selected"|"error", "line", "stdout", "elapsed_ms"}`) to the calling router or service.
 def run_reranker(code: str, text_hits: List[Dict[str, Any]], colpali_hits: List[Dict[str, Any]], k: int) -> Dict[str, Any]:
     """
     Execute the user reranker in a child Python process.
@@ -212,17 +215,26 @@ def run_reranker(code: str, text_hits: List[Dict[str, Any]], colpali_hits: List[
 # Saved scripts (configs/reranker/<name>.py)
 # ---------------------------------------------------------------------------
 
+# Receives a script `name` string from `load_script`, `save_script`, or `delete_script`.
+# Ensures `SCRIPTS_DIR` (`configs/reranker/`) exists and validates `name` via `_validate_name` to prevent path traversal.
+# Returns the resolved `.py` `Path` object to the calling helper.
 def _script_path(name: str) -> Path:
     SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
     return SCRIPTS_DIR / f"{_validate_name(name)}.py"
 
 
+# Called with no arguments by `routers/fusion.py` (`GET /api/fusion/scripts`) and `routers/rag_chat.py`.
+# Scans `configs/reranker/` for saved `.py` reranker scripts so the UI can list them in the script selector.
+# Returns a sorted `List[str]` of script stem names to the calling router.
 def list_scripts() -> List[str]:
     """Names of all saved reranker scripts, sorted."""
     SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
     return sorted(p.stem for p in SCRIPTS_DIR.glob("*.py"))
 
 
+# Receives a script `name` string from `routers/fusion.py` (`GET /api/fusion/scripts/{name}`) or `services/rag_chat_service.py`.
+# Resolves the script file path in `configs/reranker/` and reads its Python source text.
+# Returns the script source `str` to the caller, or raises `FileNotFoundError` if the script does not exist.
 def load_script(name: str) -> str:
     path = _script_path(name)
     if not path.exists():
@@ -230,12 +242,18 @@ def load_script(name: str) -> str:
     return path.read_text("utf-8")
 
 
+# Receives a script `name` and Python source `code` string from `routers/fusion.py` (`PUT /api/fusion/scripts/{name}`).
+# Compiles `code` first to reject syntax errors early and writes the validated script to `configs/reranker/<name>.py`.
+# Returns `None` to `routers/fusion.py` (or raises `SyntaxError` / `ValueError` on invalid input).
 def save_script(name: str, code: str) -> None:
     # Syntax check before saving so broken scripts are not persisted silently
     compile(code, f"<{name}>", "exec")
     _script_path(name).write_text(code, encoding="utf-8")
 
 
+# Receives a script `name` string from `routers/fusion.py` (`DELETE /api/fusion/scripts/{name}`).
+# Validates and resolves the script path in `configs/reranker/` and deletes the file from disk.
+# Returns `None` to `routers/fusion.py`, or raises `FileNotFoundError` if the script is missing.
 def delete_script(name: str) -> None:
     path = _script_path(name)
     if not path.exists():

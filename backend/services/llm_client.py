@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -40,10 +40,16 @@ from typing import AsyncGenerator, Optional
 logger = logging.getLogger(__name__)
 
 
+# Receives an error message string from `OllamaClient.complete` when all retry attempts fail.
+# Represents a runtime error indicating that the local Ollama daemon could not be reached or timed out.
+# Raised to callers such as `enrichment_runner.py`, strategy enrichers, and `retriever.rewrite_query`.
 class LLMUnavailableError(RuntimeError):
     """Raised when the Ollama daemon is not reachable."""
 
 
+# Instantiated by `routers/enrich.py`, `services/enrichment_runner.py`, and `services/retriever.py` with connection settings.
+# Wraps the Ollama Python SDK (with an `httpx` REST fallback) to provide a unified async LLM interface for health checks, model listing, and text generation.
+# Exposes async methods (`is_available`, `list_models`, `complete`, `stream`) to enrichment and retrieval services.
 class OllamaClient:
     """
     Async LLM client backed by a local Ollama instance.
@@ -52,6 +58,9 @@ class OllamaClient:
     Use .stream() for token-level streaming if needed.
     """
 
+    # Receives `host`, `model`, `timeout_seconds`, and `max_retries` from callers instantiating `OllamaClient` (`routers/enrich.py`, `enrichment_runner.py`, `retriever.py`).
+    # Stores the connection and retry configuration on the client instance for subsequent Ollama API calls.
+    # Returns `None` to the instantiating caller.
     def __init__(
         self,
         host: str = "http://localhost:11434",
@@ -68,6 +77,9 @@ class OllamaClient:
     # Health check
     # ------------------------------------------------------------------
 
+    # Called with no extra arguments by `routers/enrich.py` (`ollama_status`) and `services/enrichment_runner.py` (`run_enrichment`).
+    # Pings the configured Ollama daemon via the `ollama` SDK (or `/api/tags` via `httpx` fallback) to verify that the server is reachable before running LLM tasks.
+    # Returns a `bool` (`True` if reachable, `False` otherwise) to the calling router or runner.
     async def is_available(self) -> bool:
         """Return True if the Ollama daemon is running and reachable."""
         try:
@@ -86,6 +98,9 @@ class OllamaClient:
         except Exception:
             return False
 
+    # Called with no extra arguments by `routers/enrich.py` (`ollama_status`) and `services/enrichment_runner.py` (`run_enrichment`).
+    # Queries the local Ollama daemon for all installed model tags so the UI and enrichment runner can validate model availability.
+    # Returns a `list[str]` of model names to the calling router or service (or an empty list on error).
     async def list_models(self) -> list[str]:
         """Return names of all locally available Ollama models."""
         try:
@@ -112,6 +127,9 @@ class OllamaClient:
     # Core generation
     # ------------------------------------------------------------------
 
+    # Receives a user `prompt` string and optional `system` prompt from `retriever.rewrite_query` or the Step 4 enricher modules (`parent_child_enricher`, `raptor_enricher`, `graph_enricher`).
+    # Sends a non-streaming chat completion request to Ollama (with timeout and exponential-backoff retries, falling back to `httpx` if `ollama` is not installed) to generate summaries, graph entities, or rewritten queries.
+    # Returns the generated response `str` to the caller, or raises `LLMUnavailableError` if all retries fail.
     async def complete(self, prompt: str, system: str = "") -> str:
         """
         Generate a completion for the given prompt.
@@ -161,6 +179,9 @@ class OllamaClient:
             f"Last error: {last_exc}"
         )
 
+    # Receives a user `prompt` string and optional `system` prompt from callers needing incremental token output.
+    # Opens a streaming chat request against Ollama (via the `ollama` SDK or `httpx` line streaming) so responses can be consumed token by token as they are generated.
+    # Yields each generated token `str` via an `AsyncGenerator` back to the awaiting caller.
     async def stream(self, prompt: str, system: str = "") -> AsyncGenerator[str, None]:
         """Yield tokens one-by-one as they are generated."""
         import json

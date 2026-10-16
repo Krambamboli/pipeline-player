@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -29,6 +29,9 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
+# Receives PDF path, ColPali model/device/batch settings, DPI, metadata, and Qdrant target from the frontend (/colpali) via routers/colpali.py.
+# Validates all parameters required to rasterize PDF pages and encode multi-vector page embeddings.
+# Returns a validated ColPaliConfig instance to routers/colpali.py and services/colpali_runner.py.
 class ColPaliConfig(BaseModel):
     """Configuration for the ColPali visual retrieval pipeline."""
 
@@ -76,6 +79,9 @@ class ColPaliConfig(BaseModel):
     )
 
 
+# Receives document-independent ColPali process settings from the frontend Profile bar or YAML files via routers/profiles.py.
+# Validates reusable ColPali model, rendering, and metadata settings so they can be persisted in configs/colpali/ and shared with the RAG Tester.
+# Returns a validated ColPaliProcessProfile instance to services/profile_store.py and services/rag_tester_runner.py.
 class ColPaliProcessProfile(BaseModel):
     """
     Savable ColPali *process* settings (everything except the document and the
@@ -102,6 +108,9 @@ class ColPaliProcessProfile(BaseModel):
     )
 
 
+# Receives collection_name, natural-language query, and top-k limit from the frontend (/colpali/retrieve) via routers/colpali.py.
+# Validates the request payload for late-interaction MaxSim visual page retrieval.
+# Returns a validated ColPaliRetrieveRequest instance to routers/colpali.py and services/colpali_retriever.py.
 class ColPaliRetrieveRequest(BaseModel):
     """Request body for MaxSim retrieval against a ColPali collection."""
     collection_name: str = Field(..., description="Name of the ColPali Qdrant collection.")
@@ -109,6 +118,9 @@ class ColPaliRetrieveRequest(BaseModel):
     limit: int = Field(default=5, description="Number of top pages to return.")
 
 
+# Receives point ID, MaxSim score, page number, source document name, and payload metadata from services/colpali_retriever.py.
+# Structures a single ranked PDF page hit returned by Qdrant multi-vector search.
+# Returns a validated ColPaliRetrievedPage item inside ColPaliRetrieveResponse to the frontend.
 class ColPaliRetrievedPage(BaseModel):
     """A single page result from MaxSim retrieval."""
     id: str
@@ -118,6 +130,9 @@ class ColPaliRetrievedPage(BaseModel):
     metadata: Dict[str, str] = Field(default_factory=dict)
 
 
+# Receives the original query string and list of ColPaliRetrievedPage hits from services/colpali_retriever.py.
+# Wraps the ranked visual retrieval results into a typed HTTP response payload.
+# Returns a serialized JSON response via routers/colpali.py to the frontend (/colpali/retrieve).
 class ColPaliRetrieveResponse(BaseModel):
     """Response from a ColPali MaxSim retrieval query."""
     query: str

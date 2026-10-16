@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -49,12 +49,18 @@ router = APIRouter(prefix="/api/rag-tester", tags=["rag-tester"])
 logger = logging.getLogger(__name__)
 
 
+# Receives no arguments from GET /api/rag-tester/folders (called by the frontend /rag-tester page on mount).
+# Scans `test_data/` via `services/rag_tester_runner.py::list_course_folders` for directories containing PDF files.
+# Returns a list of folder candidate dicts to the frontend.
 @router.get("/folders")
 def get_folders() -> List[Dict[str, Any]]:
     """List folders below test_data/ that contain PDFs."""
     return list_course_folders()
 
 
+# Receives a validated FolderScanRequest (`req`) from POST /api/rag-tester/scan (called by the frontend /rag-tester page).
+# Inspects all PDFs inside the target folder via `scan_folder` to count pages and suggest `<course>_hybrid` / `<course>_colpali` collection names.
+# Returns a preview dict (folder path, PDF list, total pages, suggested collection names) to the frontend.
 @router.post("/scan")
 def post_scan(req: FolderScanRequest) -> Dict[str, Any]:
     """Preview the PDFs of a folder with page counts and suggested collection names."""
@@ -64,10 +70,16 @@ def post_scan(req: FolderScanRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+# Receives a validated RagTesterRequest (`req`) from POST /api/rag-tester/run (called by `startRagTesterRun` in `frontend/src/lib/ragTester.ts`).
+# Launches the dual-track (parallel Docling workers + ColPali visual encoder) batch ingestion pipeline.
+# Returns a FastAPI StreamingResponse that streams structured JSON SSE events to the frontend.
 @router.post("/run")
 async def post_run(req: RagTesterRequest) -> StreamingResponse:
     """Start a RAG Tester run. Streams JSON events as Server-Sent Events."""
 
+    # Receives no arguments; iterated asynchronously by FastAPI's StreamingResponse.
+    # Consumes `run_rag_tester(req)` and serializes each event dict as an SSE data frame, ending with `[DONE]`.
+    # Yields SSE strings (`data: {...}\n\n`) to the browser client.
     async def sse():
         try:
             async for evt in run_rag_tester(req):
@@ -85,6 +97,9 @@ async def post_run(req: RagTesterRequest) -> StreamingResponse:
     )
 
 
+# Receives a `run_id` path parameter from POST /api/rag-tester/cancel/{run_id} (called by the frontend /rag-tester page).
+# Signals `services/rag_tester_runner.py::cancel_run` to terminate active Docling subprocesses and stop the ColPali loop.
+# Returns a cancellation confirmation message dict to the frontend (or raises HTTP 404).
 @router.post("/cancel/{run_id}")
 def post_cancel(run_id: str) -> Dict[str, str]:
     """Cancel an active run (kills Docling subprocesses, stops ColPali loop)."""
@@ -93,6 +108,9 @@ def post_cancel(run_id: str) -> Dict[str, str]:
     return {"message": f"Cancellation requested for '{run_id}'."}
 
 
+# Receives no arguments from GET /api/rag-tester/runs (called by the frontend /rag-tester page).
+# Reads past run manifest JSON files from `rag_runs/`, stripping bulky profile/result arrays for lightweight display.
+# Returns a list of run manifest summary dicts sorted newest-first to the frontend.
 @router.get("/runs")
 def get_runs() -> List[Dict[str, Any]]:
     """Return summaries of past runs (newest first), without the large profile copies."""

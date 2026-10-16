@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -31,6 +31,10 @@ import type { RunEvent, RunStatus } from "@/types/config";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+/**
+ * Reactive state tracked by `useRunStream` during and after a Step 1 Docling pipeline run.
+ * Consumed by the Step 1 page (`app/page.tsx`), `RunConsole`, and `OutputViewer` to render live logs, progress, status, and output files.
+ */
 export interface RunStreamState {
   isRunning: boolean;
   logs: string[];
@@ -43,12 +47,21 @@ export interface RunStreamState {
   progress: number;
 }
 
+/**
+ * Full return value contract of `useRunStream`, combining `RunStreamState` with run lifecycle control methods.
+ * Returned to the Step 1 Docling Parser page (`app/page.tsx`) to start, cancel, or clear pipeline runs.
+ */
 interface UseRunStreamReturn extends RunStreamState {
   startRun: (profileName: string, filename: string) => void;
   cancelRun: () => void;
   clearLogs: () => void;
 }
 
+/**
+ * Custom React hook that triggers a Step 1 Docling pipeline run (`POST /api/pipeline/run`) and streams SSE `RunEvent` messages.
+ * Receives no arguments; called by the Step 1 Docling Parser page (`app/page.tsx`).
+ * Returns `UseRunStreamReturn` containing live logs, progress percentage, run outcome metadata, and `startRun` / `cancelRun` / `clearLogs` handlers.
+ */
 export function useRunStream(): UseRunStreamReturn {
   const [state, setState] = useState<RunStreamState>({
     isRunning: false,
@@ -74,6 +87,10 @@ export function useRunStream(): UseRunStreamReturn {
     };
   }, []);
 
+  /**
+   * Initiates a new Docling pipeline run for the given `profileName` and document `filename`.
+   * Called by the Step 1 page when the user clicks Run Pipeline; resets stream state and spawns `fetchStream` to consume SSE events.
+   */
   const startRun = useCallback((profileName: string, filename: string) => {
     // Cancel any previous run stream
     abortRef.current?.abort();
@@ -94,6 +111,10 @@ export function useRunStream(): UseRunStreamReturn {
       progress: 0,
     }));
 
+    /**
+     * Internal async helper that sends `POST /api/pipeline/run` and reads the SSE `ReadableStream`.
+     * Parses `RunEvent` JSON lines (`log`, `run_id`, `progress`, `done`) from the backend and updates `RunStreamState` accordingly.
+     */
     const fetchStream = async () => {
       try {
         const res = await fetch(`${BASE_URL}/api/pipeline/run`, {
@@ -177,6 +198,10 @@ export function useRunStream(): UseRunStreamReturn {
     fetchStream();
   }, []);
 
+  /**
+   * Cancels the currently running Docling pipeline stream and requests backend worker termination.
+   * Called by the Step 1 page Cancel button; aborts the local fetch stream and sends `POST /api/pipeline/run/{runId}/cancel`.
+   */
   const cancelRun = useCallback(async () => {
     if (abortRef.current) {
       abortRef.current.abort();
@@ -196,6 +221,10 @@ export function useRunStream(): UseRunStreamReturn {
     }
   }, [state.lastRunId]);
 
+  /**
+   * Clears the accumulated log lines in `RunStreamState`.
+   * Called by the Step 1 page when resetting the console view.
+   */
   const clearLogs = useCallback(() => {
     setState((prev) => ({ ...prev, logs: [] }));
   }, []);

@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -28,6 +28,10 @@ const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
+/**
+ * Metadata for a subfolder under `test_data/` containing PDFs, returned by `GET /api/rag-tester/folders` via `listCourseFolders`.
+ * Consumed by the `/rag-tester` page to populate quick-select course folder buttons.
+ */
 export interface CourseFolder {
   name: string;
   rel_path: string;
@@ -35,6 +39,10 @@ export interface CourseFolder {
   pdf_count: number;
 }
 
+/**
+ * Metadata for a single discovered PDF file inside a scanned folder, returned within `FolderScan` from `POST /api/rag-tester/scan`.
+ * Consumed by the `/rag-tester` page to preview PDF filenames, page counts, and file sizes before starting a batch run.
+ */
 export interface ScannedPdf {
   name: string;
   rel_path: string;
@@ -43,6 +51,10 @@ export interface ScannedPdf {
   size_mb: number;
 }
 
+/**
+ * Folder scan response returned by `POST /api/rag-tester/scan` via `scanFolder`.
+ * Provides the resolved folder path, course name, discovered `ScannedPdf[]`, total page count, and suggested collection names to the `/rag-tester` page.
+ */
 export interface FolderScan {
   folder: string;
   course: string;
@@ -52,6 +64,10 @@ export interface FolderScan {
   suggested_colpali_collection: string;
 }
 
+/**
+ * Batch ingestion configuration payload assembled on the `/rag-tester` page and sent to `POST /api/rag-tester/run` via `runRagTester`.
+ * Specifies target folder, profile names (`docling_profile`, `chunk_profile`, `colpali_profile`), track toggles, collection names, worker count, and custom metadata.
+ */
 export interface RagTesterRequest {
   folder_path: string;
   recursive: boolean;
@@ -68,11 +84,24 @@ export interface RagTesterRequest {
   custom_metadata: Record<string, string>;
 }
 
+/**
+ * Pipeline track identifier ("text", "visual", or "system") carried on `RagEvent` log messages from `POST /api/rag-tester/run`.
+ * Used by the `/rag-tester` page to route and badge log lines by subsystem.
+ */
 export type Track = "text" | "visual" | "system";
+
+/**
+ * Per-document processing state on either the text or visual track, emitted in `RagEvent` (`type: "doc"`) by `POST /api/rag-tester/run`.
+ * Consumed by the `/rag-tester` page to render live status badges and progress bars in the document matrix.
+ */
 export type DocStatus =
   | "queued" | "parsing" | "chunking" | "embedding" | "encoding"
   | "done" | "error" | "cancelled" | "disabled";
 
+/**
+ * Final summary payload emitted in `RagEvent` (`type: "result"`) when a batch RAG Tester run finishes on `POST /api/rag-tester/run`.
+ * Consumed by the `/rag-tester` page to display overall status, created collections, total chunks/pages, elapsed time, and any per-document failures.
+ */
 export interface RagSummary {
   status: "success" | "partial" | "cancelled" | "error";
   error?: string;
@@ -87,7 +116,10 @@ export interface RagSummary {
   elapsed_seconds?: number;
 }
 
-/** Structured events emitted by POST /api/rag-tester/run. */
+/**
+ * Structured events emitted by POST /api/rag-tester/run.
+ * Parsed by `runRagTester` and delivered via `onEvent` to the `/rag-tester` page to drive the live progress table, logs, and final summary.
+ */
 export type RagEvent =
   | {
       type: "start";
@@ -112,14 +144,22 @@ export type RagEvent =
 
 /* ── API ────────────────────────────────────────────────────────── */
 
-/** Folders below test_data/ that contain PDFs. */
+/**
+ * Folders below test_data/ that contain PDFs.
+ * Receives no arguments; called by the `/rag-tester` page on mount.
+ * Queries `GET /api/rag-tester/folders` and returns `CourseFolder[]` to populate the folder picker UI.
+ */
 export async function listCourseFolders(): Promise<CourseFolder[]> {
   const res = await fetch(`${API_BASE}/folders`);
   if (!res.ok) throw new Error(`Failed to list folders: ${res.statusText}`);
   return res.json();
 }
 
-/** Preview the PDFs of any folder (absolute, ~/..., or relative to test_data/). */
+/**
+ * Preview the PDFs of any folder (absolute, ~/..., or relative to test_data/).
+ * Receives `folder_path` and `recursive` boolean from the `/rag-tester` page when a folder is selected or scanned.
+ * Sends `POST /api/rag-tester/scan` and returns a `FolderScan` object with discovered PDFs and suggested collection names to `/rag-tester`.
+ */
 export async function scanFolder(folder_path: string, recursive: boolean): Promise<FolderScan> {
   const res = await fetch(`${API_BASE}/scan`, {
     method: "POST",
@@ -135,8 +175,10 @@ export async function scanFolder(folder_path: string, recursive: boolean): Promi
 
 /**
  * Start a run and stream its events.
+ * Receives `req` (`RagTesterRequest`), `onEvent` callback, and optional `AbortSignal` from the `/rag-tester` page.
  * WHY fetch + ReadableStream: the endpoint is a POST (EventSource is GET-only).
  * Closing the stream (abort) cancels the run on the backend.
+ * Reads SSE `data:` blocks from `POST /api/rag-tester/run` and emits parsed `RagEvent` objects to `onEvent` until `[DONE]`.
  */
 export async function runRagTester(
   req: RagTesterRequest,
@@ -177,7 +219,11 @@ export async function runRagTester(
   }
 }
 
-/** Ask the backend to cancel an active run. */
+/**
+ * Ask the backend to cancel an active run.
+ * Receives the active `run_id` string from the `/rag-tester` page when the user clicks Cancel.
+ * Sends `POST /api/rag-tester/cancel/{run_id}` to stop backend workers and resolves `void`.
+ */
 export async function cancelRagTester(run_id: string): Promise<void> {
   await fetch(`${API_BASE}/cancel/${encodeURIComponent(run_id)}`, { method: "POST" });
 }

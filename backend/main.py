@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -102,6 +102,9 @@ app.include_router(rag_tester_router.router)
 app.include_router(fusion_router.router)
 
 
+# Receives no arguments; triggered automatically by FastAPI/Uvicorn during server startup.
+# Ensures the default Docling configuration profile exists on disk so the UI can load immediately.
+# Returns None to the ASGI lifespan handler after printing readiness status.
 @app.on_event("startup")
 async def on_startup() -> None:
     """

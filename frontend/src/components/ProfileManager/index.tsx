@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -26,6 +26,10 @@
 import { useEffect, useState } from "react";
 import { deleteProfile, listProfiles } from "@/lib/api";
 
+/**
+ * Props received by `ProfileManager` from the Step 1 Docling Parser page (`app/page.tsx`).
+ * Provides the active `currentProfile` name, `onSwitch` and `onSaveAs` callbacks from `useConfig`, and optional `onDownload` export callback.
+ */
 interface Props {
   currentProfile: string;
   onSwitch: (name: string) => void;
@@ -34,17 +38,30 @@ interface Props {
   onDownload?: () => void;
 }
 
+/**
+ * Toolbar component for switching, saving-as, deleting, and downloading Step 1 Docling configuration profiles.
+ * Receives `Props` (`currentProfile`, `onSwitch`, `onSaveAs`, `onDownload`) from the Step 1 page (`app/page.tsx`).
+ * Fetches saved profile names via `listProfiles` and renders the profile selector dropdown and action buttons.
+ */
 export default function ProfileManager({ currentProfile, onSwitch, onSaveAs, onDownload }: Props) {
   const [profiles, setProfiles] = useState<string[]>([]);
   const [isSaveAsOpen, setIsSaveAsOpen] = useState(false);
   const [newName, setNewName] = useState("");
 
+  /**
+   * Reloads the list of available Docling profile names from `GET /api/config/profiles` via `listProfiles`.
+   * Updates `profiles` state in `ProfileManager`.
+   */
   const refresh = () => {
     listProfiles().then(setProfiles).catch(console.error);
   };
 
   useEffect(() => { refresh(); }, [currentProfile]);
 
+  /**
+   * Normalizes `newName` (lowercase, underscores) and invokes `onSaveAs` to create a new Docling profile.
+   * Triggered by the Save As confirm button or Enter key; closes the input and refreshes the profile list.
+   */
   const handleSaveAs = async () => {
     const name = newName.trim().toLowerCase().replace(/\s+/g, "_");
     if (!name) return;
@@ -54,6 +71,10 @@ export default function ProfileManager({ currentProfile, onSwitch, onSaveAs, onD
     refresh();
   };
 
+  /**
+   * Deletes the currently selected non-default profile via `deleteProfile` after user confirmation.
+   * Triggered by the Delete button; switches back to `"default"` via `onSwitch` and refreshes the profile list.
+   */
   const handleDelete = async () => {
     if (currentProfile === "default") return;
     if (!confirm(`Delete profile "${currentProfile}"?`)) return;

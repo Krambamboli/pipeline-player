@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -43,6 +43,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DATA_DIR = REPO_ROOT / "test_data"
 
 
+# Receives no arguments from GET /api/colpali/pdfs (called by the frontend /colpali page).
+# Scans `test_data/` for `.pdf` files and computes their file size in megabytes for selection in the UI.
+# Returns a list of dicts (`name`, `path`, `size_mb`) to the frontend.
 @router.get("/pdfs")
 def list_pdfs():
     """List available PDF files from the test_data/ directory."""
@@ -61,6 +64,9 @@ def list_pdfs():
     return pdfs
 
 
+# Receives a validated ColPaliConfig (`cfg`) from POST /api/colpali/run (called by `runColPali` in `frontend/src/lib/colpali.ts`).
+# Initiates the visual page rasterization and ColQwen2/ColPali multi-vector indexing pipeline.
+# Returns a FastAPI StreamingResponse that streams live SSE log and progress events to the frontend.
 @router.post("/run")
 async def run_pipeline(cfg: ColPaliConfig):
     """
@@ -71,6 +77,9 @@ async def run_pipeline(cfg: ColPaliConfig):
     """
     from services.colpali_runner import run_colpali_pipeline
 
+    # Receives no arguments; consumed asynchronously by FastAPI's StreamingResponse.
+    # Iterates over `run_colpali_pipeline(...)` and wraps each emitted status/progress line in an SSE data frame.
+    # Yields SSE strings (`data: ...\n\n`) to the client browser.
     async def sse_stream():
         try:
             async for line in run_colpali_pipeline(
@@ -99,6 +108,9 @@ async def run_pipeline(cfg: ColPaliConfig):
     )
 
 
+# Receives a ColPaliRetrieveRequest (`req`) from POST /api/colpali/retrieve (called by the frontend /colpali/retrieve page).
+# Delegates late-interaction MaxSim query encoding and Qdrant multi-vector search to `services/colpali_retriever.py`.
+# Returns a ColPaliRetrieveResponse containing ranked PDF pages and scores to the frontend.
 @router.post("/retrieve", response_model=ColPaliRetrieveResponse)
 def retrieve(req: ColPaliRetrieveRequest):
     """Run MaxSim retrieval against a ColPali collection."""

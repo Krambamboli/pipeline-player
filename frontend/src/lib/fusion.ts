@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -26,7 +26,10 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const BASE = `${API_BASE}/api/fusion`;
 
-/** A normalised hit (text chunk or ColPali page) — the same dict the reranker receives. */
+/**
+ * A normalised hit (text chunk or ColPali page) — the same dict the reranker receives.
+ * Returned by `POST /api/fusion/search` and `POST /api/fusion/rerank`, and consumed by the `/fusion` page, `pageLabel`, and `buildLlmContext`.
+ */
 export interface FusionHit {
   source: "text" | "colpali";
   id: string;
@@ -57,6 +60,10 @@ export interface FusionHit {
   reason?: string | null;
 }
 
+/**
+ * Metadata for a Qdrant text collection returned by `GET /api/fusion/collections` via `listFusionCollections`.
+ * Consumed by the `/fusion` page to display collection point counts, detected dense/sparse embedding models, and hybrid capabilities.
+ */
 export interface TextCollectionInfo {
   name: string;
   points: number;
@@ -67,15 +74,26 @@ export interface TextCollectionInfo {
   model_source: "payload" | "manifest" | "dimension-guess";
 }
 
+/**
+ * Metadata for a ColPali multi-vector Qdrant collection returned by `GET /api/fusion/collections` via `listFusionCollections`.
+ * Consumed by the `/fusion` page to populate the visual collection selector.
+ */
 export interface ColPaliCollectionInfo {
   name: string;
   points: number;
   model: string;
 }
 
-/** How the dense and sparse lists of the text collection are fused. */
+/**
+ * How the dense and sparse lists of the text collection are fused.
+ * Selected on the `/fusion` page and sent to `POST /api/fusion/search` via `fusionSearch`.
+ */
 export type TextFusion = "rrf" | "dbsf" | "dense" | "sparse";
 
+/**
+ * Descriptor for a fastembed dense or sparse model returned by `GET /api/fusion/embedding-models` via `listEmbeddingModels`.
+ * Consumed by the `/fusion` page to populate model override dropdowns.
+ */
 export interface EmbeddingModelOption {
   model: string;
   dim?: number | null;
@@ -83,6 +101,10 @@ export interface EmbeddingModelOption {
   description?: string;
 }
 
+/**
+ * Combined search response returned by `POST /api/fusion/search` via `fusionSearch`.
+ * Delivers both the text retrieval results (`FusionHit[]` and fusion metadata), ColPali MaxSim results, and any per-track errors to the `/fusion` page.
+ */
 export interface FusionSearchResult {
   query: string;
   text: {
@@ -101,6 +123,10 @@ export interface FusionSearchResult {
   errors: Record<string, string>;
 }
 
+/**
+ * Execution outcome of the user's Python reranker returned by `POST /api/fusion/rerank` via `runRerank`.
+ * Delivers the fused `selected` hits, standard output, execution time, or syntax/runtime error details (`line`, `traceback`) to the `/fusion` page and `PythonEditor`.
+ */
 export interface RerankResult {
   ok: boolean;
   selected?: FusionHit[];
@@ -111,7 +137,11 @@ export interface RerankResult {
   elapsed_ms: number;
 }
 
-/** Throw a readable error for non-2xx responses (uses FastAPI's `detail`). */
+/**
+ * Throw a readable error for non-2xx responses (uses FastAPI's `detail`).
+ * Receives a `Response` object from `fetch` calls within `lib/fusion.ts`.
+ * Inspects `res.ok`, extracts the FastAPI `detail` message on failure to throw an `Error`, or returns the valid `Response` to the calling function.
+ */
 async function check(res: Response): Promise<Response> {
   if (!res.ok) {
     let detail = res.statusText;
@@ -125,15 +155,29 @@ async function check(res: Response): Promise<Response> {
   return res;
 }
 
+/**
+ * Lists all available text and ColPali Qdrant collections for fusion retrieval.
+ * Receives no arguments; called by the `/fusion` page on mount.
+ * Queries `GET /api/fusion/collections` and returns `{ text: TextCollectionInfo[]; colpali: ColPaliCollectionInfo[] }` to the `/fusion` page.
+ */
 export async function listFusionCollections(): Promise<{ text: TextCollectionInfo[]; colpali: ColPaliCollectionInfo[] }> {
   return (await check(await fetch(`${BASE}/collections`))).json();
 }
 
-/** Dense/sparse query models supported by the backend's fastembed version. */
+/**
+ * Dense/sparse query models supported by the backend's fastembed version.
+ * Receives no arguments; called by the `/fusion` page on mount.
+ * Queries `GET /api/fusion/embedding-models` and returns `{ dense: EmbeddingModelOption[]; sparse: EmbeddingModelOption[] }` to the `/fusion` page.
+ */
 export async function listEmbeddingModels(): Promise<{ dense: EmbeddingModelOption[]; sparse: EmbeddingModelOption[] }> {
   return (await check(await fetch(`${BASE}/embedding-models`))).json();
 }
 
+/**
+ * Executes parallel hybrid text search and ColPali MaxSim visual search for a single query.
+ * Receives the search parameters (`query`, collection names, limits, optional model overrides, and `text_fusion` settings) from the `/fusion` page.
+ * Sends `POST /api/fusion/search` to the backend and returns the `FusionSearchResult` to the `/fusion` page.
+ */
 export async function fusionSearch(body: {
   query: string;
   text_collection: string;
@@ -155,6 +199,11 @@ export async function fusionSearch(body: {
   return (await check(res)).json();
 }
 
+/**
+ * Runs the user-defined Python `rerank()` script on the retrieved text and ColPali hits.
+ * Receives the Python `code`, `textHits`, `colpaliHits`, top-`k` limit, and optional `AbortSignal` from the `/fusion` page.
+ * Sends `POST /api/fusion/rerank` to execute the script in the backend sandbox and returns `RerankResult` to the `/fusion` page.
+ */
 export async function runRerank(
   code: string,
   textHits: FusionHit[],
@@ -171,24 +220,48 @@ export async function runRerank(
   return (await check(res)).json();
 }
 
-/** URL of a PNG thumbnail for a PDF page. */
+/**
+ * URL of a PNG thumbnail for a PDF page.
+ * Receives `filePath`, 1-based `page` number, and optional `dpi` from the `/fusion` page when rendering ColPali page hit previews.
+ * Builds and returns the `GET /api/fusion/page-image?...` URL string for `<img src={...}>` elements.
+ */
 export function pageImageUrl(filePath: string, page: number, dpi = 72): string {
   const q = new URLSearchParams({ file_path: filePath, page: String(page), dpi: String(dpi) });
   return `${BASE}/page-image?${q.toString()}`;
 }
 
+/**
+ * Fetches the built-in default Python reranker script template.
+ * Receives no arguments; called by the `/fusion` page on mount or when resetting the editor.
+ * Queries `GET /api/fusion/default-script` and returns the Python source code string to the `/fusion` page.
+ */
 export async function getDefaultScript(): Promise<string> {
   return (await (await check(await fetch(`${BASE}/default-script`))).json()).code;
 }
 
+/**
+ * Lists the names of all saved user Python reranker scripts.
+ * Receives no arguments; called by the `/fusion` page to populate the saved scripts dropdown.
+ * Queries `GET /api/fusion/scripts` and returns `string[]` of script names to the `/fusion` page.
+ */
 export async function listScripts(): Promise<string[]> {
   return (await check(await fetch(`${BASE}/scripts`))).json();
 }
 
+/**
+ * Loads a saved Python reranker script by name.
+ * Receives the script `name` from the `/fusion` page when the user selects a saved script.
+ * Queries `GET /api/fusion/scripts/{name}` and returns the script's Python source code string to the `/fusion` page.
+ */
 export async function loadScript(name: string): Promise<string> {
   return (await (await check(await fetch(`${BASE}/scripts/${encodeURIComponent(name)}`))).json()).code;
 }
 
+/**
+ * Saves or overwrites a named Python reranker script on the backend.
+ * Receives the script `name` and Python `code` from the `/fusion` page.
+ * Sends `PUT /api/fusion/scripts/{name}` to persist the `.py` file and resolves `void` to the caller.
+ */
 export async function saveScript(name: string, code: string): Promise<void> {
   await check(
     await fetch(`${BASE}/scripts/${encodeURIComponent(name)}`, {
@@ -199,11 +272,20 @@ export async function saveScript(name: string, code: string): Promise<void> {
   );
 }
 
+/**
+ * Deletes a saved Python reranker script by name.
+ * Receives the script `name` from the `/fusion` page when the user clicks Delete.
+ * Sends `DELETE /api/fusion/scripts/{name}` to the backend and resolves `void` to the caller.
+ */
 export async function deleteScript(name: string): Promise<void> {
   await check(await fetch(`${BASE}/scripts/${encodeURIComponent(name)}`, { method: "DELETE" }));
 }
 
-/** Human-readable page label, e.g. "p.14" or "p.3–5". */
+/**
+ * Human-readable page label, e.g. "p.14" or "p.3–5".
+ * Receives a `FusionHit` object from `buildLlmContext` or the `/fusion` page UI.
+ * Formats `hit.pages` or `hit.page` into a compact page range string and returns it to the caller.
+ */
 export function pageLabel(hit: FusionHit): string {
   const pages = hit.pages?.filter((p) => p != null) ?? [];
   if (pages.length > 1) return `p.${Math.min(...pages)}–${Math.max(...pages)}`;
@@ -213,6 +295,8 @@ export function pageLabel(hit: FusionHit): string {
 /**
  * Build the LLM context for the final selection: every item gets an explicit
  * "[Source N — …]" label; ColPali pages are attached as images (in order).
+ * Receives the reranked `selected` (`FusionHit[]`) list from the `/fusion` page prior to calling `generateAnswer`.
+ * Formats numbered text chunks and extracts PDF page image references, returning `{ chunks, imageRefs }` to the `/fusion` page.
  */
 export function buildLlmContext(selected: FusionHit[]): {
   chunks: string[];

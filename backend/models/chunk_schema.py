@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -40,6 +40,9 @@ from pydantic import BaseModel, Field
 # Enums
 # ---------------------------------------------------------------------------
 
+# Receives string values ("hybrid", "hierarchical", "page") from ChunkPipelineConfig / frontend Step 2 UI.
+# Enumerates the supported Docling document chunking strategies to prevent invalid strategy names.
+# Returns a validated ChunkerKind enum member to ChunkPipelineConfig and services/chunk_runner.py.
 class ChunkerKind(str, Enum):
     """Available Docling chunker strategies."""
     HYBRID = "hybrid"
@@ -47,6 +50,9 @@ class ChunkerKind(str, Enum):
     PAGE = "page"
 
 
+# Receives string values ("dense", "sparse", "hybrid") from EmbeddingOptions / frontend Step 2 UI.
+# Defines which vector representations should be computed and stored per chunk in Qdrant.
+# Returns a validated EmbeddingMode enum member to EmbeddingOptions and services/chunk_runner.py.
 class EmbeddingMode(str, Enum):
     """
     Controls which vector type(s) are generated and stored in Qdrant.
@@ -63,6 +69,9 @@ class EmbeddingMode(str, Enum):
 # Chunker option groups
 # ---------------------------------------------------------------------------
 
+# Receives tokenizer and token-budget settings from ChunkPipelineConfig (frontend Step 2 or YAML profile).
+# Validates parameters for Docling's token-aware HybridChunker so chunks fit the target embedding model context window.
+# Returns a validated HybridChunkerOptions instance consumed by services/chunk_runner.py.
 class HybridChunkerOptions(BaseModel):
     """
     Options for Docling's HybridChunker, which splits documents respecting
@@ -116,6 +125,9 @@ class HybridChunkerOptions(BaseModel):
     )
 
 
+# Receives structural merging flags from ChunkPipelineConfig (frontend Step 2 or saved chunk profile).
+# Configures Docling's section-based HierarchicalChunker without enforcing a strict token limit.
+# Returns a validated HierarchicalChunkerOptions instance to ChunkPipelineConfig and services/chunk_runner.py.
 class HierarchicalChunkerOptions(BaseModel):
     """
     Options for Docling's HierarchicalChunker, which creates one chunk per
@@ -138,6 +150,9 @@ class HierarchicalChunkerOptions(BaseModel):
 # Serialization options
 # ---------------------------------------------------------------------------
 
+# Receives heading and caption inclusion flags from ChunkPipelineConfig (frontend Step 2 or YAML profile).
+# Controls how document elements are serialized into the final `chunk_text` string before embedding.
+# Returns a validated SerializationOptions instance to ChunkPipelineConfig and services/chunk_runner.py.
 class SerializationOptions(BaseModel):
     """
     Controls how each chunk's text is assembled from the document elements.
@@ -164,6 +179,9 @@ class SerializationOptions(BaseModel):
 # Metadata enrichment options
 # ---------------------------------------------------------------------------
 
+# Receives payload enrichment toggles and custom key-value fields from ChunkPipelineConfig.
+# Specifies which provenance and structural metadata fields should be attached to each Qdrant point payload.
+# Returns a validated MetadataEnrichmentOptions instance to ChunkPipelineConfig and services/chunk_runner.py.
 class MetadataEnrichmentOptions(BaseModel):
     """
     Controls what metadata is stored in the Qdrant payload alongside each chunk.
@@ -216,6 +234,9 @@ class MetadataEnrichmentOptions(BaseModel):
 # Embedding options
 # ---------------------------------------------------------------------------
 
+# Receives embedding mode, fastembed model IDs, and batch size from ChunkPipelineConfig.
+# Validates the dense/sparse vectorization configuration used to embed chunks into Qdrant.
+# Returns a validated EmbeddingOptions instance to ChunkPipelineConfig and services/chunk_runner.py.
 class EmbeddingOptions(BaseModel):
     """
     Controls the vector embedding strategy. Supports dense-only, sparse-only
@@ -257,6 +278,9 @@ class EmbeddingOptions(BaseModel):
 # Qdrant storage options
 # ---------------------------------------------------------------------------
 
+# Receives storage path, collection name, overwrite flag, and on-disk payload preference from ChunkPipelineConfig.
+# Configures where and how Qdrant collections are created or appended on local disk.
+# Returns a validated QdrantOptions instance to ChunkPipelineConfig and services/chunk_runner.py.
 class QdrantOptions(BaseModel):
     """
     Configuration for the local Qdrant vector store.
@@ -300,6 +324,9 @@ class QdrantOptions(BaseModel):
 # Root chunk pipeline config
 # ---------------------------------------------------------------------------
 
+# Receives full Step 2 chunking, serialization, metadata, embedding, and Qdrant settings from routers/chunk.py or services/profile_store.py.
+# Aggregates and validates all configuration parameters required to execute a chunking & vectorization run or save a reusable chunk profile.
+# Returns a validated ChunkPipelineConfig object to routers/chunk.py, services/chunk_runner.py, and services/rag_tester_runner.py.
 class ChunkPipelineConfig(BaseModel):
     """
     Root configuration for the chunking & vectorization pipeline.

@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -27,12 +27,21 @@ import { useEffect, useState } from "react";
 import { listRuns } from "@/lib/api";
 import type { RunResult } from "@/types/config";
 
+/**
+ * Props received by `RunHistory` from the Step 1 Docling Parser page (`app/page.tsx`).
+ * Provides a `refreshTrigger` value (e.g. `lastRunId`), `onSelect` callback when a run card is clicked, and the currently `selectedRunId`.
+ */
 interface Props {
   refreshTrigger: number | string;
   onSelect: (run: RunResult) => void;
   selectedRunId: string | null;
 }
 
+/**
+ * List component displaying past Step 1 Docling pipeline runs.
+ * Receives `Props` (`refreshTrigger`, `onSelect`, `selectedRunId`) from the Step 1 page (`app/page.tsx`).
+ * Fetches `RunResult[]` via `listRuns()` whenever `refreshTrigger` changes and renders selectable run cards that emit the chosen `RunResult` via `onSelect`.
+ */
 export default function RunHistory({ refreshTrigger, onSelect, selectedRunId }: Props) {
   const [runs, setRuns] = useState<RunResult[]>([]);
 

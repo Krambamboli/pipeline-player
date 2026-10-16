@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -51,6 +51,12 @@ import {
 
 /* ── Local types ────────────────────────────────────────────────── */
 
+/**
+ * Per-track execution state for a single PDF document row in the RAG Tester table.
+ * - Inputs: Initialized by `emptyTrack` and updated via `doc` SSE events handled in `handleEvent`.
+ * - Purpose: Tracks current stage (`status`), percentage (`progress`), status message (`detail`), and produced item count (`count`) for either the text or visual track.
+ * - Output: Consumed by `DocRow`, `trackProgress`, and the document status table UI.
+ */
 interface TrackState {
   status: DocStatus;
   progress: number;
@@ -58,6 +64,12 @@ interface TrackState {
   count?: number;
 }
 
+/**
+ * Row model representing a single PDF document and its dual-track progress in the RAG Tester table.
+ * - Inputs: Built from `FolderScan.pdfs` before a run or `RagEvent` (`type === "start"`) when a batch run begins.
+ * - Purpose: Combines document metadata (`rel_path`, `name`, `pages`) with live `text` and `visual` `TrackState` objects.
+ * - Output: Rendered as a table row in the center panel and aggregated by `overall` progress metrics.
+ */
 interface DocRow {
   rel_path: string;
   name: string;
@@ -66,12 +78,24 @@ interface DocRow {
   visual: TrackState;
 }
 
+/**
+ * Summary subset of a saved Step 2 chunking profile loaded from `/api/profiles/chunk/{name}`.
+ * - Inputs: Deserialized from the backend response by `loadSavedProfile<ChunkProfileInfo>`.
+ * - Purpose: Exposes key chunker and embedding settings to display informational summary chips in the setup sidebar.
+ * - Output: Stored in `chunkInfo` state and rendered as `.rag-chip` badges under the chunk profile selector.
+ */
 interface ChunkProfileInfo {
   chunker: string;
   hybrid_chunker_options: { max_tokens: number; tokenizer_model: string };
   embedding: { mode: string; dense_model: string; sparse_model: string };
 }
 
+/**
+ * Summary subset of a saved ColPali process profile loaded from `/api/profiles/colpali/{name}`.
+ * - Inputs: Deserialized from the backend response by `loadSavedProfile<ColPaliProfileInfo>`.
+ * - Purpose: Exposes VLM model, device, DPI, batch size, and page limit settings for quick inspection in the setup sidebar.
+ * - Output: Stored in `colpaliInfo` state and rendered as `.rag-chip` badges under the ColPali profile selector.
+ */
 interface ColPaliProfileInfo {
   model_name: string;
   device: string;
@@ -94,7 +118,12 @@ const STATUS_LABEL: Record<DocStatus, string> = {
   disabled: "—",
 };
 
-/** Map a track state to an overall progress value (0–100) for the track bars. */
+/**
+ * Map a track state to an overall progress value (0–100) for the track bars.
+ * - Inputs: Receives `t` (`TrackState`) and `track` (`"text" | "visual"`) from `overall` memo calculation and per-row progress bars.
+ * - Purpose: Normalizes multi-stage pipeline statuses (`parsing`, `chunking`, `embedding`, `encoding`, `done`) into a single 0–100 percentage.
+ * - Output: Returns an integer between `0` and `100` for rendering progress bar widths.
+ */
 function trackProgress(t: TrackState, track: "text" | "visual"): number {
   switch (t.status) {
     case "done":
@@ -114,10 +143,22 @@ function trackProgress(t: TrackState, track: "text" | "visual"): number {
   }
 }
 
+/**
+ * Factory helper that creates an initial `TrackState` for a document row.
+ * - Inputs: Receives `enabled` (boolean) indicating whether the respective track (`enableText` or `enableVisual`) is active.
+ * - Purpose: Initializes document rows as `"queued"` when the track is enabled or `"disabled"` when turned off.
+ * - Output: Returns a fresh `TrackState` object with `progress: 0`.
+ */
 const emptyTrack = (enabled: boolean): TrackState => ({ status: enabled ? "queued" : "disabled", progress: 0 });
 
 /* ── Page ───────────────────────────────────────────────────────── */
 
+/**
+ * Batch RAG Tester page component mounted by the Next.js App Router at `/rag-tester`.
+ * - Inputs: Receives no router props; loads course folders, saved Docling/Chunk/ColPali profiles, and folder scans from backend REST APIs, and consumes SSE batch events via `runRagTester`.
+ * - Purpose: Orchestrates one-click batch ingestion of an entire course folder into both a hybrid text Qdrant collection and a ColPali visual Qdrant collection in parallel.
+ * - Output: Renders the left batch setup sidebar, center track progress cards and per-document status table, and right run controls with filterable live log console.
+ */
 export default function RagTesterPage() {
   // ── Folder selection ───────────────────────────────────────────
   const [folders, setFolders] = useState<CourseFolder[]>([]);
@@ -165,6 +206,12 @@ export default function RagTesterPage() {
   /* ── Saved profiles: (re)load lists, keep the current selection ── */
   // Bumped on every refresh so the info chips re-load overwritten profiles too.
   const [profilesVersion, setProfilesVersion] = useState(0);
+  /**
+   * Async callback that reloads saved Docling, Chunk, and ColPali profile lists from the backend.
+   * - Inputs: Triggered on component mount, window focus/visibility events, or user click on the refresh (`↻`) button.
+   * - Purpose: Synchronizes dropdown options with profiles saved in other tabs while preserving the user's current selection if still valid.
+   * - Output: Updates `doclingProfiles`, `chunkProfiles`, `colpaliProfiles`, their selected state values, and increments `profilesVersion`.
+   */
   const refreshProfiles = useCallback(async () => {
     // Keep the current choice if it still exists, otherwise fall back
     const keep = (list: string[], fallback?: string) => (cur: string) =>
@@ -327,6 +374,12 @@ export default function RagTesterPage() {
   const canRun = !isRunning && missing.length === 0;
 
   /* ── Event handling ─────────────────────────────────────────── */
+  /**
+   * Callback that processes structured SSE events emitted by the backend RAG Tester stream.
+   * - Inputs: Receives `evt` (`RagEvent`: `"start" | "log" | "doc" | "result"`) from `runRagTester`.
+   * - Purpose: Initializes document rows on `"start"`, appends track-tagged log lines on `"log"`, updates per-document track progress on `"doc"`, and records final run statistics on `"result"`.
+   * - Output: Updates `runId`, `runCollections`, `rows`, `logs`, and `summary` state to drive the live UI.
+   */
   const handleEvent = useCallback((evt: RagEvent) => {
     switch (evt.type) {
       case "start":
@@ -366,6 +419,12 @@ export default function RagTesterPage() {
     }
   }, []);
 
+  /**
+   * Helper that collects non-empty custom metadata key-value pairs from the setup form.
+   * - Inputs: Reads `metaKeys` and `metaValues` string arrays from component state.
+   * - Purpose: Trims and filters out blank rows so only valid custom metadata entries are attached to all ingested chunks and pages.
+   * - Output: Returns a `Record<string, string>` dictionary passed to `runRagTester` in `handleRun`.
+   */
   const buildMetadata = (): Record<string, string> => {
     const meta: Record<string, string> = {};
     metaKeys.forEach((k, i) => {
@@ -374,6 +433,12 @@ export default function RagTesterPage() {
     return meta;
   };
 
+  /**
+   * Async handler that starts the dual-track RAG Tester ingestion run over SSE.
+   * - Inputs: Reads `canRun`, `scan`, profile selections, track toggles, collection names, `overwrite`, `forceHybrid`, `workers`, and `buildMetadata()` when triggered by the user clicking "Build both collections".
+   * - Purpose: Resets run state, creates an `AbortController`, and streams batch execution events via `runRagTester`.
+   * - Output: Updates `isRunning`, `logs`, `rows`, `summary`, and `runId` state throughout the run lifecycle.
+   */
   const handleRun = async () => {
     if (!canRun || !scan) return;
     setIsRunning(true);
@@ -413,6 +478,12 @@ export default function RagTesterPage() {
     }
   };
 
+  /**
+   * Async handler that requests graceful cancellation of the active RAG Tester batch run.
+   * - Inputs: Reads `runId` from component state when triggered by the user clicking the stop (`■`) button.
+   * - Purpose: Signals the backend via `cancelRagTester(runId)` to stop queued tasks and logs a cancellation notice in the console.
+   * - Output: Sends a cancellation request to the API and appends a system warning message to `logs`.
+   */
   const handleCancel = async () => {
     if (runId) await cancelRagTester(runId);
     setLogs((prev) => [...prev, { track: "system", msg: "⚠️ Cancellation requested…" }]);

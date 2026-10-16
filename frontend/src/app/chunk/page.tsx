@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -37,6 +37,12 @@ import { useChunkStream, DEFAULT_CHUNK_CONFIG, ChunkConfig } from "@/hooks/useCh
 import ChunkConfigPanel from "@/components/ChunkConfigPanel";
 import SavedProfileBar from "@/components/SavedProfileBar";
 
+/**
+ * Step 2 (Chunk & Vectorize) page component mounted by the Next.js App Router at `/chunk`.
+ * - Inputs: Receives no props from the router; fetches parsed Docling runs from `/api/qdrant` and consumes live chunking SSE state from `useChunkStream`.
+ * - Purpose: Allows users to configure chunking strategies, embedding models, and Qdrant collection settings to chunk and vectorize a parsed Docling document.
+ * - Output: Renders the left `ChunkConfigPanel` + `SavedProfileBar`, center source run selector and completion summary card, and right live SSE log console.
+ */
 export default function ChunkPage() {
   const [doclingRuns, setDoclingRuns] = useState<DoclingRun[]>([]);
   const [config, setConfig] = useState<ChunkConfig>({ ...DEFAULT_CHUNK_CONFIG });
@@ -66,6 +72,12 @@ export default function ChunkPage() {
       .catch(console.error);
   }, []);
 
+  /**
+   * Deep-updates a nested field inside the local `ChunkConfig` state object.
+   * - Inputs: Receives a dot-separated `path` (string, e.g., `"embedding.mode"`) and new `value` (`unknown`) from user edits in `ChunkConfigPanel` or the source run selector.
+   * - Purpose: Clones `config` and mutates only the targeted nested property so React state updates immutably without losing sibling settings.
+   * - Output: Updates `config` state for `ChunkConfigPanel` and pipeline execution.
+   */
   const updateField = useCallback((path: string, value: unknown) => {
     setConfig((prev) => {
       const next = structuredClone(prev);
@@ -83,10 +95,22 @@ export default function ChunkPage() {
     });
   }, []);
 
+  /**
+   * Handler that launches the chunking and vectorization SSE pipeline.
+   * - Inputs: Reads the current `config` (`ChunkConfig`) state when triggered by the user clicking the Run button.
+   * - Purpose: Delegates execution to `startRun` from `useChunkStream` to begin streaming chunking progress and logs from the backend.
+   * - Output: Initiates the SSE run stream and updates hook state (`isRunning`, `logs`, `progress`, `result`).
+   */
   const handleRun = useCallback(() => {
     startRun(config);
   }, [config, startRun]);
 
+  /**
+   * Handler that appends a user-defined key-value pair to `config.metadata.custom_fields`.
+   * - Inputs: Reads `customKeyInput` and `customValInput` strings from component state upon user interaction in `ChunkConfigPanel`.
+   * - Purpose: Enriches every generated chunk payload in Qdrant with custom user metadata and resets the temporary input fields.
+   * - Output: Updates `config.metadata.custom_fields` and clears `customKeyInput` and `customValInput` for `ChunkConfigPanel`.
+   */
   const addCustomField = useCallback(() => {
     if (!customKeyInput.trim()) return;
     setConfig((c) => ({
@@ -103,6 +127,12 @@ export default function ChunkPage() {
     setCustomValInput("");
   }, [customKeyInput, customValInput]);
 
+  /**
+   * Handler that deletes a custom metadata entry from `config.metadata.custom_fields`.
+   * - Inputs: Receives `key` (string) from user click events on a metadata badge remove button in `ChunkConfigPanel`.
+   * - Purpose: Removes the specified custom metadata key so it is no longer attached to chunk payloads.
+   * - Output: Updates `config.metadata.custom_fields` in component state for `ChunkConfigPanel`.
+   */
   const removeCustomField = useCallback((key: string) => {
     setConfig((c) => {
       const fields = { ...c.metadata.custom_fields };

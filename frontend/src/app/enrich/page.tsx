@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -82,6 +82,12 @@ const STRATEGIES: {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+/**
+ * Star-rating badge sub-component for enrichment strategy cards.
+ * - Inputs: Receives `n` (number, 1–4) from `EnrichPage` when rendering `STRATEGIES` cards.
+ * - Purpose: Visually communicates the computational and architectural complexity of each enrichment strategy.
+ * - Output: Renders a `<span>` displaying `n` filled stars (`★`) and `4 - n` empty stars (`☆`) for the strategy card.
+ */
 function ComplexityStars({ n }: { n: number }) {
   return (
     <span style={{ fontSize: "0.7rem", color: "var(--c-text-3)", letterSpacing: 2 }}>
@@ -90,6 +96,12 @@ function ComplexityStars({ n }: { n: number }) {
   );
 }
 
+/**
+ * Status pill sub-component indicating local Ollama server availability.
+ * - Inputs: Receives `status` (`OllamaStatus | null`) from `EnrichPage` state populated by `checkOllamaStatus`.
+ * - Purpose: Shows at a glance whether the local Ollama daemon is reachable before starting an LLM-dependent enrichment run.
+ * - Output: Renders a green ("Ollama running") or red ("Ollama offline") badge `<span>`, or `null` while status is unknown.
+ */
 function OllamaStatusBadge({ status }: { status: OllamaStatus | null }) {
   if (!status) return null;
   return (
@@ -112,6 +124,12 @@ function OllamaStatusBadge({ status }: { status: OllamaStatus | null }) {
 }
 
 // Simple number input row
+/**
+ * Reusable numeric parameter input row sub-component for strategy configuration.
+ * - Inputs: Receives `label`, `paramKey`, `value`, `onChange` callback, and optional `min`, `max`, and `tooltip` props from `EnrichPage`.
+ * - Purpose: Provides a standardized labeled number input row for tuning Parent-Child, RAPTOR, and GraphRAG numeric hyperparameters.
+ * - Output: Renders a flex row with parameter key code badge, label, and `<input type="number">` that invokes `onChange` on user edits.
+ */
 function NumberRow({
   label,
   paramKey,
@@ -165,6 +183,12 @@ function NumberRow({
   );
 }
 
+/**
+ * Reusable boolean toggle switch row sub-component for strategy configuration.
+ * - Inputs: Receives `label`, `paramKey`, boolean `value`, `onChange` callback, and optional `tooltip` from `EnrichPage`.
+ * - Purpose: Renders an interactive toggle switch for enabling or disabling boolean enrichment options (e.g., `embed_summaries`, `run_community_detection`).
+ * - Output: Renders a clickable flex row with parameter key badge, label, and animated toggle pill that calls `onChange(!value)`.
+ */
 function ToggleRow({
   label,
   paramKey,
@@ -226,6 +250,12 @@ function ToggleRow({
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
+/**
+ * Step 4 (Enrich Collection) page component mounted by the Next.js App Router at `/enrich`.
+ * - Inputs: Receives no props from the router; fetches Qdrant collections via `listCollections`, Ollama status via `checkOllamaStatus`, and live enrichment SSE logs via `startEnrichmentFetch`.
+ * - Purpose: Enables users to enrich an existing Qdrant collection using Parent-Child summarization, RAPTOR recursive clustering, or GraphRAG community detection.
+ * - Output: Renders the left configuration sidebar (collection, Ollama LLM, strategy parameters) and main panel (strategy selector cards, run controls, progress bar, and live log stream).
+ */
 export default function EnrichPage() {
   const [collections, setCollections] = useState<QdrantCollection[]>([]);
   const [selectedCol, setSelectedCol] = useState<string>("");
@@ -259,6 +289,12 @@ export default function EnrichPage() {
   }, []);
 
   // Check Ollama status
+  /**
+   * Async handler that queries the backend for local Ollama daemon health and installed models.
+   * - Inputs: Reads `cfg.llm.host` and `cfg.llm.model` from component state when triggered by the user clicking the refresh (`↺`) button.
+   * - Purpose: Verifies Ollama connectivity and auto-selects the first available model if the currently configured model is not installed.
+   * - Output: Updates `ollamaStatus`, `ollamaModels`, and `cfg.llm.model` in component state.
+   */
   const checkOllama = useCallback(async () => {
     try {
       const status = await checkOllamaStatus(cfg.llm.host);
@@ -309,6 +345,12 @@ export default function EnrichPage() {
   }, [logLines]);
 
   // Run enrichment
+  /**
+   * Async handler that starts the selected collection enrichment pipeline over SSE.
+   * - Inputs: Reads `cfg`, `selectedCol`, and `strategy` from component state when triggered by the user clicking the Run button, and receives streamed log/progress lines from `startEnrichmentFetch`.
+   * - Purpose: Aborts any previous stream, initializes a new `AbortController`, and streams backend enrichment progress (`__PROGRESS__=`) and log messages.
+   * - Output: Updates `isRunning`, `logLines`, and `progress` state to update the progress bar and live log panel.
+   */
   const handleRun = useCallback(async () => {
     if (!selectedCol) return;
     abortRef.current?.abort();

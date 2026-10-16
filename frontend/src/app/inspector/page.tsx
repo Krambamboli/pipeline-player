@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -40,6 +40,12 @@ import {
 } from "@/lib/qdrant";
 
 // Mini sparkline component for dense vector preview
+/**
+ * Mini SVG bar-chart sub-component for previewing dense embedding dimensions.
+ * - Inputs: Receives `values` (`number[]`, typically the first 8 floats of a dense vector) from `ChunkCard`.
+ * - Purpose: Normalizes the floating-point values into compact vertical bars colored by sign so users can visually inspect dense vector distributions.
+ * - Output: Renders an inline `<svg>` sparkline graphic inside `ChunkCard`.
+ */
 function DenseSparkline({ values }: { values: number[] }) {
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -71,6 +77,12 @@ function DenseSparkline({ values }: { values: number[] }) {
 }
 
 // Chunk card component
+/**
+ * Card sub-component that displays a single Qdrant point's text, metadata badges, and optional vector preview.
+ * - Inputs: Receives `point` (`QdrantPoint`) and `withVectors` (boolean) from `InspectorPage`.
+ * - Purpose: Presents chunk content (with expand/collapse for long text), structural metadata (headings, pages, element types, custom payload), and dense/sparse vector previews.
+ * - Output: Renders a `.chunk-card` container element for the points browser list in `InspectorPage`.
+ */
 function ChunkCard({ point, withVectors }: { point: QdrantPoint; withVectors: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const text = point.chunk_text;
@@ -168,6 +180,12 @@ function ChunkCard({ point, withVectors }: { point: QdrantPoint; withVectors: bo
   );
 }
 
+/**
+ * Step 3 (Vector DB Inspector) page component mounted by the Next.js App Router at `/inspector`.
+ * - Inputs: Receives no router props; fetches collection metadata via `listCollections` and paginated point records via `getPoints`.
+ * - Purpose: Lets users browse, filter, paginate, and delete Qdrant collections and inspect chunk payloads and vector representations.
+ * - Output: Renders the left collections sidebar and main points browser with client-side filters, `ChunkCard` list, and cursor-based pagination controls.
+ */
 export default function InspectorPage() {
   const [collections, setCollections] = useState<QdrantCollection[]>([]);
   const [selectedCol, setSelectedCol] = useState<string | null>(null);
@@ -187,12 +205,24 @@ export default function InspectorPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
+  /**
+   * Helper that switches the active Qdrant collection and resets pagination cursors.
+   * - Inputs: Receives `name` (`string | null`) from user click on a collection row or post-deletion cleanup.
+   * - Purpose: Ensures cursor stack and page index start from the first page whenever the selected collection changes.
+   * - Output: Updates `selectedCol`, resets `cursorStack` to `[null]`, and sets `pageIndex` to `0`.
+   */
   const selectCollection = useCallback((name: string | null) => {
     setSelectedCol(name);
     setCursorStack([null]);
     setPageIndex(0);
   }, []);
 
+  /**
+   * Async callback that fetches all Qdrant collections from the backend API.
+   * - Inputs: Triggered on mount, every 10 seconds via polling interval, or by user click on the refresh (`↺`) button.
+   * - Purpose: Keeps the collection list and point counts up to date and auto-selects the first collection if none is currently selected.
+   * - Output: Updates `collections` and conditionally initializes `selectedCol` state.
+   */
   const loadCollections = useCallback(async () => {
     try {
       const cols = await listCollections();
@@ -215,6 +245,12 @@ export default function InspectorPage() {
     return () => clearInterval(id);
   }, [loadCollections]);
 
+  /**
+   * Async callback that fetches a page of points for the currently selected collection.
+   * - Inputs: Reads `selectedCol`, `currentCursor`, `limit`, and `withVectors` from component state whenever any of those dependencies change.
+   * - Purpose: Retrieves a batch of Qdrant points (optionally including vector previews) using Qdrant's scroll cursor API.
+   * - Output: Updates `page` (`PointsPage`) and `isLoading` state to render the `ChunkCard` list and pagination bar.
+   */
   const loadPoints = useCallback(async () => {
     if (!selectedCol) return;
     setIsLoading(true);
@@ -232,6 +268,12 @@ export default function InspectorPage() {
     void Promise.resolve().then(() => loadPoints());
   }, [loadPoints]);
 
+  /**
+   * Async handler that permanently deletes a Qdrant collection after user confirmation.
+   * - Inputs: Receives `name` (string collection name) from the "Confirm" delete button click event.
+   * - Purpose: Calls `deleteCollection(name)` on the backend and removes the collection from local UI state.
+   * - Output: Updates `collections`, clears `selectedCol` (if it was the deleted collection), and resets `page` and `confirmDelete` to `null`.
+   */
   const handleDelete = useCallback(async (name: string) => {
     try {
       await deleteCollection(name);

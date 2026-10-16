@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -46,17 +46,26 @@ router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
 _run_history: Dict[str, RunResult] = {}
 
 
+# Receives `profile_name` and `filename` from POST /api/pipeline/run (called by `useRunStream` in the frontend).
+# Validates the request body needed to launch a Step 1 Docling document parsing run.
+# Returns a validated RunRequest instance to `trigger_run`.
 class RunRequest(BaseModel):
     """Request body for POST /run."""
     profile_name: str = "default"
     filename: str = "test_document.pdf"
 
 
+# Receives `filename` and `estimated_seconds` computed by `list_documents()`.
+# Represents a selectable source document in `test_data/` along with a heuristic runtime estimate.
+# Returns a serialized DocumentInfo object in the GET /api/pipeline/documents response to the frontend.
 class DocumentInfo(BaseModel):
     filename: str
     estimated_seconds: float
 
 
+# Receives no arguments from GET /api/pipeline/documents (called by the Step 1 Docling page on load).
+# Scans `test_data/` for supported document files (`.pdf`, `.docx`, `.pptx`, `.html`, `.md`) and estimates processing time from file size.
+# Returns a sorted list of DocumentInfo objects to the frontend document selector.
 @router.get("/documents", response_model=List[DocumentInfo])
 async def list_documents() -> List[DocumentInfo]:
     """List available documents in the test_data folder with estimated times."""
@@ -79,6 +88,9 @@ async def list_documents() -> List[DocumentInfo]:
     return docs
 
 
+# Receives `run_id` path parameter from POST /api/pipeline/run/{run_id}/cancel (called by `useRunStream.cancelRun` in the frontend).
+# Terminates the active `docling_worker.py` subprocess for that run via `services/docling_runner.py::cancel_run`.
+# Returns `{"status": "cancelled"}` to the frontend (or raises HTTP 404 if the run is not active).
 @router.post("/run/{run_id}/cancel")
 async def cancel_pipeline_run(run_id: str):
     from services.docling_runner import cancel_run
@@ -88,6 +100,9 @@ async def cancel_pipeline_run(run_id: str):
     return {"status": "cancelled"}
 
 
+# Receives a validated RunRequest (`request`) from POST /api/pipeline/run (called by `useRunStream.startRun` in the frontend).
+# Loads the requested Docling YAML profile and starts `services/docling_runner.py::run_pipeline` as a live SSE stream.
+# Returns a FastAPI StreamingResponse emitting structured JSON SSE frames (`run_id`, `progress`, `log`, `done`) to the frontend.
 @router.post("/run")
 async def trigger_run(request: RunRequest) -> StreamingResponse:
     """
@@ -99,6 +114,9 @@ async def trigger_run(request: RunRequest) -> StreamingResponse:
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
+    # Receives no arguments; iterated by FastAPI's StreamingResponse to push SSE events to the client.
+    # Consumes `run_pipeline(config, request.filename)`, records the final RunResult in `_run_history`, and guarantees `gen.close()` on disconnect.
+    # Yields SSE-formatted JSON strings (`data: {...}\n\n`) to the HTTP stream.
     def event_generator():
         result = None
         gen = run_pipeline(config, request.filename)
@@ -145,6 +163,9 @@ async def trigger_run(request: RunRequest) -> StreamingResponse:
     )
 
 
+# Receives no arguments from GET /api/pipeline/runs (called by the Step 1 Docling page to populate RunHistory).
+# Sorts the in-memory `_run_history` dictionary by `started_at` descending.
+# Returns a list of RunResult objects to the frontend.
 @router.get("/runs", response_model=List[RunResult])
 async def list_runs() -> List[RunResult]:
     """Return all run results from the in-memory history, newest first."""
@@ -155,6 +176,9 @@ async def list_runs() -> List[RunResult]:
     )
 
 
+# Receives a `run_id` path parameter from GET /api/pipeline/run/{run_id}.
+# Looks up the specified run's metadata record in `_run_history`.
+# Returns the matching RunResult object to the caller (or raises HTTP 404).
 @router.get("/run/{run_id}", response_model=RunResult)
 async def get_run(run_id: str) -> RunResult:
     """Get a specific run result by ID."""
@@ -163,6 +187,9 @@ async def get_run(run_id: str) -> RunResult:
     return _run_history[run_id]
 
 
+# Receives `run_id` and `filename` path parameters from GET /api/pipeline/run/{run_id}/file/{filename} (called by OutputViewer in the frontend).
+# Validates against path traversal and streams the requested output artifact (`parsed_doc.html`, `.md`, `.json`, etc.) from `outputs/run_{run_id}/`.
+# Returns a StreamingResponse with the appropriate content-type header to the frontend OutputViewer.
 @router.get("/run/{run_id}/file/{filename}")
 async def get_run_file(run_id: str, filename: str) -> StreamingResponse:
     """Stream the content of a specific output file from a run directory."""
@@ -186,6 +213,9 @@ async def get_run_file(run_id: str, filename: str) -> StreamingResponse:
     if not file_path.is_file():
         raise HTTPException(status_code=404, detail=f"File '{filename}' not found in run {run_id}.")
 
+    # Receives no arguments; invoked by FastAPI's StreamingResponse to read `file_path` in binary chunks.
+    # Streams the output file from disk without loading the entire file into memory at once.
+    # Yields raw `bytes` chunks to the HTTP response stream.
     def file_generator():
         with open(file_path, "rb") as f:
             yield from f

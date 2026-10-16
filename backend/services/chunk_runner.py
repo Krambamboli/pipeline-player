@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -61,6 +61,9 @@ logger = logging.getLogger(__name__)
 # Helpers
 # ---------------------------------------------------------------------------
 
+# Called by run_chunk_pipeline, enrichment_runner.run_enrichment, and other Qdrant services with a storage_path string.
+# Resolves relative paths against REPO_ROOT and creates the directory if missing so Qdrant local storage can open cleanly.
+# Returns the resolved absolute Path object to the caller.
 def _resolve_qdrant_path(storage_path: str) -> Path:
     """Resolve the Qdrant storage path (relative paths → repo root)."""
     p = Path(storage_path)
@@ -70,6 +73,9 @@ def _resolve_qdrant_path(storage_path: str) -> Path:
     return p
 
 
+# Called by run_chunk_pipeline with cfg (ChunkPipelineConfig).
+# Uses the explicit collection_name if set, or auto-generates a unique name from the embedding mode, source_run_id, and current timestamp to avoid overwriting prior runs.
+# Returns the target Qdrant collection name string to run_chunk_pipeline.
 def _build_collection_name(cfg: ChunkPipelineConfig) -> str:
     """Auto-generate a Qdrant collection name from the run/config if not set.
 
@@ -89,6 +95,9 @@ def _build_collection_name(cfg: ChunkPipelineConfig) -> str:
     return f"docling_{mode}_{src}_{ts}"
 
 
+# Called by chunk_document with doc_items (list of Docling document items from chunk.meta.doc_items).
+# Extracts and deduplicates 1-based page numbers from each item's provenance list for page attribution and filtering.
+# Returns a sorted List[int] of unique page numbers to chunk_document.
 def _get_page_numbers(doc_items: list) -> List[int]:
     """Extract unique page numbers from doc_items provenance."""
     pages = set()
@@ -103,6 +112,9 @@ def _get_page_numbers(doc_items: list) -> List[int]:
     return sorted(pages)
 
 
+# Called by chunk_document with doc_items (list of Docling document items from chunk.meta.doc_items).
+# Collects unique structural element labels (e.g., paragraph, table) across all items in the chunk for metadata enrichment.
+# Returns a sorted List[str] of unique element type strings to chunk_document.
 def _get_element_types(doc_items: list) -> List[str]:
     """Extract unique element type labels from doc_items."""
     labels = set()
@@ -113,6 +125,9 @@ def _get_element_types(doc_items: list) -> List[str]:
     return sorted(labels)
 
 
+# Called by chunk_document with a chunk text string and an optional HuggingFace tokenizer.
+# Counts tokens using tokenizer.encode when available or falls back to a word-count heuristic so every chunk payload records its token length.
+# Returns the estimated or exact integer token count to chunk_document.
 def _count_tokens_simple(text: str, tokenizer=None) -> int:
     """Count tokens using the tokenizer if available, else approximate."""
     if tokenizer is not None:
@@ -128,6 +143,9 @@ def _count_tokens_simple(text: str, tokenizer=None) -> int:
 # Reusable building blocks (shared by Step 2 and the RAG Tester)
 # ---------------------------------------------------------------------------
 
+# Called by build_chunker with cfg (ChunkPipelineConfig).
+# Builds a custom serializer provider that strips DocItemLabel.CAPTION when include_captions_in_text is False, or returns None to keep Docling's default.
+# Returns None or a _NoCaptionProvider instance to build_chunker.
 def _serializer_provider(cfg: ChunkPipelineConfig):
     """
     Return a docling-core serializer provider honouring the serialization
@@ -147,9 +165,15 @@ def _serializer_provider(cfg: ChunkPipelineConfig):
     )
     from docling_core.types.doc.labels import DocItemLabel
 
+    # Instantiated by _serializer_provider (no init args) and passed to Docling chunkers as serializer_provider.
+    # Overrides get_serializer to exclude figure/table captions from chunk text serialization.
+    # Returns a _NoCaptionProvider instance whose get_serializer method returns a configured ChunkingDocSerializer.
     class _NoCaptionProvider(ChunkingSerializerProvider):
         """Chunking serializer without captions."""
 
+        # Called by Docling's chunker with doc (DoclingDocument) during chunk serialization.
+        # Creates a ChunkingDocSerializer and removes DocItemLabel.CAPTION from its active label set.
+        # Returns the configured ChunkingDocSerializer instance to the Docling chunker.
         def get_serializer(self, doc):
             ser = ChunkingDocSerializer(doc=doc)
             # Copy the default params with CAPTION removed from the label set
@@ -161,6 +185,9 @@ def _serializer_provider(cfg: ChunkPipelineConfig):
     return _NoCaptionProvider()
 
 
+# Called by run_chunk_pipeline and rag_tester_runner with cfg (ChunkPipelineConfig).
+# Instantiates the configured Docling chunker (HybridChunker with HuggingFace tokenizer, HierarchicalChunker, or PageChunker) and attaches any custom serializer provider.
+# Returns a (chunker, tokenizer_or_None) tuple to the caller.
 def build_chunker(cfg: ChunkPipelineConfig):
     """
     Build the Docling chunker described by cfg.
@@ -218,6 +245,9 @@ def build_chunker(cfg: ChunkPipelineConfig):
     return PageChunker(**ser_kwargs), None
 
 
+# Called by run_chunk_pipeline and rag_tester_runner with dl_doc (DoclingDocument), chunker, tokenizer, cfg (ChunkPipelineConfig), run_id, and optional extra_payload.
+# Splits the document into chunks, optionally prepends headings via contextualize(), skips empty chunks, and assembles per-chunk Qdrant metadata payloads.
+# Returns a (texts, payloads, raw_count) tuple to the caller.
 def chunk_document(
     dl_doc,
     chunker,
@@ -297,12 +327,18 @@ def chunk_document(
     return texts, payloads, len(raw_chunks)
 
 
+# Instantiated by run_chunk_pipeline and rag_tester_runner with cfg (ChunkPipelineConfig).
+# Loads and holds the FastEmbed dense and/or sparse models in memory once per pipeline run and probes the dense dimension.
+# Provides the .embed(texts) method and .dense_dim attribute to the caller.
 class EmbeddingModels:
     """
     Holds the fastembed models for one embedding config so they are loaded
     only ONCE (important when embedding many documents in the RAG Tester).
     """
 
+    # Called when instantiating EmbeddingModels(cfg) from run_chunk_pipeline or rag_tester_runner.
+    # Loads TextEmbedding and/or SparseTextEmbedding according to cfg.embedding.mode and probes the dense vector size.
+    # Returns None (initializes self.dense, self.sparse, and self.dense_dim on the instance).
     def __init__(self, cfg: ChunkPipelineConfig):
         from fastembed import TextEmbedding, SparseTextEmbedding
 
@@ -319,6 +355,9 @@ class EmbeddingModels:
         if self.mode in (EmbeddingMode.SPARSE, EmbeddingMode.HYBRID):
             self.sparse = SparseTextEmbedding(model_name=cfg.embedding.sparse_model)
 
+    # Called by run_chunk_pipeline and rag_tester_runner with texts (List[str] of chunk texts).
+    # Encodes the texts in batches using the loaded dense and/or sparse FastEmbed models.
+    # Returns a (dense_vectors, sparse_vectors) tuple (each a list of embeddings or None) to the caller.
     def embed(self, texts: List[str]):
         """Return (dense_vectors|None, sparse_vectors|None) for the texts."""
         dense = list(self.dense.embed(texts, batch_size=self.batch_size)) if self.dense else None
@@ -326,6 +365,9 @@ class EmbeddingModels:
         return dense, sparse
 
 
+# Called by run_chunk_pipeline and rag_tester_runner with a QdrantClient, collection_name, cfg (ChunkPipelineConfig), and dense_dim.
+# Checks whether the target Qdrant collection exists under qdrant_write_lock and creates it with dense, sparse, or hybrid vector params if missing.
+# Returns True if the collection was newly created or False if it already existed, to the caller.
 def ensure_text_collection(client, collection_name: str, cfg: ChunkPipelineConfig, dense_dim: Optional[int]) -> bool:
     """
     Create the Qdrant collection for the given embedding mode if missing.
@@ -362,6 +404,9 @@ def ensure_text_collection(client, collection_name: str, cfg: ChunkPipelineConfi
         return True
 
 
+# Called by run_chunk_pipeline and rag_tester_runner with texts, payloads, dense_vectors, sparse_vectors, and mode (EmbeddingMode).
+# Constructs UUID-identified Qdrant PointStruct objects for each chunk while skipping any vectors that contain NaN or Inf values.
+# Returns a (points, nan_skipped) tuple to the caller.
 def build_points(texts, payloads, dense_vectors, sparse_vectors, mode: EmbeddingMode):
     """
     Build Qdrant PointStructs. Points with NaN/Inf vectors are skipped.
@@ -370,6 +415,9 @@ def build_points(texts, payloads, dense_vectors, sparse_vectors, mode: Embedding
     import math
     from qdrant_client.models import PointStruct, SparseVector
 
+    # Called internally by build_points with vals (an iterable of float vector values).
+    # Checks whether any component is NaN or Inf so corrupted embeddings are excluded before Qdrant upsert.
+    # Returns True if any element is NaN/Inf, otherwise False, to build_points.
     def _bad(vals) -> bool:
         return any(math.isnan(v) or math.isinf(v) for v in vals)
 
@@ -412,6 +460,9 @@ def build_points(texts, payloads, dense_vectors, sparse_vectors, mode: Embedding
     return points, nan_skipped
 
 
+# Called by run_chunk_pipeline and rag_tester_runner with a QdrantClient, collection_name, points list, and optional batch_size.
+# Upserts PointStruct batches into Qdrant under qdrant_write_lock so concurrent pipelines do not collide.
+# Yields integer progress percentages (0–100) after each batch to the caller.
 def upsert_in_batches(client, collection_name: str, points, batch_size: int = 64):
     """
     Upsert points in batches. Yields the progress percentage after each batch.
@@ -431,6 +482,9 @@ def upsert_in_batches(client, collection_name: str, points, batch_size: int = 64
 # Main runner (Step 2 — single document)
 # ---------------------------------------------------------------------------
 
+# Called by the FastAPI chunks router (routers/chunks.py) with cfg (ChunkPipelineConfig).
+# Executes the full Step 2 chunk -> embed -> Qdrant upsert pipeline for a parsed Docling document.
+# Yields timestamped log strings and "__PROGRESS__=<pct>" updates for SSE streaming, and returns a final status summary dict to the router.
 def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[str, Any]]:
     """
     Execute the chunk → embed → upsert pipeline.
@@ -441,6 +495,9 @@ def run_chunk_pipeline(cfg: ChunkPipelineConfig) -> Generator[str, None, Dict[st
     chunk_run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     log = logging.getLogger(__name__)
 
+    # Called internally by run_chunk_pipeline with a status message string msg.
+    # Logs msg via the module logger and prefixes it with the current [HH:MM:SS] timestamp.
+    # Returns the formatted log line string to run_chunk_pipeline for SSE yielding.
     def emit(msg: str) -> str:
         """Yield a formatted log line."""
         ts = datetime.now().strftime("%H:%M:%S")

@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -30,12 +30,18 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+# Receives execution status string literals ("running", "success", "error") from services/docling_runner.py or routers/pipeline.py.
+# Enumerates the lifecycle states of a Docling pipeline run.
+# Returns a validated RunStatus enum member to RunResult.
 class RunStatus(str, Enum):
     RUNNING = "running"
     SUCCESS = "success"
     ERROR = "error"
 
 
+# Receives run metadata (run_id, profile_name, status, timestamps, output files, page count, warnings) from services/docling_runner.py or routers/pipeline.py.
+# Structures the execution summary of a completed or running Docling job to populate the Run History UI.
+# Returns a validated RunResult object serialized as JSON to the frontend (`/` and `/chunk`).
 class RunResult(BaseModel):
     """Metadata record for a single pipeline execution."""
 

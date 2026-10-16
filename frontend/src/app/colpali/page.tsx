@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -37,7 +37,12 @@ import { PdfFile, ColPaliConfig, listPdfs, runColPali } from "@/lib/colpali";
 import { downloadColPaliSettings } from "@/lib/downloadSettings";
 import SavedProfileBar from "@/components/SavedProfileBar";
 
-/** Shape of a saved ColPali process profile (configs/colpali/*.yaml). */
+/**
+ * Shape of a saved ColPali process profile (configs/colpali/*.yaml).
+ * - Inputs: Populated from `SavedProfileBar` load callbacks or constructed from `ColPaliPage` form state.
+ * - Purpose: Captures reusable model, device, rendering (DPI, max pages), and metadata parameters for ColPali visual indexing and RAG Tester runs.
+ * - Output: Consumed by `SavedProfileBar<ColPaliProfile>` to persist and restore YAML profiles via the backend API.
+ */
 interface ColPaliProfile {
   model_name: string;
   device: string;
@@ -47,6 +52,12 @@ interface ColPaliProfile {
   metadata: Record<string, string>;
 }
 
+/**
+ * ColPali Visual Ingestion page component mounted by the Next.js App Router at `/colpali`.
+ * - Inputs: Receives no router props; loads available PDFs via `listPdfs` REST API and receives live log/progress callbacks from `runColPali` SSE stream.
+ * - Purpose: Lets users configure VLM model, hardware device, DPI, and custom metadata to embed PDF pages as multi-vector patch representations in Qdrant.
+ * - Output: Renders the left configuration sidebar (with `SavedProfileBar` and settings export) and center live progress/log console.
+ */
 export default function ColPaliPage() {
   // ── PDF file list ─────────────────────────────────────────────────
   const [pdfs, setPdfs] = useState<PdfFile[]>([]);
@@ -85,6 +96,12 @@ export default function ColPaliPage() {
   }, [logs]);
 
   // ── Build metadata dict from key-value pairs ──────────────────────
+  /**
+   * Helper that assembles non-empty metadata key-value arrays into a clean dictionary.
+   * - Inputs: Reads `metaKeys` and `metaValues` string arrays from component state.
+   * - Purpose: Strips blank entries and whitespace before sending page metadata to the ColPali ingestion API, profile saver, or settings exporter.
+   * - Output: Returns a `Record<string, string>` dictionary for `handleRun`, `SavedProfileBar`, and `downloadColPaliSettings`.
+   */
   const buildMetadata = useCallback((): Record<string, string> => {
     const meta: Record<string, string> = {};
     metaKeys.forEach((k, i) => {
@@ -96,17 +113,35 @@ export default function ColPaliPage() {
   }, [metaKeys, metaValues]);
 
   // ── Add metadata row ──────────────────────────────────────────────
+  /**
+   * Handler that appends a new empty key-value row to the metadata form.
+   * - Inputs: Triggered by user click on the "+ Add Field" button.
+   * - Purpose: Expands the parallel `metaKeys` and `metaValues` state arrays so the user can input an additional metadata attribute.
+   * - Output: Updates `metaKeys` and `metaValues` state arrays to render a new input row.
+   */
   const addMetaRow = () => {
     setMetaKeys((prev) => [...prev, ""]);
     setMetaValues((prev) => [...prev, ""]);
   };
 
+  /**
+   * Handler that removes a metadata key-value row at a given index.
+   * - Inputs: Receives `idx` (number) from user click on a row's remove (`✕`) button.
+   * - Purpose: Filters out the targeted index from both `metaKeys` and `metaValues` state arrays to keep them synchronized.
+   * - Output: Updates `metaKeys` and `metaValues` state arrays, removing the row from the UI.
+   */
   const removeMetaRow = (idx: number) => {
     setMetaKeys((prev) => prev.filter((_, i) => i !== idx));
     setMetaValues((prev) => prev.filter((_, i) => i !== idx));
   };
 
   // ── Run pipeline ──────────────────────────────────────────────────
+  /**
+   * Handler that initiates the ColPali visual embedding pipeline over SSE.
+   * - Inputs: Reads `selectedPdf`, `modelName`, `device`, `batchSize`, `dpi`, `maxPages`, `collectionName`, and `buildMetadata()` from component state when clicked by the user.
+   * - Purpose: Resets console state, constructs a `ColPaliConfig` payload, and streams live log lines and progress updates from the backend via `runColPali`.
+   * - Output: Updates `isRunning`, `logs`, `progress`, `isDone`, and `error` state to drive the center pipeline console UI.
+   */
   const handleRun = useCallback(() => {
     if (!selectedPdf) return;
 

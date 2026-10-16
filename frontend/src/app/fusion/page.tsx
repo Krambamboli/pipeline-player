@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -74,6 +74,12 @@ const ANSWER_MODELS = [
   { value: "ollama/llava", label: "Ollama: LLaVA Vision (Local/Free)" },
 ];
 
+/**
+ * Helper that computes a unique composite key for a fusion hit across text and ColPali sources.
+ * - Inputs: Receives an object `h` with `source` (string) and `id` (string) from candidate or selected `FusionHit` items.
+ * - Purpose: Disambiguates point IDs that might collide between text and visual collections when tracking LLM selection positions and React keys.
+ * - Output: Returns a `"source:id"` string consumed by `selectedPos` lookup maps and JSX list keys.
+ */
 const hitKey = (h: { source: string; id: string }) => `${h.source}:${h.id}`;
 
 /** Fusion methods for the text collection (see Qdrant hybrid-queries docs). */
@@ -92,9 +98,28 @@ const DRIVER_LABEL: Record<string, string> = {
   none: "–",
 };
 
+/**
+ * Helper that formats a HuggingFace/FastEmbed model identifier into a compact display name.
+ * - Inputs: Receives `m` (`string | null | undefined`), a full model path such as `"BAAI/bge-small-en-v1.5"`, from collection metadata.
+ * - Purpose: Strips the organization prefix so model names fit cleanly inside UI chips and dropdown labels.
+ * - Output: Returns the trailing model name segment after `"/"`, or `"—"` when absent.
+ */
 const shortModel = (m?: string | null) => (m ? m.split("/").pop() : "—");
+
+/**
+ * Helper that converts a unit ratio (`0`–`1`) into a rounded percentage string.
+ * - Inputs: Receives `x` (number) representing a normalized score share (e.g., `h.dense_share`) from a `FusionHit`.
+ * - Purpose: Formats dense/sparse score contribution ratios for CSS widths and tooltips.
+ * - Output: Returns a percentage string (e.g., `"65%"`) for `contribution` bar styles and titles.
+ */
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+/**
+ * Multimodal Fusion Retriever page component mounted by the Next.js App Router at `/fusion`.
+ * - Inputs: Receives no router props; loads text/ColPali collections, embedding models, and Python reranker scripts from `/api/fusion`, and streams LLM answers via `generateAnswer`.
+ * - Purpose: Runs parallel hybrid text search and ColPali MaxSim visual search, executes a live-editable Python reranker script over both candidate lists, and sends the fused top-k context to a VLM/LLM.
+ * - Output: Renders the left search/retrieval setup panel, center side-by-side text and ColPali candidate columns, and right live Python reranker editor with top-k LLM context and answer view.
+ */
 export default function FusionPage() {
   /* ── Collections & query ─────────────────────────────────────── */
   const [textCols, setTextCols] = useState<TextCollectionInfo[]>([]);
@@ -138,6 +163,12 @@ export default function FusionPage() {
   const [answerError, setAnswerError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  /**
+   * Helper that displays a temporary status or error banner in the reranker script bar.
+   * - Inputs: Receives `text` (string message) and optional `isError` (boolean, default `false`) from script load/save/delete handlers.
+   * - Purpose: Provides transient visual feedback for script persistence actions and auto-clears after 3 seconds.
+   * - Output: Updates `scriptMsg` state for 3000 ms to render a toast message in the script toolbar.
+   */
   const flash = useCallback((text: string, isError = false) => {
     setScriptMsg({ text, isError });
     window.setTimeout(() => setScriptMsg(null), 3000);
@@ -169,6 +200,12 @@ export default function FusionPage() {
   }, [flash]);
 
   // Selecting a text collection auto-selects its ColPali sibling (same prefix)
+  /**
+   * Handler invoked when the user selects a text collection from the dropdown.
+   * - Inputs: Receives `name` (string collection name) from the text collection `<select>` change event.
+   * - Purpose: Sets the active text collection, resets model overrides, and automatically pairs the matching `<prefix>_colpali` sibling collection if one exists.
+   * - Output: Updates `textCol`, clears `denseOverride` and `sparseOverride`, and conditionally updates `colpaliCol`.
+   */
   const handleTextCol = (name: string) => {
     setTextCol(name);
     setDenseOverride("");
@@ -187,6 +224,12 @@ export default function FusionPage() {
 
   /* ── Search ──────────────────────────────────────────────────── */
   const searchSeq = useRef(0); // ignore responses of outdated searches
+  /**
+   * Async handler that executes parallel text and ColPali retrieval via the backend fusion API.
+   * - Inputs: Reads `query`, `textCol`, `colpaliCol`, `textLimit`, `colpaliLimit`, `denseOverride`, `sparseOverride`, `textFusion`, `rrfK`, `denseWeight`, and `sparseWeight` from state upon user click, shortcut, or auto-re-search effect.
+   * - Purpose: Requests top-N text chunks and ColPali pages concurrently while using a sequence counter (`searchSeq`) to discard stale out-of-order responses.
+   * - Output: Updates `search` (`FusionSearchResult`), `searchError`, `isSearching`, and resets `answer`/`answerError` state.
+   */
   const handleSearch = useCallback(async () => {
     if (!query.trim() || (!textCol && !colpaliCol)) return;
     const seq = ++searchSeq.current;
@@ -284,6 +327,12 @@ export default function FusionPage() {
   /* ── Script management ───────────────────────────────────────── */
   const isDirty = code !== savedCode;
 
+  /**
+   * Async handler that loads a saved Python reranker script or resets to the built-in RRF script.
+   * - Inputs: Receives `name` (string script name, or `""` for built-in RRF) from the script `<select>` dropdown change event.
+   * - Purpose: Prompts for confirmation if unsaved edits exist, then fetches the selected script code from `/api/fusion/scripts` (or uses `defaultCode`).
+   * - Output: Updates `scriptName`, `code`, and `savedCode` state for `PythonEditor` and triggers a `flash` notification.
+   */
   const handleLoadScript = async (name: string) => {
     if (isDirty && !window.confirm("Discard unsaved changes in the editor?")) return;
     setScriptName(name);
@@ -297,6 +346,12 @@ export default function FusionPage() {
     }
   };
 
+  /**
+   * Async helper that persists the current editor code under a given script name on the backend.
+   * - Inputs: Receives `name` (string) from `handleSave` or the save-as inline input, and reads `code` from component state.
+   * - Purpose: Saves the custom Python reranker to disk via `saveScript` and refreshes the available scripts list.
+   * - Output: Updates `scripts`, `scriptName`, `savedCode`, resets `saveAsName` to `null`, and shows a confirmation via `flash`.
+   */
   const doSave = async (name: string) => {
     try {
       await saveScript(name, code);
@@ -310,8 +365,20 @@ export default function FusionPage() {
     }
   };
 
+  /**
+   * Handler for the primary "Save script" button.
+   * - Inputs: Reads `scriptName` from component state upon user click.
+   * - Purpose: Immediately overwrites the active named script via `doSave`, or opens the inline name prompt if editing the unnamed built-in script.
+   * - Output: Calls `doSave(scriptName)` or sets `saveAsName` to `""` to render the name input field.
+   */
   const handleSave = () => (scriptName ? doSave(scriptName) : setSaveAsName(""));
 
+  /**
+   * Async handler that deletes the currently selected custom reranker script from the backend.
+   * - Inputs: Reads `scriptName` and `defaultCode` from component state when triggered by the delete (`🗑`) button and confirmed via `window.confirm`.
+   * - Purpose: Removes the saved script file via `deleteScript`, reloads the script list, and reverts the editor to the built-in RRF code.
+   * - Output: Updates `scripts`, resets `scriptName` to `""`, restores `code` and `savedCode` to `defaultCode`, and calls `flash`.
+   */
   const handleDeleteScript = async () => {
     if (!scriptName || !window.confirm(`Delete reranker script '${scriptName}'?`)) return;
     try {
@@ -327,6 +394,12 @@ export default function FusionPage() {
   };
 
   /* ── Answer generation ───────────────────────────────────────── */
+  /**
+   * Handler that streams a grounded multimodal answer from the selected top-k fused items.
+   * - Inputs: Reads `selected` (`FusionHit[]`), `query`, and `answerModel` from component state when clicked by the user.
+   * - Purpose: Splits the reranked top-k hits into text chunks and ColPali page image references via `buildLlmContext` and streams tokens from `generateAnswer`.
+   * - Output: Updates `isGenerating`, `answer`, and `answerError` state to render the live AI response in the right panel.
+   */
   const handleGenerate = () => {
     if (!selected.length) return;
     const { chunks, imageRefs } = buildLlmContext(selected);
@@ -349,18 +422,35 @@ export default function FusionPage() {
   };
 
   /* ── Render helpers ──────────────────────────────────────────── */
+  /**
+   * Render helper that produces a badge when a candidate hit is included in the reranker's top-k selection.
+   * - Inputs: Receives `h` (`FusionHit`) from a candidate card in the text or ColPali column and looks up its rank in `selectedPos`.
+   * - Purpose: Highlights which candidate items were chosen by the Python reranker and shows their final 1-based position sent to the LLM.
+   * - Output: Returns a `<span className="fusion-llm-badge">` element or `null` if the hit is not selected.
+   */
   const llmBadge = (h: FusionHit) => {
     const pos = selectedPos.get(hitKey(h));
     return pos ? <span className="fusion-llm-badge">→ LLM #{pos}</span> : null;
   };
 
+  /**
+   * Render helper that displays a horizontal normalized score bar for a candidate hit.
+   * - Inputs: Receives `h` (`FusionHit`) containing `score_norm` (`0`–`1`) from the backend search response.
+   * - Purpose: Visually indicates the relative strength of a hit within its retriever list.
+   * - Output: Returns a `<div className="fusion-scorebar">` with a percentage-width fill bar.
+   */
   const scoreBar = (h: FusionHit) => (
     <div className="fusion-scorebar" title={`normalised score ${h.score_norm}`}>
       <div className="fusion-scorebar__fill" style={{ width: `${Math.round((h.score_norm ?? 0) * 100)}%` }} />
     </div>
   );
 
-  /** Dense/sparse split of a text hit's fused score + per-list rank chips. */
+  /**
+   * Dense/sparse split of a text hit's fused score + per-list rank chips.
+   * - Inputs: Receives `h` (`FusionHit`) from a text candidate card and reads `search.text.fusion` and `search.text.prefetch_limit` from state.
+   * - Purpose: Visualizes how much of a hybrid text hit's score came from dense semantic search versus sparse lexical search, along with individual ranks.
+   * - Output: Returns a JSX fragment containing the split contribution bar and rank/driver chips for the text hit card.
+   */
   const contribution = (h: FusionHit) => {
     const share = h.dense_share;
     const fusion = search?.text?.fusion;

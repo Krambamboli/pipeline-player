@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -67,6 +67,10 @@ const layoutTheme = EditorView.theme({
   ".cm-error-line": { backgroundColor: "rgba(248, 113, 113, 0.18)" },
 });
 
+/**
+ * Props received by `PythonEditor` from the Fusion Retriever page (`app/fusion/page.tsx`).
+ * Provides the Python script `value`, `onChange` callback, optional 1-based `errorLine` to highlight, and `readOnly` flag.
+ */
 interface Props {
   value: string;
   onChange: (code: string) => void;
@@ -75,6 +79,11 @@ interface Props {
   readOnly?: boolean;
 }
 
+/**
+ * CodeMirror 6 Python editor component for editing the custom fusion reranker script.
+ * Receives `Props` (`value`, `onChange`, `errorLine`, `readOnly`) from the `/fusion` page (`app/fusion/page.tsx`).
+ * Renders a syntax-highlighted Python editor with One Dark theme and line-level error highlighting, emitting code edits via `onChange`.
+ */
 export default function PythonEditor({ value, onChange, errorLine = null, readOnly = false }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);

@@ -1,6 +1,6 @@
 "use client";
 
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -36,6 +36,8 @@ import type { PipelineConfig } from "@/types/config";
  * Recursively sets a value at a dot-notation path on an object.
  * e.g. setPath(obj, "pdf_options.do_ocr", true)
  * No external dependencies — pure TypeScript.
+ * Receives a cloned `PipelineConfig` object (`obj`), dot-separated `path`, and new `value` from `useConfig.updateField`.
+ * Mutates `obj` in-place along the path (creating intermediate objects if needed) and returns `void`.
  */
 function setPath(obj: Record<string, unknown>, path: string, value: unknown): void {
   const keys = path.split(".");
@@ -51,6 +53,10 @@ function setPath(obj: Record<string, unknown>, path: string, value: unknown): vo
 
 const DEBOUNCE_MS = 300;
 
+/**
+ * Return value contract of the `useConfig` hook.
+ * Exposes the active `PipelineConfig`, loading/saving flags, error state, and mutation callbacks (`updateField`, `switchProfile`, `saveAs`) to the Step 1 Docling Parser page.
+ */
 interface UseConfigReturn {
   config: PipelineConfig | null;
   isSaving: boolean;
@@ -64,6 +70,11 @@ interface UseConfigReturn {
   saveAs: (newName: string) => Promise<void>;
 }
 
+/**
+ * Custom React hook that loads, updates, and auto-saves the Step 1 Docling `PipelineConfig`.
+ * Receives an optional `initialProfileName` (default `"default"`) from the Step 1 Docling Parser page (`app/page.tsx`).
+ * Performs optimistic local state updates via `setPath` and debounced (300ms) `PUT /api/config/{name}` writes, returning `UseConfigReturn` to the page.
+ */
 export function useConfig(initialProfileName = "default"): UseConfigReturn {
   const [config, setConfig] = useState<PipelineConfig | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -76,6 +87,10 @@ export function useConfig(initialProfileName = "default"): UseConfigReturn {
   const latestConfig = useRef<PipelineConfig | null>(null);
 
   // ── Switch profile ───────────────────────────────────────────────────────
+  /**
+   * Loads a saved Docling profile by `name` from the backend via `loadProfile`.
+   * Receives `name` from initial mount or `ProfileManager` (`onSwitch`), cancels any pending auto-save timer, and updates `config` state.
+   */
   const switchProfile = useCallback(async (name: string) => {
     // Cancel any pending auto-save from the previous profile before switching
     if (debounceTimer.current) {
@@ -106,6 +121,10 @@ export function useConfig(initialProfileName = "default"): UseConfigReturn {
   }, [initialProfileName, switchProfile]);
 
   // ── Field update with debounced persistence ──────────────────────────────
+  /**
+   * Optimistically updates a nested configuration property at dot-notation `path` with `value` and schedules a debounced backend save.
+   * Receives `path` and `value` from `ConfigPanel` (`onUpdate`) and persists the updated `PipelineConfig` via `saveProfile`.
+   */
   const updateField = useCallback((path: string, value: unknown) => {
     if (!latestConfig.current) return;
 
@@ -132,6 +151,10 @@ export function useConfig(initialProfileName = "default"): UseConfigReturn {
   }, []);
 
   // ── Save As ──────────────────────────────────────────────────────────────
+  /**
+   * Clones the current `PipelineConfig` under `newName` and persists it as a new backend profile via `saveAsProfile`.
+   * Receives `newName` from `ProfileManager` (`onSaveAs`) and updates `config` state to the newly created profile.
+   */
   const saveAs = useCallback(async (newName: string) => {
     if (!latestConfig.current) return;
     const toSave: PipelineConfig = {

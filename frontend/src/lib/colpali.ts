@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Oliver Schneider
+// Copyright (C) 2026 olischn
 //
 // This file is part of Pipeline Player.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -28,12 +28,20 @@ const API_BASE = `${BASE_URL}/api/colpali`;
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
+/**
+ * Metadata for an available PDF file returned by `GET /api/colpali/pdfs`.
+ * Consumed by `listPdfs()` and the `/colpali` page to populate the source PDF selector.
+ */
 export interface PdfFile {
   name: string;
   path: string;
   size_mb: number;
 }
 
+/**
+ * Configuration payload assembled on the `/colpali` page and sent to `POST /api/colpali/run` via `runColPali`.
+ * Specifies the target PDF, ColPali/ColQwen2 model, hardware device, rendering DPI, page limit, metadata, and Qdrant collection settings.
+ */
 export interface ColPaliConfig {
   pdf_path: string;
   model_name: string;
@@ -46,6 +54,10 @@ export interface ColPaliConfig {
   qdrant_storage_path: string;
 }
 
+/**
+ * Single ranked page result returned inside `ColPaliRetrieveResponse` from `POST /api/colpali/retrieve`.
+ * Consumed by the `/colpali/retrieve` page to display MaxSim score, page number, document source, and payload metadata.
+ */
 export interface ColPaliRetrievedPage {
   id: string;
   score: number;
@@ -54,6 +66,10 @@ export interface ColPaliRetrievedPage {
   metadata: Record<string, unknown>;
 }
 
+/**
+ * Response payload from `POST /api/colpali/retrieve` returned by `retrieveColPali`.
+ * Delivers the original query and ranked `ColPaliRetrievedPage` array to the `/colpali/retrieve` page.
+ */
 export interface ColPaliRetrieveResponse {
   query: string;
   results: ColPaliRetrievedPage[];
@@ -61,7 +77,11 @@ export interface ColPaliRetrieveResponse {
 
 /* ── API Functions ──────────────────────────────────────────────── */
 
-/** List available PDFs from test_data/. */
+/**
+ * List available PDFs from test_data/.
+ * Receives no arguments; called by the `/colpali` page on mount.
+ * Queries `GET /api/colpali/pdfs` and returns `PdfFile[]` to populate the PDF selection dropdown.
+ */
 export async function listPdfs(): Promise<PdfFile[]> {
   const res = await fetch(`${API_BASE}/pdfs`);
   if (!res.ok) throw new Error(`Failed to list PDFs: ${res.statusText}`);
@@ -70,6 +90,7 @@ export async function listPdfs(): Promise<PdfFile[]> {
 
 /**
  * Start the ColPali pipeline and stream SSE progress.
+ * Receives `config` (`ColPaliConfig`) and event callbacks (`onLog`, `onProgress`, `onDone`, `onError`) from the `/colpali` page.
  *
  * WHY: We use fetch + ReadableStream (not EventSource) because the
  * endpoint is a POST, and EventSource only supports GET.
@@ -77,6 +98,7 @@ export async function listPdfs(): Promise<PdfFile[]> {
  * HOW: We read the response body as a stream, parsing SSE `data:` lines
  * and invoking callbacks for log lines and progress updates. Wrapped in
  * try/catch so network or stream failures always invoke onError.
+ * Emits log lines, percentage progress, completion, or error messages back to the `/colpali` page state.
  */
 export async function runColPali(
   config: ColPaliConfig,
@@ -130,7 +152,11 @@ export async function runColPali(
   }
 }
 
-/** Run MaxSim retrieval against a ColPali collection. */
+/**
+ * Run MaxSim retrieval against a ColPali collection.
+ * Receives `collection_name`, `query`, and optional `limit` from the `/colpali/retrieve` page.
+ * Sends `POST /api/colpali/retrieve` to the backend and returns the parsed `ColPaliRetrieveResponse` to the caller.
+ */
 export async function retrieveColPali(
   collection_name: string,
   query: string,

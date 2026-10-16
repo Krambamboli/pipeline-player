@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -27,6 +27,9 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+# Receives JSON payload fields (query, chunks, model, image_references, prelabeled) from the frontend (/retrieve, /colpali/retrieve, /fusion) via routers/retrieve.py or routers/colpali.py.
+# Validates and structures the context and LLM parameters required to generate a grounded RAG answer.
+# Returns a validated AnswerRequest instance to the router and services/answer_generator.py.
 class AnswerRequest(BaseModel):
     """Request body for generating an answer from ranked chunks via GPT-4o."""
     query: str = Field(..., description="The original user query.")
@@ -43,6 +46,9 @@ class AnswerRequest(BaseModel):
     )
 
 
+# Receives the complete generated answer string from answer generation endpoints when non-streaming responses are documented.
+# Represents the OpenAPI response schema for grounded RAG answers.
+# Returns a serialized JSON object containing `answer` to API clients / OpenAPI docs.
 class AnswerResponse(BaseModel):
     """Non-streaming response (used for documentation; actual endpoint streams SSE)."""
     answer: str = Field(..., description="The generated answer text.")

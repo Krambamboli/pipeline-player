@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -35,11 +35,13 @@ from services.chunk_runner import _resolve_qdrant_path, REPO_ROOT
 
 logger = logging.getLogger(__name__)
 
+# Receives `raw_query` and optional `llm_host` / `llm_model` from `routers/retrieve.py` (`POST /api/retrieve/rewrite`).
 # WHY: User search prompts are often conversational, messy, or contain irrelevant words
 # (e.g., "can you please tell me about..."). Vector databases perform best with concise keywords.
 # 
 # HOW: We send the raw query to a local LLM (Ollama) with a strict system prompt that 
 # extracts only the core search intent while preserving the original language.
+# Returns the cleaned search query `str` (or `raw_query` as a fallback if Ollama fails) to `routers/retrieve.py`.
 async def rewrite_query(raw_query: str, llm_host: str = "http://localhost:11434", llm_model: str = "llama3.2:latest") -> str:
     """Uses Ollama to extract the core search intent from a messy prompt."""
     client = OllamaClient(host=llm_host, model=llm_model)
@@ -60,6 +62,7 @@ Clean search query:"""
         return raw_query  # Fallback to original
 
 
+# Receives a `RetrieveRequest` (`req`) and optional `qdrant_storage_path` from `routers/retrieve.py` (`POST /api/retrieve/run`).
 # WHY: This is the core logic for Step 5. It handles embedding the rewritten query 
 # and fetching the most relevant chunks from Qdrant, using advanced fusion if the 
 # collection supports it.
@@ -70,6 +73,7 @@ Clean search query:"""
 #    cached `fastembed` models to generate query vectors (Dense + Sparse).
 # 3. Runs independent searches (Prefetch) for dense and sparse to show pre-fusion results.
 # 4. Runs a combined `FusionQuery` (RRF or DBSF) to get the final re-ranked chunks.
+# Returns a `RetrieveResponse` containing the query vectors, pre-fusion lists, and fused chunks to `routers/retrieve.py`.
 def run_retrieval(req: RetrieveRequest, qdrant_storage_path: str = str(REPO_ROOT / "qdrant_storage")) -> RetrieveResponse:
     from services.fusion_retriever import (
         _dense_model,

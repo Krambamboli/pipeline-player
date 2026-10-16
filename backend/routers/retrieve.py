@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Oliver Schneider
+# Copyright (C) 2026 olischn
 #
 # This file is part of Pipeline Player.
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -36,6 +36,9 @@ from services.chunk_runner import _resolve_qdrant_path, REPO_ROOT
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/retrieve", tags=["retrieve"])
 
+# Receives no arguments from GET /api/retrieve/collections (called by the frontend Step 5 /retrieve page).
+# Inspects local Qdrant collections, filters out ColPali multi-vector collections, and flags whether each text collection supports hybrid (dense + sparse) search.
+# Returns a list of dicts (`name`, `is_hybrid`) to the frontend collection dropdown.
 @router.get("/collections")
 def get_collections():
     try:
@@ -71,11 +74,17 @@ def get_collections():
         logger.error(f"Failed to list collections: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# Receives a validated RewriteRequest (`req`) from POST /api/retrieve/rewrite (called by the frontend Step 5 /retrieve page).
+# Awaits `services/retriever.py::rewrite_query` to extract concise search keywords via the local Ollama LLM.
+# Returns a RewriteResponse containing `rewritten_query` to the frontend.
 @router.post("/rewrite", response_model=RewriteResponse)
 async def rewrite(req: RewriteRequest):
     rewritten = await rewrite_query(req.query)
     return RewriteResponse(rewritten_query=rewritten)
 
+# Receives a validated RetrieveRequest (`req`) from POST /api/retrieve/run (called by the frontend Step 5 /retrieve page).
+# Executes dense, sparse, and fused (RRF/DBSF) vector search against the selected Qdrant collection via `run_retrieval(req)`.
+# Returns a RetrieveResponse with query vectors, pre-fusion lists, and final ranked chunks to the frontend.
 @router.post("/run", response_model=RetrieveResponse)
 def run(req: RetrieveRequest):
     try:
@@ -93,11 +102,17 @@ def run(req: RetrieveRequest):
 # HOW: The frontend sends the query + chunk texts, we forward them to the LLM
 # and stream back JSON-encoded tokens as SSE `data:` frames so embedded newlines
 # never split an SSE frame. A final `data: [DONE]` signals completion.
+# Receives a validated AnswerRequest (`req`) from POST /api/retrieve/answer (called by `/retrieve`, `/colpali/retrieve`, and `/fusion` pages).
+# Invokes `services/answer_generator.py::generate_answer_stream` with the user query, text chunks, and optional page images.
+# Returns a FastAPI StreamingResponse that streams JSON-encoded token SSE frames to the frontend.
 @router.post("/answer")
 def answer(req: AnswerRequest):
     """Stream an LLM-generated answer from the provided chunks via SSE."""
     from services.answer_generator import generate_answer_stream
 
+    # Receives no arguments; iterated by FastAPI's StreamingResponse to stream LLM tokens.
+    # Consumes `generate_answer_stream(...)` and wraps each token in `{"token": token}` JSON SSE frames followed by `[DONE]`.
+    # Yields SSE strings (`data: ...\n\n`) to the HTTP response stream.
     def sse_stream():
         try:
             for token in generate_answer_stream(
